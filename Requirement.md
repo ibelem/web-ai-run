@@ -530,8 +530,13 @@ rgba(106, 198, 0, 1);
 rgba(22, 23, 72, 1);
 rgba(43, 1, 127, 1);
 
-
 ```
+
+### Logo
+
+Still use the same svg logo of ibelem/web-ai-test in /home/belem/github/web-ai-run/references/web-ai-test/src/lib/components/Header.svelte 
+
+### Responsive Design
 
 ### Fonts
 
