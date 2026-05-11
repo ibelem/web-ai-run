@@ -1,4 +1,8 @@
 /references/*
+/docs/design.*
+/docs/Requirements.md*
+.claude
+CLAUDE.md
 
 # Logs
 logs

@@ -27,11 +27,11 @@ The existing web-ai-test project uses manually maintained model config files (mo
 - HTTPS required (SharedArrayBuffer for multi-threaded Wasm)
 - COOP/COEP headers for cross-origin isolation
 - Must work with ONNX Runtime Web and LiteRT.js runtimes
-- Model metadata parsed from file binaries (onnx-proto, flatbuffers) or runtime session objects
+- Model input metadata (shape, dtype) extracted from runtime session at benchmark time (runtime-extracted inputs)
 
 ## Premises
 
-1. Model input metadata (shape, dtype) is parsed directly from the model file binary (onnx-proto for ONNX, flatbuffers for TFLite) or extracted via the runtime after model load. HuggingFace API provides model listing + file paths; input specs come from the model files themselves. System caches parsed metadata in DB per model.
+1. Model input metadata (shape, dtype) is extracted from the runtime session object at benchmark time ("runtime-extracted inputs"). No client-side binary parsing. HuggingFace API provides model listing + file paths; data type is inferred from filename (e.g., model_fp16.onnx → fp16).
 2. Supabase for auth (5 roles), recipes, result collection.
 3. Auth + recipes + HF auto-discovery built together in v1 (Full Pipeline approach).
 4. Hidden leaderboard (Intel/Admin-only) justifies collecting results from all tiers. Users see "save results" — never "leaderboard."
@@ -47,15 +47,15 @@ Auth + recipes + manual model curation. 3-5 hardcoded models per runtime. Use ru
 - Cons: Limited catalog. Manual curation burden.
 
 ### Approach B: Full Pipeline (CHOSEN)
-Auth + recipes + HF auto-discovery + binary metadata parsing from day one. Both ONNX and TFLite supported. Metadata cached in Supabase.
+Auth + recipes + HF auto-discovery from day one. Both ONNX and TFLite supported. Runtime-extracted inputs (no binary parsing).
 - Effort: L (human: ~4-5 weeks / CC: ~5-6 hours)
-- Risk: Medium (HF API edge cases, metadata parsing for unusual models)
+- Risk: Medium (HF API edge cases)
 - Pros: Complete vision from launch. Scales to hundreds of models. No "phase 2" needed.
 - Cons: More surface area to debug. HF API rate limits need handling.
 
 ## Recommended Approach
 
-**Approach B: Full Pipeline.** Build auth, recipes, and HuggingFace auto-discovery together from day one. The metadata parsing layer (onnx-proto + flatbuffers) caches model input specs in Supabase so the recipe/model browser works without downloading full model files. Models with unparseable metadata are flagged as "needs manual config" and gracefully handled.
+**Approach B: Full Pipeline.** Build auth, recipes, and HuggingFace auto-discovery together from day one. Input metadata is extracted from the runtime session at benchmark time (runtime-extracted inputs), eliminating the need for client-side binary parsing libraries.
 
 ## Role & Permission Model
 
@@ -99,14 +99,15 @@ Key design decision: The leaderboard is a **hidden feature**. Members/Partners s
 ### Model Discovery Flow
 1. Query HF API for models in configured orgs/collections
 2. List model files (*.onnx, *.tflite) with sizes
-3. Parse model file binary for input tensor metadata (shape, dtype)
-4. Cache parsed metadata in Supabase (model_id, file_path, inputs, data_type, size)
-5. Models with unparseable metadata flagged as "unverified"
+3. Infer data type from filename (e.g., model_fp16.onnx → fp16, model_int8.tflite → int8)
+4. Cache model listing in Supabase (model_id, file_path, data_type, size)
 
-### Metadata Parsing
-- ONNX: `onnx-proto` (protobufjs) — decode ModelProto, traverse graph.input[] for shape/dtype
-- TFLite: `flatbuffers` + compiled TFLite schema — read subgraphs[0].tensors[i] for shape/type
-- Fallback: runtime session metadata after model load (requires full download)
+### Input Metadata Strategy: Runtime-Extracted Inputs
+Input tensor specs (shape, dtype) are extracted from the runtime session object at benchmark time:
+- ONNX Runtime Web: `session.inputNames` + `session.inputMetadata` after model load
+- LiteRT.js: input tensor descriptors from the compiled model object
+- No client-side binary parsing libraries needed (no onnx-proto, no flatbuffers)
+- Deferred reference: "Pre-load metadata parsing" — parse model binaries to display input specs in the model browser without downloading. Not needed for v1.
 
 ## Recipe System
 
@@ -130,7 +131,7 @@ A "recipe" is a named, shareable collection of model + backend + datatype select
 | Email | Resend |
 | State | Svelte stores (persisted to localStorage) |
 | ML Runtimes | ONNX Runtime Web, LiteRT.js (loaded dynamically) |
-| Model Parsing | onnx-proto, flatbuffers |
+| Input Metadata | Runtime-extracted (from session object at benchmark time) |
 | HTTPS | Required (dev: SSL, prod: Vercel) |
 | Security Headers | COOP: same-origin, COEP: require-corp |
 
@@ -189,21 +190,24 @@ Users can upload and test their own models without adding them to HuggingFace:
 - Guard against double-loading (window.__ortLoaded__, window.__litertLoaded__ flags)
 - WebNN: Origin Trial tokens in app.html for access in supported browsers
 
-## Metadata Parsing Strategy (RESOLVED)
+## Input Metadata Strategy (RESOLVED): Runtime-Extracted Inputs
 
-Parsing happens **client-side at recipe creation time and on first model browse:**
-1. When a user adds a model to a recipe (or browses a model for the first time), the client fetches the model file
-2. For ONNX: parse full protobuf with onnx-proto to extract graph.input[] (shape, dtype)
-3. For TFLite: parse flatbuffer to extract subgraphs[0].tensors (shape, type)
-4. Parsed metadata is POSTed to Supabase and cached (subsequent users skip parsing)
-5. For very large models where full download is impractical: fall back to runtime session metadata (load model, read inputNames/inputMetadata, then proceed to benchmark)
-6. Models with unparseable metadata: appear in browser with a warning badge. Can be added to recipes but require user to manually specify input shape/dtype before running.
+Input tensor specs (shape, dtype) are extracted from the runtime session object at benchmark time. No client-side binary parsing.
+
+1. User creates recipe by picking models from the HF model browser (sees: model name, file size, data type from filename)
+2. At benchmark time: engine downloads model → loads into ORT or LiteRT → queries runtime for input tensor specs
+3. Engine constructs random input tensors of the correct shape/dtype → runs inference
+4. Users never interact with input metadata directly
+
+**Why not pre-parse binaries?** Eliminates onnx-proto and flatbuffers dependencies, removes the "unverified model" concept, removes the parsing threshold question, and simplifies the architecture. The runtime already knows the model's input requirements after load — no need to duplicate that knowledge.
+
+**Deferred reference: Pre-load metadata parsing** — If future UX requires showing input specs in the model browser before benchmark (e.g., "this model expects 1x3x224x224 float32"), add client-side binary parsing at that time. Not needed for v1.
 
 ## HF API Rate Limit Strategy
 
 - **Background refresh:** Supabase Edge Function runs daily to sync model listings from configured HF orgs
 - **Pagination:** HF API paginated (100 models/page), fetched sequentially with 1s delay between pages
-- **Cache TTL:** Model list cached for 24 hours. Metadata cache has no expiry (model binaries don't change)
+- **Cache TTL:** Model list cached for 24 hours
 - **User-triggered refresh:** Members can trigger a re-sync of their custom HF orgs (rate limited to 1/hour)
 - **Fallback:** If HF API is down, serve from cached data. Show "last synced: {timestamp}" in UI
 
@@ -223,11 +227,11 @@ Parsing happens **client-side at recipe creation time and on first model browse:
 - Users can fork a recipe to create their own modified version
 - Backend selection in recipe: user picks from available backends at creation time
 
-## Open Questions
+## Resolved Questions
 
-1. What's the PIN system's future? (The old web-ai-test uses PIN gating for non-Intel GPUs. Still needed with the new role system?)
-2. Should the daily HF sync be a Supabase Edge Function or a Vercel Cron Job?
-3. Maximum model file size for client-side metadata parsing? (Above threshold, use runtime fallback only)
+1. **PIN system:** Replaced by 5-tier role system. Not ported from web-ai-test.
+2. **Daily HF sync:** Supabase Edge Function (direct DB access, handles pagination without cold start issues).
+3. **Input metadata:** Runtime-extracted inputs. No client-side binary parsing, no size threshold needed.
 
 ## Success Criteria
 
