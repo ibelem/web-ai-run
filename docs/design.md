@@ -114,7 +114,7 @@ Input tensor specs (shape, dtype) are extracted from the runtime session object 
 A "recipe" is a named, shareable collection of model + backend + datatype selections:
 - Stored in Supabase with owner, visibility (personal/public), and model list
 - Each recipe entry: HF model ID, file path, detected datatype, selected backends
-- Shareable via URL: `webai.run/r/{recipe-slug}`
+- Shareable via URL: `webai.run/recipe/{recipe-slug}`
 - Any user (including Anonymous) can run a public recipe
 - Members can create, edit, publish recipes
 - Recipes can be run for 1, 10, 20, 50, 100, 500, 1000, or 10000 inference iterations

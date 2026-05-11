@@ -3,6 +3,8 @@
 /docs/Requirements.md*
 .claude
 CLAUDE.md
+skills-lock.json
+.agents
 
 # Logs
 logs
