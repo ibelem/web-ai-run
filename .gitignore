@@ -1,6 +1,7 @@
 /references/*
-/docs/design.*
-/docs/Requirements.md*
+# /docs/design.*
+# /docs/Requirements.md*
+# /docs/superpowers/*
 .claude
 CLAUDE.md
 skills-lock.json
