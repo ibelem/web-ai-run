@@ -4,6 +4,8 @@
 # /docs/superpowers/*
 .claude
 CLAUDE.md
+localhost.pem
+localhost-key.pem
 skills-lock.json
 .agents
 

@@ -1,0 +1,169 @@
+/* Fonts */
+@font-face {
+  font-family: 'Archivo';
+  src: url('/fonts/archivo/archivo-variable.woff2') format('woff2');
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('/fonts/jetbrains-mono/jetbrains-mono-variable.woff2') format('woff2');
+  font-weight: 100 800;
+  font-display: swap;
+  font-feature-settings: 'tnum' 1;
+}
+
+/* Reset */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  /* Typography */
+  --font-ui: 'Archivo', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-base: 13px;
+  --text-lg: 15px;
+  --text-xl: 17px;
+  --text-metric: 13px;
+
+  /* Spacing (8px grid) */
+  --space-half: 4px;
+  --space-1: 8px;
+  --space-2: 16px;
+  --space-3: 24px;
+  --space-4: 32px;
+  --space-5: 48px;
+
+  /* Border radius */
+  --radius-sm: 2px;
+  --radius-base: 3px;
+  --radius-lg: 5px;
+
+  /* Z-index scale */
+  --z-base: 0;
+  --z-sticky: 10;
+  --z-dropdown: 100;
+  --z-overlay: 200;
+  --z-toast: 300;
+
+  /* Motion */
+  --transition-base: 120ms ease;
+  --transition-slow: 240ms ease;
+
+  /* Theme: Light (default) */
+  --color-surface: #ffffff;
+  --color-surface-raised: #f8f9fa;
+  --color-surface-sunken: #f1f3f5;
+  --color-text-primary: #141718;
+  --color-text-secondary: #374151;
+  --color-text-muted: #585f6b;
+  --color-border: #e5e7eb;
+  --color-border-strong: #d1d5db;
+
+  /* Focus */
+  --color-focus-ring: #0068b5;
+
+  /* Elevation */
+  --shadow-dropdown: 0 4px 12px rgba(0, 0, 0, 0.12);
+  --shadow-overlay: 0 8px 24px rgba(0, 0, 0, 0.2);
+
+  /* Navigation */
+  --color-nav-item-hover: rgba(0, 0, 0, 0.06);
+  --color-nav-item-active: rgba(0, 0, 0, 0.10);
+
+  /* Backend colors */
+  --color-backend-wasm-1: #66bb6a;
+  --color-backend-wasm-4: #2e7d32;
+  --color-backend-webgpu: #e68a00;
+  --color-backend-webnn-cpu: #00C7FD;
+  --color-backend-webnn-gpu: #0953DE;
+  --color-backend-webnn-npu: #002060;
+
+  /* Metric colors (column header accents only) */
+  --color-metric-load: #0603bd;
+  --color-metric-central: #6ac600;
+  --color-metric-best: #0acdc7;
+  --color-metric-tail: #be65ff;
+  --color-metric-throughput: #ff671f;
+
+  /* Data type colors */
+  --color-dtype-float: #c61a3e;
+  --color-dtype-int: #0186b3;
+  --color-dtype-quant: #9c27b0;
+  --color-dtype-mixed: #109a7f;
+
+  /* Runtime colors */
+  --color-runtime-ort: #343433;
+  --color-runtime-litert: #000d59;
+
+  /* Semantic colors */
+  --color-success: #2e8b38;
+  --color-error: #c61a3e;
+  --color-warning: #d48200;
+  --color-info: #1976d2;
+}
+
+[data-theme="dark"] {
+  --color-surface: #1a1a1a;
+  --color-surface-raised: #282828;
+  --color-surface-sunken: #141414;
+  --color-text-primary: #e8e8e8;
+  --color-text-secondary: #9ca3af;
+  --color-text-muted: #8a9199;
+  --color-border: #333333;
+  --color-border-strong: #444444;
+
+  --color-focus-ring: #4da3e0;
+
+  --shadow-dropdown: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --shadow-overlay: 0 8px 24px rgba(0, 0, 0, 0.5);
+
+  --color-nav-item-hover: rgba(255, 255, 255, 0.07);
+  --color-nav-item-active: rgba(255, 255, 255, 0.12);
+
+  /* Backend dark badge text */
+  --color-backend-wasm-1: #a5dfa8;
+  --color-backend-wasm-4: #6fcf74;
+  --color-backend-webgpu: #ffbb55;
+  --color-backend-webnn-cpu: #5dd8ff;
+  --color-backend-webnn-gpu: #7aabff;
+  --color-backend-webnn-npu: #a0c4ff;
+
+  /* Data type dark badge text */
+  --color-dtype-float: #f47a93;
+  --color-dtype-int: #5dd8ff;
+  --color-dtype-quant: #e08ef0;
+  --color-dtype-mixed: #6eecd0;
+
+  /* Runtime dark values */
+  --color-runtime-ort: #c8c7c6;
+  --color-runtime-litert: #a8b4e8;
+
+  /* Semantic dark values */
+  --color-success: #6fcf74;
+  --color-error: #f47a93;
+  --color-warning: #ffbb55;
+  --color-info: #64b5f6;
+}
+
+/* Base styles */
+html {
+  font-family: var(--font-ui);
+  font-size: var(--text-base);
+  font-weight: 300;
+  color: var(--color-text-primary);
+  background: var(--color-surface);
+  line-height: 1.5;
+}
+
+body {
+  min-height: 100vh;
+}
