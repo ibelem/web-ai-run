@@ -8,7 +8,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json"
+    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+    "sync:models": "npx supabase functions invoke sync-models --no-verify-jwt"
   },
   "devDependencies": {
     "@sveltejs/adapter-vercel": "^5.7.0",

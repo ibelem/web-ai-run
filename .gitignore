@@ -8,6 +8,7 @@ localhost.pem
 localhost-key.pem
 skills-lock.json
 .agents
+.vercel/output/
 
 # Logs
 logs
