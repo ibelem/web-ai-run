@@ -17,7 +17,7 @@
     <div class="profile-card">
       <div class="avatar-section">
         {#if data.profile.avatar_url}
-          <img src={data.profile.avatar_url} alt="Avatar" class="avatar" />
+          <img src={data.profile.avatar_url} alt="Avatar" class="avatar" crossorigin="anonymous" />
         {:else}
           <div class="avatar-placeholder">
             {data.profile.display_name?.[0]?.toUpperCase() ?? '?'}

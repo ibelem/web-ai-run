@@ -109,6 +109,10 @@
   --color-error: #c61a3e;
   --color-warning: #d48200;
   --color-info: #1976d2;
+
+  /* Logo */
+  --color-logo-stroke: #c61a3e;
+  --color-logo-node-fill: #ffffff;
 }
 
 [data-theme="dark"] {
@@ -146,6 +150,10 @@
   /* Runtime dark values */
   --color-runtime-ort: #c8c7c6;
   --color-runtime-litert: #a8b4e8;
+
+  /* Logo */
+  --color-logo-stroke: #f47a93;
+  --color-logo-node-fill: #1a1a1a;
 
   /* Semantic dark values */
   --color-success: #6fcf74;

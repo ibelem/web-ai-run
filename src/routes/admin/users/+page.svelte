@@ -41,7 +41,7 @@
           <tr>
             <td class="user-cell">
               {#if user.avatar_url}
-                <img src={user.avatar_url} alt="" class="table-avatar" />
+                <img src={user.avatar_url} alt="" class="table-avatar" crossorigin="anonymous" />
               {/if}
               <span>{user.display_name ?? '—'}</span>
             </td>
