@@ -7,9 +7,11 @@
     runtime: 'onnx' | 'litert';
     sourceOrg: string;
     category: string;
+    selected?: boolean;
+    ontoggle?: () => void;
   }
 
-  let { hfModelId, filePath, dataType, sizeBytes, runtime, sourceOrg, category }: Props = $props();
+  let { hfModelId, filePath, dataType, sizeBytes, runtime, sourceOrg, category, selected = false, ontoggle }: Props = $props();
 
   function formatSize(bytes: number): string {
     if (bytes >= 1_000_000_000) return `${(bytes / 1_000_000_000).toFixed(1)} GB`;
@@ -22,8 +24,11 @@
   const fileName = $derived(filePath.split('/').pop() ?? filePath);
 </script>
 
-<div class="card">
+<div class="card" class:selected onclick={ontoggle}>
   <div class="card-header">
+    {#if ontoggle}
+      <input type="checkbox" checked={selected} class="card-checkbox" />
+    {/if}
     <span class="model-name" title={hfModelId}>{modelName}</span>
     <span class="org-badge">{sourceOrg}</span>
   </div>
@@ -53,6 +58,16 @@
 
   .card:hover {
     border-color: var(--color-border-strong);
+  }
+
+  .card.selected {
+    border-color: var(--color-info);
+    background: color-mix(in srgb, var(--color-info) 5%, var(--color-surface-raised));
+  }
+
+  .card-checkbox {
+    cursor: pointer;
+    flex-shrink: 0;
   }
 
   .card-header {

@@ -14,9 +14,11 @@
 
   interface Props {
     models: Model[];
+    selectedIds?: Set<string>;
+    ontoggle?: (id: string) => void;
   }
 
-  let { models }: Props = $props();
+  let { models, selectedIds = new Set(), ontoggle }: Props = $props();
 </script>
 
 {#if models.length === 0}
@@ -34,6 +36,8 @@
         runtime={model.runtime}
         sourceOrg={model.source_org}
         category={model.category}
+        selected={selectedIds.has(model.id)}
+        ontoggle={ontoggle ? () => ontoggle(model.id) : undefined}
       />
     {/each}
   </div>

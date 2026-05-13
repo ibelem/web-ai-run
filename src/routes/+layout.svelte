@@ -50,6 +50,7 @@
 
   const navItems = [
     { href: '/model', label: 'Model' },
+    { href: '/run', label: 'Run' },
     { href: '/recipe', label: 'Recipe' },
     { href: '/custom', label: 'Custom' }
   ];

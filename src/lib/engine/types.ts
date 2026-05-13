@@ -1,0 +1,71 @@
+export type Backend = 'wasm_1' | 'wasm_n' | 'webgpu' | 'webnn_cpu' | 'webnn_gpu' | 'webnn_npu';
+
+export type TestStatus = 'pending' | 'downloading' | 'compiling' | 'running' | 'completed' | 'error';
+
+export interface TestItem {
+  id: string;
+  hf_model_id: string;
+  file_path: string;
+  data_type: string;
+  runtime: 'onnx' | 'litert';
+  backend: Backend;
+  status: TestStatus;
+  progress: number;
+  error?: string;
+}
+
+export interface BenchmarkMetrics {
+  compilation_ms: number;
+  first_inference_ms: number;
+  time_to_first_ms: number;
+  average_ms: number;
+  median_ms: number;
+  best_ms: number;
+  p90_ms: number;
+  throughput_fps: number;
+}
+
+export interface TestResult {
+  id: string;
+  test_item: TestItem;
+  metrics: BenchmarkMetrics | null;
+  inference_times: number[];
+  warmup_ms: number;
+  iterations: number;
+  iterations_completed: number;
+  started_at: string;
+  completed_at: string | null;
+  error_message: string | null;
+}
+
+export interface DownloadProgress {
+  model_id: string;
+  file_path: string;
+  loaded_bytes: number;
+  total_bytes: number;
+  percent: number;
+}
+
+export interface EnvironmentInfo {
+  cpu: string;
+  gpu: string;
+  gpu_vendor: string;
+  os: string;
+  os_version: string;
+  browser: string;
+  browser_version: string;
+  memory_gb: number;
+  thread_count: number;
+}
+
+export interface RuntimeVersions {
+  ort: { stable: string; dev: string; selected: string };
+  litert: { stable: string; dev: string; selected: string };
+}
+
+export interface RunConfig {
+  iterations: number;
+  warmup_runs: number;
+  backends: Backend[];
+  save_results: boolean;
+}

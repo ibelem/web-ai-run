@@ -10,6 +10,19 @@
   let selectedOrg = $state('');
   let selectedDataType = $state('');
   let selectedCategory = $state('');
+  let selectedIds = $state<Set<string>>(new Set());
+
+  function toggleSelect(id: string) {
+    const next = new Set(selectedIds);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    selectedIds = next;
+  }
+
+  function runSelected() {
+    const ids = [...selectedIds].join(',');
+    window.location.href = `/run?models=${ids}`;
+  }
 
   const allModels: ModelRow[] = $derived(data.models);
 
@@ -53,8 +66,17 @@
 
 <div class="model-page">
   <header class="page-header">
-    <h1>Model Browser</h1>
-    <p>Select a model to benchmark. All models are sourced from HuggingFace.</p>
+    <div class="header-row">
+      <div>
+        <h1>Model Browser</h1>
+        <p>Select models to benchmark. All models are sourced from HuggingFace.</p>
+      </div>
+      {#if selectedIds.size > 0}
+        <button class="btn-run" onclick={runSelected}>
+          Run {selectedIds.size} Selected
+        </button>
+      {/if}
+    </div>
   </header>
 
   {#if data.error}
@@ -75,7 +97,7 @@
       onfilter={handleFilter}
     />
 
-    <ModelGrid models={filteredModels} />
+    <ModelGrid models={filteredModels} {selectedIds} ontoggle={toggleSelect} />
   {/if}
 </div>
 
@@ -88,6 +110,13 @@
     margin-bottom: var(--space-3);
   }
 
+  .header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+  }
+
   .page-header h1 {
     font-size: var(--text-xl);
     font-weight: 300;
@@ -98,6 +127,21 @@
     font-size: var(--text-base);
     color: var(--color-text-secondary);
   }
+
+  .btn-run {
+    font-family: var(--font-ui);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    padding: var(--space-1) var(--space-2);
+    border: none;
+    border-radius: var(--radius-base);
+    background: var(--color-text-primary);
+    color: var(--color-surface);
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .btn-run:hover { opacity: 0.85; }
 
   .error-banner {
     padding: var(--space-2);
