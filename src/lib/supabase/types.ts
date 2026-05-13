@@ -8,6 +8,8 @@ export interface Database {
           role: 'anonymous' | 'member' | 'partner' | 'intel' | 'admin';
           display_name: string | null;
           avatar_url: string | null;
+          organization: string | null;
+          job_title: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -17,11 +19,15 @@ export interface Database {
           role?: 'anonymous' | 'member' | 'partner' | 'intel' | 'admin';
           display_name?: string | null;
           avatar_url?: string | null;
+          organization?: string | null;
+          job_title?: string | null;
         };
         Update: {
           role?: 'anonymous' | 'member' | 'partner' | 'intel' | 'admin';
           display_name?: string | null;
           avatar_url?: string | null;
+          organization?: string | null;
+          job_title?: string | null;
         };
       };
       recipes: {

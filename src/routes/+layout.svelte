@@ -46,6 +46,8 @@
     await supabase.auth.signOut();
   }
 
+  let showUserMenu = $state(false);
+
   const navItems = [
     { href: '/model', label: 'Model' },
     { href: '/recipe', label: 'Recipe' },
@@ -65,13 +67,48 @@
         {item.label}
       </a>
     {/each}
+    {#if data.role === 'admin'}
+      <a
+        href="/admin/users"
+        class="nav-item"
+        class:active={$page.url.pathname.startsWith('/admin')}
+      >
+        Admin
+      </a>
+    {/if}
   </div>
   <div class="nav-right">
     <button class="nav-item" onclick={toggleTheme} aria-label="Toggle theme">
       {$theme === 'light' ? '🌙' : '☀️'}
     </button>
     {#if $isAuthenticated}
-      <button class="nav-item" onclick={signOut}>Sign out</button>
+      <div class="user-menu-wrapper">
+        <button
+          class="user-trigger"
+          onclick={() => showUserMenu = !showUserMenu}
+          aria-expanded={showUserMenu}
+        >
+          {#if data.session?.user?.user_metadata?.avatar_url}
+            <img
+              src={data.session.user.user_metadata.avatar_url}
+              alt="Avatar"
+              class="nav-avatar"
+            />
+          {:else}
+            <span class="nav-avatar-placeholder">
+              {data.session?.user?.user_metadata?.full_name?.[0]?.toUpperCase() ?? '?'}
+            </span>
+          {/if}
+        </button>
+        {#if showUserMenu}
+          <div class="user-dropdown">
+            <a href="/profile" class="dropdown-item" onclick={() => showUserMenu = false}>Profile</a>
+            <button class="dropdown-item" onclick={() => { showUserMenu = false; signOut(); }}>
+              Sign out
+            </button>
+          </div>
+        {/if}
+      </div>
     {:else}
       <button class="nav-item" onclick={() => signIn('github')}>Sign in</button>
     {/if}
@@ -132,6 +169,72 @@
   .nav-item.active {
     color: var(--color-text-primary);
     background: var(--color-nav-item-active);
+  }
+
+  .user-menu-wrapper {
+    position: relative;
+  }
+
+  .user-trigger {
+    border: none;
+    background: none;
+    cursor: pointer;
+    padding: 2px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+  }
+
+  .nav-avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+  }
+
+  .nav-avatar-placeholder {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--color-surface-sunken);
+    border: 1px solid var(--color-border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: var(--text-sm);
+    font-weight: 500;
+    color: var(--color-text-secondary);
+  }
+
+  .user-dropdown {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: var(--space-half);
+    min-width: 140px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-base);
+    box-shadow: var(--shadow-dropdown);
+    z-index: var(--z-dropdown);
+    padding: var(--space-half) 0;
+  }
+
+  .dropdown-item {
+    display: block;
+    width: 100%;
+    padding: var(--space-half) var(--space-2);
+    font-family: var(--font-ui);
+    font-size: var(--text-sm);
+    color: var(--color-text-primary);
+    text-decoration: none;
+    text-align: left;
+    border: none;
+    background: none;
+    cursor: pointer;
+  }
+
+  .dropdown-item:hover {
+    background: var(--color-nav-item-hover);
   }
 
   main {
