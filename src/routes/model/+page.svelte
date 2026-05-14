@@ -181,7 +181,8 @@
 
   .page-header h1 {
     font-size: var(--text-xl);
-    font-weight: 300;
+    font-weight: 700;
+    letter-spacing: -0.01em;
     margin-bottom: var(--space-half);
   }
 
@@ -198,32 +199,35 @@
 
   .btn-run {
     font-family: var(--font-ui);
-    font-size: var(--text-sm);
+    font-size: var(--text-base);
     font-weight: 500;
-    padding: var(--space-1) var(--space-2);
+    padding: 10px 20px;
     border: none;
-    border-radius: var(--radius-base);
-    background: var(--color-text-primary);
-    color: var(--color-surface);
+    border-radius: var(--radius-sm);
+    background: var(--color-primary);
+    color: #FFFFFF;
     cursor: pointer;
     white-space: nowrap;
+    transition: background var(--transition-base);
   }
 
-  .btn-run:hover { opacity: 0.85; }
+  .btn-run:hover { background: var(--color-primary-hover); }
 
   .btn-save {
     font-family: var(--font-ui);
-    font-size: var(--text-sm);
-    padding: var(--space-1) var(--space-2);
-    border: 1px solid var(--color-border-strong);
-    border-radius: var(--radius-base);
+    font-size: var(--text-base);
+    font-weight: 500;
+    padding: 10px 20px;
+    border: 1px solid var(--color-primary);
+    border-radius: var(--radius-sm);
     background: none;
-    color: var(--color-text-primary);
+    color: var(--color-primary);
     cursor: pointer;
     white-space: nowrap;
+    transition: background var(--transition-base);
   }
 
-  .btn-save:hover { background: var(--color-nav-item-hover); }
+  .btn-save:hover { background: var(--color-accent-light); }
 
   .dialog-backdrop {
     position: fixed;
@@ -279,18 +283,19 @@
 
   .btn-primary-sm {
     font-family: var(--font-ui);
-    font-size: var(--text-sm);
+    font-size: var(--text-base);
     font-weight: 500;
-    padding: var(--space-1) var(--space-2);
+    padding: 10px 20px;
     border: none;
-    border-radius: var(--radius-base);
-    background: var(--color-text-primary);
-    color: var(--color-surface);
+    border-radius: var(--radius-sm);
+    background: var(--color-primary);
+    color: #FFFFFF;
     cursor: pointer;
+    transition: background var(--transition-base);
   }
 
-  .btn-primary-sm:hover { opacity: 0.85; }
-  .btn-primary-sm:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-primary-sm:hover { background: var(--color-primary-hover); }
+  .btn-primary-sm:disabled { background: var(--color-disabled); color: var(--color-text-muted); cursor: not-allowed; }
 
   .btn-ghost {
     font-family: var(--font-ui);

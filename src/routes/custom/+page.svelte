@@ -243,7 +243,8 @@
 
   .page-header h1 {
     font-size: var(--text-xl);
-    font-weight: 300;
+    font-weight: 700;
+    letter-spacing: -0.01em;
     margin-bottom: var(--space-half);
   }
 
@@ -262,8 +263,8 @@
   }
 
   .dropzone:hover, .dropzone.drag-over {
-    border-color: var(--color-info);
-    background: color-mix(in srgb, var(--color-info) 3%, transparent);
+    border-color: var(--color-primary);
+    background: var(--color-accent-light);
   }
 
   .drop-icon {
@@ -375,17 +376,18 @@
 
   .btn-primary {
     font-family: var(--font-ui);
-    font-size: var(--text-sm);
+    font-size: var(--text-base);
     font-weight: 500;
-    padding: var(--space-1) var(--space-2);
+    padding: 10px 20px;
     border: none;
-    border-radius: var(--radius-base);
-    background: var(--color-text-primary);
-    color: var(--color-surface);
+    border-radius: var(--radius-sm);
+    background: var(--color-primary);
+    color: #FFFFFF;
     cursor: pointer;
+    transition: background var(--transition-base);
   }
 
-  .btn-primary:hover { opacity: 0.85; }
+  .btn-primary:hover { background: var(--color-primary-hover); }
 
   .btn-stop {
     font-family: var(--font-ui);
@@ -479,29 +481,33 @@
 
   .btn-secondary {
     font-family: var(--font-ui);
-    font-size: var(--text-sm);
-    padding: var(--space-1) var(--space-2);
-    min-height: 44px;
-    border: 1px solid var(--color-border-strong);
-    border-radius: var(--radius-base);
+    font-size: var(--text-base);
+    font-weight: 500;
+    padding: 10px 20px;
+    min-height: 40px;
+    border: 1px solid var(--color-primary);
+    border-radius: var(--radius-sm);
     background: none;
-    color: var(--color-text-primary);
+    color: var(--color-primary);
     cursor: pointer;
+    transition: background var(--transition-base);
   }
 
-  .btn-secondary:hover { background: var(--color-nav-item-hover); }
+  .btn-secondary:hover { background: var(--color-accent-light); }
 
   .btn-ghost {
     font-family: var(--font-ui);
-    font-size: var(--text-sm);
-    padding: var(--space-1) var(--space-2);
-    min-height: 44px;
-    border: none;
-    border-radius: var(--radius-base);
+    font-size: var(--text-base);
+    font-weight: 500;
+    padding: 10px 20px;
+    min-height: 40px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
     background: none;
     color: var(--color-text-secondary);
     cursor: pointer;
+    transition: background var(--transition-base);
   }
 
-  .btn-ghost:hover { background: var(--color-nav-item-hover); }
+  .btn-ghost:hover { background: var(--color-surface-sunken); }
 </style>

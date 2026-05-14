@@ -51,9 +51,9 @@
   }
 
   .backend-btn.active {
-    background: var(--color-text-primary);
-    color: var(--color-surface);
-    border-color: var(--color-text-primary);
+    background: var(--color-primary);
+    color: #FFFFFF;
+    border-color: var(--color-primary);
   }
 
   .backend-btn.unavailable {

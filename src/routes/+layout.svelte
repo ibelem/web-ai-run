@@ -53,13 +53,19 @@
     showMobileMenu = false;
   }
 
-  const navItems = [
+  const publicNavItems = [
     { href: '/model', label: 'Model' },
     { href: '/run', label: 'Run' },
+  ];
+
+  const authNavItems = [
     { href: '/results', label: 'Results' },
-    { href: '/leaderboard', label: 'Leaderboard' },
     { href: '/recipe', label: 'Recipe' },
-    { href: '/custom', label: 'Custom' }
+    { href: '/custom', label: 'Custom' },
+  ];
+
+  const intelNavItems = [
+    { href: '/leaderboard', label: 'Leaderboard' },
   ];
 </script>
 
@@ -120,7 +126,7 @@
       </svg>
     </a>
     <div class="nav-links">
-      {#each navItems as item}
+      {#each publicNavItems as item}
         <a
           href={item.href}
           class="nav-item"
@@ -129,6 +135,28 @@
           {item.label}
         </a>
       {/each}
+      {#if $isAuthenticated}
+        {#each authNavItems as item}
+          <a
+            href={item.href}
+            class="nav-item"
+            class:active={$page.url.pathname.startsWith(item.href)}
+          >
+            {item.label}
+          </a>
+        {/each}
+      {/if}
+      {#if data.role === 'intel' || data.role === 'admin'}
+        {#each intelNavItems as item}
+          <a
+            href={item.href}
+            class="nav-item"
+            class:active={$page.url.pathname.startsWith(item.href)}
+          >
+            {item.label}
+          </a>
+        {/each}
+      {/if}
       {#if data.role === 'admin'}
         <a
           href="/admin/users"
@@ -190,7 +218,7 @@
         {/if}
       </div>
     {:else}
-      <button class="nav-item" onclick={() => signIn('github')}>Sign in</button>
+      <a href="/login" class="nav-item">Sign in</a>
     {/if}
   </div>
 </nav>
@@ -199,7 +227,7 @@
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div class="mobile-overlay" onclick={closeMobileMenu} onkeydown={() => {}}></div>
   <div class="mobile-menu">
-    {#each navItems as item}
+    {#each publicNavItems as item}
       <a
         href={item.href}
         class="mobile-menu-item"
@@ -209,6 +237,30 @@
         {item.label}
       </a>
     {/each}
+    {#if $isAuthenticated}
+      {#each authNavItems as item}
+        <a
+          href={item.href}
+          class="mobile-menu-item"
+          class:active={$page.url.pathname.startsWith(item.href)}
+          onclick={closeMobileMenu}
+        >
+          {item.label}
+        </a>
+      {/each}
+    {/if}
+    {#if data.role === 'intel' || data.role === 'admin'}
+      {#each intelNavItems as item}
+        <a
+          href={item.href}
+          class="mobile-menu-item"
+          class:active={$page.url.pathname.startsWith(item.href)}
+          onclick={closeMobileMenu}
+        >
+          {item.label}
+        </a>
+      {/each}
+    {/if}
     {#if data.role === 'admin'}
       <a
         href="/admin/users"
@@ -226,15 +278,19 @@
   {@render children()}
 </main>
 
+<footer class="site-footer">
+  <span>&copy; {new Date().getFullYear()} Web AI Benchmark</span>
+</footer>
+
 <style>
   .top-bar {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    height: 48px;
-    padding: 0 var(--space-2);
-    border-bottom: 1px solid var(--color-border);
-    background: var(--color-surface);
+    height: 56px;
+    padding: 0 var(--space-3);
+    border-bottom: 1px solid var(--color-nav-border);
+    background: var(--color-nav-bg);
     position: sticky;
     top: 0;
     z-index: var(--z-sticky);
@@ -249,14 +305,14 @@
   .nav-links {
     display: flex;
     align-items: center;
-    gap: var(--space-1);
+    gap: 4px;
   }
 
   .logo {
     display: flex;
     align-items: center;
     text-decoration: none;
-    margin-right: var(--space-2);
+    margin-right: var(--space-3);
     position: relative;
     top: -2px;
   }
@@ -282,25 +338,29 @@
 
   .nav-item {
     font-family: var(--font-ui);
-    font-size: var(--text-sm);
-    font-weight: 400;
+    font-size: var(--text-base);
+    font-weight: 500;
     text-decoration: none;
     color: var(--color-text-secondary);
-    padding: var(--space-half) var(--space-1);
-    border-radius: var(--radius-base);
+    opacity: 0.7;
+    padding: 6px 12px;
+    border-radius: var(--radius-sm);
     border: none;
+    border-bottom: 2px solid transparent;
     background: none;
     cursor: pointer;
-    transition: background var(--transition-base);
+    transition: opacity var(--transition-base), color var(--transition-base);
   }
 
   .nav-item:hover {
-    background: var(--color-nav-item-hover);
+    opacity: 1;
+    color: var(--color-text-primary);
   }
 
   .nav-item.active {
+    opacity: 1;
     color: var(--color-text-primary);
-    background: var(--color-nav-item-active);
+    border-bottom-color: var(--color-nav-active-border);
   }
 
   .user-menu-wrapper {
@@ -318,14 +378,14 @@
   }
 
   .nav-avatar {
-    width: 28px;
-    height: 28px;
+    width: 30px;
+    height: 30px;
     border-radius: 50%;
   }
 
   .nav-avatar-placeholder {
-    width: 28px;
-    height: 28px;
+    width: 30px;
+    height: 30px;
     border-radius: 50%;
     background: var(--color-surface-sunken);
     border: 1px solid var(--color-border);
@@ -333,7 +393,7 @@
     align-items: center;
     justify-content: center;
     font-size: var(--text-sm);
-    font-weight: 500;
+    font-weight: 600;
     color: var(--color-text-secondary);
   }
 
@@ -342,10 +402,10 @@
     top: 100%;
     right: 0;
     margin-top: var(--space-half);
-    min-width: 140px;
+    min-width: 160px;
     background: var(--color-surface);
     border: 1px solid var(--color-border);
-    border-radius: var(--radius-base);
+    border-radius: var(--radius-lg);
     box-shadow: var(--shadow-dropdown);
     z-index: var(--z-dropdown);
     padding: var(--space-half) 0;
@@ -354,9 +414,9 @@
   .dropdown-item {
     display: block;
     width: 100%;
-    padding: var(--space-half) var(--space-2);
+    padding: var(--space-1) var(--space-2);
     font-family: var(--font-ui);
-    font-size: var(--text-sm);
+    font-size: var(--text-base);
     color: var(--color-text-primary);
     text-decoration: none;
     text-align: left;
@@ -370,12 +430,11 @@
   }
 
   main {
-    padding: var(--space-3);
-    max-width: 1280px;
+    padding: var(--space-4) var(--space-3);
+    max-width: 1200px;
     margin: 0 auto;
   }
 
-  /* Hamburger button - hidden on desktop */
   .hamburger {
     display: none;
     align-items: center;
@@ -392,17 +451,15 @@
     background: var(--color-nav-item-hover);
   }
 
-  /* Mobile overlay */
   .mobile-overlay {
     display: none;
   }
 
-  /* Mobile menu panel */
   .mobile-menu {
     display: none;
   }
 
-  @media (max-width: 768px) {
+  @media (max-width: 640px) {
     .hamburger {
       display: flex;
     }
@@ -414,7 +471,7 @@
     .mobile-overlay {
       display: block;
       position: fixed;
-      top: 48px;
+      top: 56px;
       left: 0;
       right: 0;
       bottom: 0;
@@ -426,22 +483,26 @@
       display: flex;
       flex-direction: column;
       position: fixed;
-      top: 48px;
+      top: 56px;
       left: 0;
       right: 0;
       background: var(--color-surface);
       border-bottom: 1px solid var(--color-border);
       padding: var(--space-1) 0;
       z-index: var(--z-overlay);
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      box-shadow: var(--shadow-dropdown);
     }
 
     .mobile-menu-item {
       font-family: var(--font-ui);
-      font-size: var(--text-sm);
+      font-size: var(--text-base);
+      font-weight: 500;
       text-decoration: none;
       color: var(--color-text-secondary);
-      padding: var(--space-1) var(--space-2);
+      padding: 12px var(--space-3);
+      min-height: 44px;
+      display: flex;
+      align-items: center;
       transition: background var(--transition-base);
     }
 
@@ -450,12 +511,32 @@
     }
 
     .mobile-menu-item.active {
-      color: var(--color-text-primary);
+      color: var(--color-primary);
+      border-left: 3px solid var(--color-nav-active-border);
       background: var(--color-nav-item-active);
     }
 
     main {
       padding: var(--space-2);
     }
+  }
+
+  .site-footer {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    padding: var(--space-4) var(--space-2);
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+  }
+
+  .footer-link {
+    color: var(--color-text-muted);
+    text-decoration: none;
+  }
+
+  .footer-link:hover {
+    color: var(--color-text-primary);
   }
 </style>

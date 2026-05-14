@@ -4,6 +4,18 @@
   import type { UserRow } from './+page.server';
 
   let { data, form } = $props<{ data: { users: UserRow[] }; form: any }>();
+
+  const PAGE_SIZE = 50;
+  let currentPage = $state(1);
+
+  const totalPages = $derived(Math.ceil(data.users.length / PAGE_SIZE));
+  const pagedUsers = $derived(
+    data.users.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
+  );
+
+  function goTo(page: number) {
+    if (page >= 1 && page <= totalPages) currentPage = page;
+  }
 </script>
 
 <div class="admin-page">
@@ -37,7 +49,7 @@
         </tr>
       </thead>
       <tbody>
-        {#each data.users as user}
+        {#each pagedUsers as user}
           <tr>
             <td class="user-cell">
               {#if user.avatar_url}
@@ -64,6 +76,18 @@
       </tbody>
     </table>
   </div>
+
+  {#if totalPages > 1}
+    <nav class="pagination">
+      <button class="page-btn" disabled={currentPage === 1} onclick={() => goTo(currentPage - 1)}>
+        Previous
+      </button>
+      <span class="page-info">Page {currentPage} of {totalPages}</span>
+      <button class="page-btn" disabled={currentPage === totalPages} onclick={() => goTo(currentPage + 1)}>
+        Next
+      </button>
+    </nav>
+  {/if}
 </div>
 
 <style>
@@ -77,7 +101,8 @@
 
   .page-header h1 {
     font-size: var(--text-xl);
-    font-weight: 300;
+    font-weight: 700;
+    letter-spacing: -0.01em;
     margin-bottom: var(--space-half);
   }
 
@@ -89,7 +114,7 @@
   .error-banner {
     padding: var(--space-1) var(--space-2);
     border: 1px solid var(--color-error);
-    border-radius: var(--radius-base);
+    border-radius: var(--radius-lg);
     background: var(--color-surface-sunken);
     color: var(--color-error);
     font-size: var(--text-sm);
@@ -99,7 +124,7 @@
   .success-banner {
     padding: var(--space-1) var(--space-2);
     border: 1px solid var(--color-success);
-    border-radius: var(--radius-base);
+    border-radius: var(--radius-lg);
     background: var(--color-surface-sunken);
     color: var(--color-success);
     font-size: var(--text-sm);
@@ -110,6 +135,7 @@
     overflow-x: auto;
     border: 1px solid var(--color-border);
     border-radius: var(--radius-lg);
+    background: var(--color-surface);
   }
 
   .users-table {
@@ -120,22 +146,29 @@
 
   .users-table th {
     text-align: left;
-    padding: var(--space-1) var(--space-2);
+    padding: 12px var(--space-2);
+    font-size: var(--text-sm);
     font-weight: 500;
     color: var(--color-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
     border-bottom: 1px solid var(--color-border);
-    background: var(--color-surface-raised);
+    background: var(--color-surface-sunken);
     white-space: nowrap;
   }
 
   .users-table td {
-    padding: var(--space-1) var(--space-2);
+    padding: 10px var(--space-2);
     border-bottom: 1px solid var(--color-border);
     vertical-align: middle;
   }
 
   .users-table tr:last-child td {
     border-bottom: none;
+  }
+
+  .users-table tr:hover td {
+    background: var(--color-accent-light);
   }
 
   .user-cell {
@@ -152,17 +185,59 @@
 
   .mono {
     font-family: var(--font-mono);
-    font-size: var(--text-xs);
   }
 
   select {
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    padding: 2px 4px;
+    font-family: var(--font-ui);
+    font-size: inherit;
+    padding: 4px 8px;
     border: 1px solid var(--color-border);
     border-radius: var(--radius-sm);
     background: var(--color-surface);
     color: var(--color-text-primary);
     cursor: pointer;
+  }
+
+  select:focus {
+    border-color: var(--color-primary);
+    outline: 2px solid var(--color-focus-ring);
+    outline-offset: 0;
+    opacity: 0.3;
+  }
+
+  .pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    margin-top: var(--space-3);
+  }
+
+  .page-btn {
+    font-family: var(--font-ui);
+    font-size: var(--text-base);
+    font-weight: 500;
+    padding: 8px 16px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-surface);
+    color: var(--color-text-primary);
+    cursor: pointer;
+    transition: border-color var(--transition-base), background var(--transition-base);
+  }
+
+  .page-btn:hover:not(:disabled) {
+    border-color: var(--color-primary);
+    background: var(--color-accent-light);
+  }
+
+  .page-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .page-info {
+    font-size: var(--text-sm);
+    color: var(--color-text-secondary);
   }
 </style>

@@ -3,7 +3,7 @@ import type { EnvironmentInfo } from './types';
 export async function detectEnvironment(): Promise<EnvironmentInfo> {
   const ua = navigator.userAgent;
 
-  const browser = detectBrowser(ua);
+  const browser = await detectBrowser(ua);
   const os = detectOS(ua);
   const gpu = await detectGPU();
 
@@ -20,7 +20,28 @@ export async function detectEnvironment(): Promise<EnvironmentInfo> {
   };
 }
 
-function detectBrowser(ua: string): { name: string; version: string } {
+async function detectBrowser(ua: string): Promise<{ name: string; version: string }> {
+  if ((navigator as any).userAgentData) {
+    try {
+      const uaData = await (navigator as any).userAgentData.getHighEntropyValues(['fullVersionList']);
+      let browser = { name: '', version: '' };
+      let chromium = { name: '', version: '' };
+
+      for (const entry of uaData.fullVersionList ?? []) {
+        const brand = entry.brand.toLowerCase();
+        if (brand.includes('brand')) continue;
+        if (brand.includes('chromium')) {
+          chromium = { name: 'Chromium', version: entry.version };
+        } else {
+          browser = { name: entry.brand, version: entry.version };
+        }
+      }
+
+      if (browser.name) return browser;
+      if (chromium.name) return chromium;
+    } catch {}
+  }
+
   if (ua.includes('Edg/')) {
     const match = ua.match(/Edg\/([\d.]+)/);
     return { name: 'Edge', version: match?.[1] ?? '' };

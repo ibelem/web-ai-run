@@ -194,7 +194,8 @@
 
   .page-header h1 {
     font-size: var(--text-xl);
-    font-weight: 300;
+    font-weight: 700;
+    letter-spacing: -0.01em;
     margin-bottom: var(--space-half);
   }
 
@@ -220,18 +221,19 @@
 
   .btn-primary {
     font-family: var(--font-ui);
-    font-size: var(--text-sm);
+    font-size: var(--text-base);
     font-weight: 500;
-    padding: var(--space-1) var(--space-2);
+    padding: 10px 20px;
     border: none;
-    border-radius: var(--radius-base);
-    background: var(--color-text-primary);
-    color: var(--color-surface);
+    border-radius: var(--radius-sm);
+    background: var(--color-primary);
+    color: #FFFFFF;
     cursor: pointer;
+    transition: background var(--transition-base);
   }
 
-  .btn-primary:hover { opacity: 0.85; }
-  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-primary:hover { background: var(--color-primary-hover); }
+  .btn-primary:disabled { background: var(--color-disabled); color: var(--color-text-muted); cursor: not-allowed; }
 
   .btn-stop {
     font-family: var(--font-ui);
