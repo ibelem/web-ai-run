@@ -1,9 +1,13 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
-  import type { Backend, TestItem, TestResult, RunConfig as RunConfigType } from '$lib/engine/types';
+  import { onMount, onDestroy } from 'svelte';
+  import { get } from 'svelte/store';
+  import type { Backend, TestItem, TestResult, RunConfig as RunConfigType, EnvironmentInfo } from '$lib/engine/types';
   import { detectAvailableBackends } from '$lib/engine/backends';
-  import { buildTestQueue, processQueue } from '$lib/engine/queue';
+  import { buildTestQueue } from '$lib/engine/queue';
   import { detectEnvironment } from '$lib/engine/environment';
+  import { ResultsWriter } from '$lib/engine/results-writer';
+  import { runInWorker, isWorkerSupported, terminateWorker } from '$lib/engine/worker/pool';
+  import { auth } from '$lib/stores/auth';
   import BackendSelector from '$lib/components/BackendSelector.svelte';
   import RunConfigCmp from '$lib/components/RunConfig.svelte';
   import ProgressBar from '$lib/components/ProgressBar.svelte';
@@ -21,11 +25,17 @@
   let isRunning = $state(false);
   let statusText = $state('');
   let downloadPercent = $state(0);
-  let environment = $state<any>(null);
+  let environment = $state<EnvironmentInfo | null>(null);
+  let useWorker = $state(true);
 
   onMount(async () => {
     availableBackends = await detectAvailableBackends();
     environment = await detectEnvironment();
+    useWorker = isWorkerSupported();
+  });
+
+  onDestroy(() => {
+    terminateWorker();
   });
 
   async function startBenchmark() {
@@ -49,30 +59,55 @@
       save_results: saveResults,
     };
 
-    const newResults = await processQueue(
-      queue,
-      config,
-      { ort: '1.21.0', litert: '1.1.0' },
-      {
-        onItemStart: (item) => {
-          queue = [...queue];
-          statusText = `Testing ${item.hf_model_id.split('/')[1]}...`;
-        },
-        onItemProgress: (_item, progress) => {
-          downloadPercent = progress.percent;
-        },
-        onItemStatus: (_item, status) => {
-          statusText = status;
-        },
-        onItemComplete: (_item, result) => {
-          results = [...results, result];
-          queue = [...queue];
-          downloadPercent = 0;
-        },
-      }
-    );
+    const authState = get(auth);
+    let writer: ResultsWriter | null = null;
+    if (saveResults && authState.user && environment) {
+      writer = new ResultsWriter(authState.user.id, environment);
+    }
 
-    results = newResults;
+    for (const item of queue) {
+      if (!isRunning) break;
+
+      item.status = 'downloading';
+      queue = [...queue];
+      statusText = `Testing ${item.hf_model_id.split('/')[1]}...`;
+
+      if (writer) {
+        await writer.createResult(item, config.iterations);
+      }
+
+      const runtimeVersion = item.runtime === 'onnx' ? '1.21.0' : '1.1.0';
+
+      const result = await runInWorker({
+        modelSource: { kind: 'url', hfModelId: item.hf_model_id, filePath: item.file_path },
+        runtime: item.runtime,
+        backend: item.backend,
+        iterations: config.iterations,
+        warmupRuns: config.warmup_runs,
+        runtimeVersion,
+        onProgress: (progress) => {
+          downloadPercent = progress.percent;
+          item.progress = progress.percent;
+          item.status = 'downloading';
+        },
+        onStatus: (status) => {
+          statusText = status;
+          if (status.includes('Compil') || status.includes('session')) item.status = 'compiling';
+          else if (status.includes('Running') || status.includes('Warm')) item.status = 'running';
+        },
+      });
+
+      item.status = result.error_message ? 'error' : 'completed';
+      item.progress = 100;
+      results = [...results, result];
+      queue = [...queue];
+      downloadPercent = 0;
+
+      if (writer) {
+        await writer.completeResult(item, result);
+      }
+    }
+
     isRunning = false;
     statusText = 'Benchmark complete.';
   }

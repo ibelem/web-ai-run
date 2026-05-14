@@ -12,7 +12,7 @@ export interface ModelRow {
   category: string;
 }
 
-export const load: PageLoad = async () => {
+export const load: PageLoad = async ({ url }) => {
   const supabase = createClient();
 
   const { data, error } = await supabase
@@ -25,5 +25,6 @@ export const load: PageLoad = async () => {
   return {
     models,
     error: error?.message ?? null,
+    initialSearch: url.searchParams.get('q') ?? '',
   };
 };

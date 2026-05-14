@@ -47,10 +47,17 @@
   }
 
   let showUserMenu = $state(false);
+  let showMobileMenu = $state(false);
+
+  function closeMobileMenu() {
+    showMobileMenu = false;
+  }
 
   const navItems = [
     { href: '/model', label: 'Model' },
     { href: '/run', label: 'Run' },
+    { href: '/results', label: 'Results' },
+    { href: '/leaderboard', label: 'Leaderboard' },
     { href: '/recipe', label: 'Recipe' },
     { href: '/custom', label: 'Custom' }
   ];
@@ -58,6 +65,18 @@
 
 <nav class="top-bar">
   <div class="nav-left">
+    <button
+      class="hamburger"
+      onclick={() => showMobileMenu = !showMobileMenu}
+      aria-label="Toggle menu"
+      aria-expanded={showMobileMenu}
+    >
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <line x1="3" y1="6" x2="21" y2="6"/>
+        <line x1="3" y1="12" x2="21" y2="12"/>
+        <line x1="3" y1="18" x2="21" y2="18"/>
+      </svg>
+    </button>
     <a href="/" class="logo">
       <svg class="logo-icon" height="32" viewBox="0 0 642 160" fill="none" xmlns="http://www.w3.org/2000/svg">
         <path d="M15 80L33 59" stroke="#C61A3E" stroke-width="6" stroke-linecap="round"/>
@@ -100,24 +119,26 @@
         <path d="M334 75H390" stroke="#C61A3E" stroke-width="3" stroke-linecap="round"/>
       </svg>
     </a>
-    {#each navItems as item}
-      <a
-        href={item.href}
-        class="nav-item"
-        class:active={$page.url.pathname.startsWith(item.href)}
-      >
-        {item.label}
-      </a>
-    {/each}
-    {#if data.role === 'admin'}
-      <a
-        href="/admin/users"
-        class="nav-item"
-        class:active={$page.url.pathname.startsWith('/admin')}
-      >
-        Admin
-      </a>
-    {/if}
+    <div class="nav-links">
+      {#each navItems as item}
+        <a
+          href={item.href}
+          class="nav-item"
+          class:active={$page.url.pathname.startsWith(item.href)}
+        >
+          {item.label}
+        </a>
+      {/each}
+      {#if data.role === 'admin'}
+        <a
+          href="/admin/users"
+          class="nav-item"
+          class:active={$page.url.pathname.startsWith('/admin')}
+        >
+          Admin
+        </a>
+      {/if}
+    </div>
   </div>
   <div class="nav-right">
     <button class="nav-item theme-toggle" onclick={toggleTheme} aria-label="Toggle theme">
@@ -174,6 +195,33 @@
   </div>
 </nav>
 
+{#if showMobileMenu}
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div class="mobile-overlay" onclick={closeMobileMenu} onkeydown={() => {}}></div>
+  <div class="mobile-menu">
+    {#each navItems as item}
+      <a
+        href={item.href}
+        class="mobile-menu-item"
+        class:active={$page.url.pathname.startsWith(item.href)}
+        onclick={closeMobileMenu}
+      >
+        {item.label}
+      </a>
+    {/each}
+    {#if data.role === 'admin'}
+      <a
+        href="/admin/users"
+        class="mobile-menu-item"
+        class:active={$page.url.pathname.startsWith('/admin')}
+        onclick={closeMobileMenu}
+      >
+        Admin
+      </a>
+    {/if}
+  </div>
+{/if}
+
 <main>
   {@render children()}
 </main>
@@ -193,6 +241,12 @@
   }
 
   .nav-left, .nav-right {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+  }
+
+  .nav-links {
     display: flex;
     align-items: center;
     gap: var(--space-1);
@@ -319,5 +373,89 @@
     padding: var(--space-3);
     max-width: 1280px;
     margin: 0 auto;
+  }
+
+  /* Hamburger button - hidden on desktop */
+  .hamburger {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: none;
+    cursor: pointer;
+    color: var(--color-text-secondary);
+    padding: var(--space-half);
+    border-radius: var(--radius-sm);
+  }
+
+  .hamburger:hover {
+    background: var(--color-nav-item-hover);
+  }
+
+  /* Mobile overlay */
+  .mobile-overlay {
+    display: none;
+  }
+
+  /* Mobile menu panel */
+  .mobile-menu {
+    display: none;
+  }
+
+  @media (max-width: 768px) {
+    .hamburger {
+      display: flex;
+    }
+
+    .nav-links {
+      display: none;
+    }
+
+    .mobile-overlay {
+      display: block;
+      position: fixed;
+      top: 48px;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.3);
+      z-index: var(--z-dropdown);
+    }
+
+    .mobile-menu {
+      display: flex;
+      flex-direction: column;
+      position: fixed;
+      top: 48px;
+      left: 0;
+      right: 0;
+      background: var(--color-surface);
+      border-bottom: 1px solid var(--color-border);
+      padding: var(--space-1) 0;
+      z-index: var(--z-overlay);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    .mobile-menu-item {
+      font-family: var(--font-ui);
+      font-size: var(--text-sm);
+      text-decoration: none;
+      color: var(--color-text-secondary);
+      padding: var(--space-1) var(--space-2);
+      transition: background var(--transition-base);
+    }
+
+    .mobile-menu-item:hover {
+      background: var(--color-nav-item-hover);
+    }
+
+    .mobile-menu-item.active {
+      color: var(--color-text-primary);
+      background: var(--color-nav-item-active);
+    }
+
+    main {
+      padding: var(--space-2);
+    }
   }
 </style>
