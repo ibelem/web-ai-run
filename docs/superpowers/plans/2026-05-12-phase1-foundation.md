@@ -338,7 +338,7 @@ Create `src/app.css`:
   --color-backend-wasm-4: #2e7d32;
   --color-backend-webgpu: #e68a00;
   --color-backend-webnn-cpu: #00C7FD;
-  --color-backend-webnn-gpu: #0953DE;
+  --color-backend-webnn-gpu: #063594;
   --color-backend-webnn-npu: #002060;
 
   /* Metric colors (column header accents only) */

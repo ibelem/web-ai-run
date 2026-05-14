@@ -167,7 +167,7 @@ Each backend has a full-color value, a `-muted` background (10% opacity), and ex
 | wasm_4 | `--color-backend-wasm-4` | #2e7d32 | #6fcf74 |
 | webgpu | `--color-backend-webgpu`  | #e68a00 | #ffbb55 |
 | webnn_cpu | `--color-backend-webnn-cpu` | #00C7FD | #5dd8ff |
-| webnn_gpu | `--color-backend-webnn-gpu` | #0953DE | #7aabff |
+| webnn_gpu | `--color-backend-webnn-gpu` | #063594 | #7aabff |
 | webnn_npu | `--color-backend-webnn-npu` | #002060 | #a0c4ff |
 
 Each backend has a `-muted` variant at 10% opacity for badge backgrounds. In dark mode, use the `-dark` text value instead of the base color — the base colors are too dark against dark surfaces.

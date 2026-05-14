@@ -24,6 +24,7 @@
 {#if models.length === 0}
   <div class="empty">
     <p>No models found matching your filters.</p>
+    <p class="empty-hint">Try clearing your filters, or <a href="/custom">upload your own model</a> to benchmark.</p>
   </div>
 {:else}
   <div class="grid">
@@ -55,6 +56,20 @@
     text-align: center;
     padding: var(--space-5) var(--space-2);
     color: var(--color-text-muted);
+  }
+
+  .empty-hint {
+    margin-top: var(--space-1);
+    font-size: var(--text-sm);
+  }
+
+  .empty-hint a {
+    color: var(--color-primary);
+    text-decoration: none;
+  }
+
+  .empty-hint a:hover {
+    text-decoration: underline;
   }
 
   .count {

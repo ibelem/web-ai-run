@@ -114,7 +114,7 @@
   .set-password-page {
     display: grid;
     place-items: center;
-    min-height: calc(100vh - 120px);
+    min-height: calc(100vh - 160px);
     padding: var(--space-3);
   }
 
@@ -160,7 +160,7 @@
     width: 100%;
     font-family: var(--font-ui);
     font-size: var(--text-sm);
-    padding: var(--space-1);
+    padding: var(--space-2);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-base);
     background: var(--color-surface);

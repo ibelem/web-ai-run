@@ -139,6 +139,9 @@
         <button class="btn-primary" onclick={startBenchmark} disabled={data.modelIds.length === 0}>
           Run Benchmark
         </button>
+        {#if data.modelIds.length === 0}
+          <p class="action-hint">No models selected. <a href="/model">Browse models</a> to pick one, or <a href="/custom">upload your own</a>.</p>
+        {/if}
       {:else}
         <button class="btn-stop" onclick={stopBenchmark}>Stop</button>
       {/if}
@@ -209,9 +212,10 @@
     flex-direction: column;
     gap: var(--space-2);
     margin-bottom: var(--space-3);
-    padding: var(--space-2);
+    padding: var(--space-4);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-lg);
+    background: var(--color-surface);
   }
 
   .actions {
@@ -234,6 +238,21 @@
 
   .btn-primary:hover { background: var(--color-primary-hover); }
   .btn-primary:disabled { background: var(--color-disabled); color: var(--color-text-muted); cursor: not-allowed; }
+
+  .action-hint {
+    font-size: var(--text-sm);
+    color: var(--color-text-secondary);
+    margin-top: var(--space-1);
+  }
+
+  .action-hint a {
+    color: var(--color-primary);
+    text-decoration: none;
+  }
+
+  .action-hint a:hover {
+    text-decoration: underline;
+  }
 
   .btn-stop {
     font-family: var(--font-ui);

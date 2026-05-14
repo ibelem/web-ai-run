@@ -254,7 +254,7 @@
   }
 
   .dropzone {
-    border: 2px dashed var(--color-border);
+    border: 1px dashed var(--color-border);
     border-radius: var(--radius-lg);
     padding: var(--space-5) var(--space-3);
     text-align: center;
@@ -337,9 +337,10 @@
     flex-direction: column;
     gap: var(--space-2);
     margin-bottom: var(--space-3);
-    padding: var(--space-2);
+    padding: var(--space-4);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-lg);
+    background: var(--color-surface);
   }
 
   .iterations-field {
@@ -358,7 +359,7 @@
   .field-input {
     font-family: var(--font-mono);
     font-size: var(--text-sm);
-    padding: var(--space-half) var(--space-1);
+    padding: var(--space-2);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-base);
     background: var(--color-surface);

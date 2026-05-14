@@ -5,7 +5,12 @@
 <div class="error-page">
   <span class="error-status">{$page.status}</span>
   <h1 class="error-message">{$page.error?.message ?? 'Something went wrong'}</h1>
-  <a href="/" class="error-link">Go home</a>
+  <nav class="error-nav">
+    <a href="/" class="error-link">Home</a>
+    <a href="/model" class="error-link">Model Browser</a>
+    <a href="/run" class="error-link">Run Benchmark</a>
+    <a href="/custom" class="error-link">Upload Custom Model</a>
+  </nav>
 </div>
 
 <style>
@@ -34,15 +39,24 @@
     margin: 0;
   }
 
+  .error-nav {
+    display: flex;
+    gap: var(--space-2);
+    margin-top: var(--space-2);
+  }
+
   .error-link {
     font-family: var(--font-ui);
     font-size: var(--text-sm);
-    color: var(--color-text-secondary);
-    text-decoration: underline;
-    margin-top: var(--space-1);
+    color: var(--color-primary);
+    text-decoration: none;
+    padding: 6px 12px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    transition: border-color var(--transition-base);
   }
 
   .error-link:hover {
-    color: var(--color-text-primary);
+    border-color: var(--color-primary);
   }
 </style>

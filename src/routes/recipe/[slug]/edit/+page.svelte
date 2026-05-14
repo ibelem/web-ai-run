@@ -241,7 +241,7 @@
   .field-input, .field-select {
     font-family: var(--font-ui);
     font-size: var(--text-sm);
-    padding: var(--space-1);
+    padding: var(--space-2);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-base);
     background: var(--color-surface);

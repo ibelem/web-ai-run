@@ -99,46 +99,105 @@
 <div class="dashboard">
   <!-- Hero -->
   <section class="hero">
-    <h1 class="hero-title">Web AI Benchmark</h1>
-    <p class="hero-subtitle">
-      Measure ML inference performance across WebNN, WebGPU, and WebAssembly backends.
-    </p>
+    <div class="hero-orb hero-orb-cyan" aria-hidden="true"></div>
+    <div class="hero-orb hero-orb-blue" aria-hidden="true"></div>
+    <div class="hero-grid" aria-hidden="true"></div>
+
+    <div class="hero-content">
+      <div class="hero-left">
+        <div class="hero-eyebrow">
+          <span class="pulse-dot">
+            <span class="pulse-ring"></span>
+            <span class="pulse-core"></span>
+          </span>
+          <span class="eyebrow-text">Live · On-device in-browser inference</span>
+        </div>
+
+        <h1 class="hero-title">
+          <span class="hero-gradient">Benchmark AI</span><br/>
+          <span>on the open web</span>
+        </h1>
+
+        <p class="hero-subtitle">
+          LiteRT.js, ONNX Runtime Web, WebNN, WebGPU, and Wasm. Run real ML models in your browser and compare performance across backends — no install, no server.
+        </p>
+
+        <div class="hero-ctas">
+          <a href="/model" class="hero-btn-primary">
+            Start benchmarking <span aria-hidden="true">&rarr;</span>
+          </a>
+          <a href="#capabilities" class="hero-btn-secondary">See your environment</a>
+        </div>
+
+        <div class="hero-tags">
+          <span class="hero-tag">WebNN · WebGPU · Wasm</span>
+          <span class="hero-tag">.tflite .litertlm .onnx</span>
+          <span class="hero-tag">LiteRT.js</span>
+          <span class="hero-tag">ONNX Runtime Web</span>
+          <span class="hero-tag">HuggingFace Models</span>
+        </div>
+      </div>
+
+      <div class="hero-right">
+        <div class="hero-card-mock">
+          <div class="mock-header">
+            <div>
+              <div class="mock-label">mobilenet_v2 · onnx</div>
+              <div class="mock-title">Image Classification</div>
+              <div class="mock-meta">fp32 · 13.5 MB · Xenova</div>
+            </div>
+            <span class="mock-badge">WebNN</span>
+          </div>
+          <div class="mock-results">
+            <div class="mock-row">
+              <span class="mock-backend">WebNN GPU</span>
+              <div class="mock-bar-wrap"><div class="mock-bar mock-bar-1"></div></div>
+              <span class="mock-ms">2.1 ms</span>
+            </div>
+            <div class="mock-row">
+              <span class="mock-backend">WebGPU</span>
+              <div class="mock-bar-wrap"><div class="mock-bar mock-bar-2"></div></div>
+              <span class="mock-ms">4.8 ms</span>
+            </div>
+            <div class="mock-row">
+              <span class="mock-backend">Wasm x4</span>
+              <div class="mock-bar-wrap"><div class="mock-bar mock-bar-3"></div></div>
+              <span class="mock-ms">12.3 ms</span>
+            </div>
+            <div class="mock-row">
+              <span class="mock-backend">Wasm x1</span>
+              <div class="mock-bar-wrap"><div class="mock-bar mock-bar-4"></div></div>
+              <span class="mock-ms">31.7 ms</span>
+            </div>
+          </div>
+          <div class="mock-footer">
+            <span class="mock-footer-label">Fastest</span>
+            <span class="mock-footer-value">2.1 ms</span>
+          </div>
+        </div>
+        <div class="mock-float-badge mock-float-top">Average: 2.1ms</div>
+        <div class="mock-float-badge mock-float-bottom">50 iterations</div>
+      </div>
+    </div>
   </section>
 
   <!-- Capabilities -->
   <section class="card capabilities">
-    <h2 class="card-title">Detected Hardware</h2>
+    <h2 class="card-title">Detected Environment</h2>
     {#if loadingEnv}
       <p class="muted">Detecting environment...</p>
     {:else if environment}
       <div class="env-grid">
         <div class="env-item">
-          <span class="env-label">CPU</span>
-          <span class="env-value">{environment.cpu}</span>
-        </div>
-        <div class="env-item">
           <span class="env-label">GPU</span>
           <span class="env-value">{environment.gpu}</span>
-        </div>
-        <div class="env-item">
-          <span class="env-label">Memory</span>
-          <span class="env-value">{environment.memory_gb ? `${environment.memory_gb} GB` : 'Unknown'}</span>
         </div>
         <div class="env-item">
           <span class="env-label">Browser</span>
           <span class="env-value">{environment.browser} {environment.browser_version}</span>
         </div>
       </div>
-
-      <h3 class="backends-heading">Available Backends</h3>
-      <div class="backends-list">
-        {#each BACKENDS as backend}
-          <div class="backend-item">
-            <span class="backend-dot" class:available={availableBackends.includes(backend.id)} class:unavailable={!availableBackends.includes(backend.id)}></span>
-            <span class="backend-label">{backend.label}</span>
-          </div>
-        {/each}
-      </div>
+      <p class="privacy-notice">Your device information is not recorded unless you explicitly agree when running a benchmark.</p>
     {/if}
   </section>
 
@@ -233,7 +292,6 @@
 
 <style>
   .dashboard {
-    max-width: 800px;
     margin: 0 auto;
     display: flex;
     flex-direction: column;
@@ -241,25 +299,375 @@
   }
 
   .hero {
-    text-align: center;
-    padding: var(--space-5) 0 var(--space-3);
+    position: relative;
+    overflow: hidden;
+    border-radius: var(--radius-lg);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+  }
+
+  .hero-orb {
+    position: absolute;
+    pointer-events: none;
+    border-radius: 50%;
+  }
+
+  .hero-orb-cyan {
+    top: -140px;
+    right: -100px;
+    width: 420px;
+    height: 420px;
+    background: radial-gradient(circle, rgba(0,199,253,0.22) 0%, rgba(0,199,253,0) 70%);
+    filter: blur(8px);
+  }
+
+  .hero-orb-blue {
+    bottom: -120px;
+    left: -80px;
+    width: 360px;
+    height: 360px;
+    background: radial-gradient(circle, rgba(9,83,222,0.20) 0%, rgba(9,83,222,0) 70%);
+    filter: blur(8px);
+  }
+
+  .hero-grid {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.35;
+    background-image:
+      linear-gradient(var(--color-border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--color-border) 1px, transparent 1px);
+    background-size: 48px 48px;
+    mask-image: radial-gradient(ellipse at center, black 40%, transparent 75%);
+    -webkit-mask-image: radial-gradient(ellipse at center, black 40%, transparent 75%);
+  }
+
+  .hero-content {
+    position: relative;
+    display: grid;
+    grid-template-columns: 1.15fr 1fr;
+    gap: 40px;
+    padding: 48px;
+    align-items: center;
+  }
+
+  .hero-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+
+  .pulse-dot {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 8px;
+    height: 8px;
+    flex-shrink: 0;
+    transform: translateY(-1px);
+  }
+
+  .pulse-ring {
+    position: absolute;
+    display: inline-flex;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: #00C7FD;
+    opacity: 0.75;
+    animation: hero-ping 1.8s cubic-bezier(0,0,0.2,1) infinite;
+  }
+
+  .pulse-core {
+    position: relative;
+    display: inline-flex;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #00C7FD;
+  }
+
+  .eyebrow-text {
+    font-size: 12px;
+    font-weight: 500;
+    font-family: var(--font-mono);
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--color-text-muted);
   }
 
   .hero-title {
-    font-family: var(--font-ui);
-    font-size: var(--text-2xl);
+    font-size: 44px;
+    line-height: 1.05;
     font-weight: 700;
-    color: var(--color-text-primary);
-    margin-bottom: var(--space-1);
     letter-spacing: -0.02em;
+    margin-bottom: 20px;
+    color: var(--color-text-primary);
   }
 
   .hero-subtitle {
-    font-size: 16px;
+    font-size: 17px;
+    line-height: 1.6;
     color: var(--color-text-secondary);
-    max-width: 480px;
-    margin: 0 auto;
-    line-height: 1.5;
+    max-width: 540px;
+    margin-bottom: 28px;
+  }
+
+  .hero-ctas {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 32px;
+  }
+
+  .hero-btn-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 24px;
+    border-radius: var(--radius-sm);
+    font-size: 15px;
+    font-weight: 600;
+    text-decoration: none;
+    color: #FFFFFF;
+    background: linear-gradient(135deg, #063594, #00C7FD);
+    transition: opacity var(--transition-base);
+  }
+
+  .hero-btn-primary:hover { opacity: 0.9; }
+
+  .hero-btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    padding: 12px 24px;
+    border-radius: var(--radius-sm);
+    font-size: 15px;
+    font-weight: 500;
+    text-decoration: none;
+    color: var(--color-text-primary);
+    border: 1px solid var(--color-border);
+    background: transparent;
+    transition: background var(--transition-base);
+  }
+
+  .hero-btn-secondary:hover { background: var(--color-surface-sunken); }
+
+  .hero-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .hero-tag {
+    font-size: 12px;
+    font-weight: 500;
+    font-family: var(--font-mono);
+    padding: 4px 10px;
+    border-radius: 100px;
+    background: var(--color-surface-sunken);
+    color: var(--color-text-secondary);
+    border: 1px solid var(--color-border);
+  }
+
+  .hero-right {
+    position: relative;
+    display: flex;
+    justify-content: center;
+  }
+
+  .hero-card-mock {
+    position: relative;
+    width: 100%;
+    max-width: 360px;
+    border-radius: var(--radius-lg);
+    padding: 20px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    animation: hero-float 6s ease-in-out infinite;
+  }
+
+  .mock-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 16px;
+  }
+
+  .mock-label {
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-text-muted);
+    margin-bottom: 4px;
+  }
+
+  .mock-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    line-height: 1.3;
+  }
+
+  .mock-meta {
+    font-size: 12px;
+    font-family: var(--font-mono);
+    color: var(--color-text-muted);
+    margin-top: 4px;
+  }
+
+  .mock-badge {
+    font-size: 11px;
+    font-family: var(--font-mono);
+    font-weight: 500;
+    padding: 2px 8px;
+    border-radius: var(--radius-sm);
+    background: rgba(0,199,253,0.12);
+    color: #00C7FD;
+    border: 1px solid rgba(0,199,253,0.35);
+    white-space: nowrap;
+  }
+
+  .mock-results {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .mock-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .mock-backend {
+    font-size: 13px;
+    color: var(--color-text-secondary);
+    min-width: 80px;
+  }
+
+  .mock-bar-wrap {
+    flex: 1;
+    height: 6px;
+    border-radius: 3px;
+    background: var(--color-surface-sunken);
+    overflow: hidden;
+  }
+
+  .mock-bar {
+    height: 100%;
+    border-radius: 3px;
+  }
+
+  .mock-bar-1 {
+    width: 95%;
+    background: linear-gradient(90deg, #063594, #00C7FD);
+  }
+
+  .mock-bar-2 {
+    width: 72%;
+    background: #063594;
+  }
+
+  .mock-bar-3 {
+    width: 40%;
+    background: var(--color-backend-webgpu);
+  }
+
+  .mock-bar-4 {
+    width: 18%;
+    background: var(--color-backend-wasm-1);
+  }
+
+  .mock-ms {
+    font-size: 13px;
+    font-family: var(--font-mono);
+    font-weight: 600;
+    color: var(--color-text-primary);
+    min-width: 52px;
+    text-align: right;
+  }
+
+  .mock-footer {
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid var(--color-border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .mock-footer-label {
+    font-size: 12px;
+    color: var(--color-text-muted);
+  }
+
+  .mock-footer-value {
+    font-size: 16px;
+    font-weight: 700;
+    font-family: var(--font-mono);
+    color: var(--color-text-primary);
+  }
+
+  .mock-float-badge {
+    position: absolute;
+    font-size: 11px;
+    font-family: var(--font-mono);
+    font-weight: 500;
+    padding: 4px 10px;
+    border-radius: var(--radius-sm);
+    background: var(--color-surface);
+    border: 1px solid;
+  }
+
+  .mock-float-top {
+    top: -12px;
+    left: -16px;
+    color: #063594;
+    border-color: #063594;
+    box-shadow: 0 4px 12px rgba(9,83,222,0.15);
+    transform: rotate(-4deg);
+  }
+
+  .mock-float-bottom {
+    bottom: -12px;
+    right: -16px;
+    color: #00C7FD;
+    border-color: #00C7FD;
+    box-shadow: 0 4px 12px rgba(0,199,253,0.15);
+    transform: rotate(3deg);
+  }
+
+  @keyframes hero-ping {
+    75%, 100% {
+      transform: scale(2.4);
+      opacity: 0;
+    }
+  }
+
+  @keyframes hero-float {
+    0%, 100% { transform: translateY(0) rotate(0deg); }
+    50% { transform: translateY(-6px) rotate(0.3deg); }
+  }
+
+  @media (max-width: 768px) {
+    .hero-content {
+      grid-template-columns: 1fr;
+      padding: 32px 24px;
+      gap: 32px;
+    }
+
+    .hero-title {
+      font-size: 32px;
+    }
+
+    .hero-right {
+      display: none;
+    }
   }
 
   .card {
@@ -310,6 +718,13 @@
     word-break: break-word;
   }
 
+  .privacy-notice {
+    margin-top: var(--space-2);
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+    font-style: italic;
+  }
+
   .backends-heading {
     font-size: var(--text-sm);
     font-weight: 600;
@@ -352,7 +767,7 @@
   .quick-actions {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: var(--space-2);
+    gap: var(--space-4);
   }
 
   .action-card {
