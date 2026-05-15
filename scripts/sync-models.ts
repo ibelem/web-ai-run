@@ -10,8 +10,8 @@ const HF_ORGS = [
   { name: 'litert-community', runtime: 'litert' },
 ] as const;
 
-// Matches .onnx.data (old style) and .onnx_data, .onnx_data_1, .onnx_data_N (new style)
 const SKIP_PATTERNS = ['.onnx.data', '.onnx_data'];
+const CONCURRENCY = 10;
 
 const DATA_TYPE_PATTERNS: [RegExp, string][] = [
   [/[_-]q4f16/, 'q4f16'],
@@ -24,8 +24,8 @@ const DATA_TYPE_PATTERNS: [RegExp, string][] = [
   [/[_-]uint4/, 'uint4'],
   [/[_-]int4/, 'int4'],
   [/[_-]int8/, 'int8'],
-  [/[_-]q8/, 'int8'],        // shorthand alias for int8
-  [/[_-]quantized/, 'int8'], // legacy Xenova convention
+  [/[_-]q8/, 'int8'],
+  [/[_-]quantized/, 'int8'],
   [/[_-]q4(?!f)/, 'q4'],
 ];
 
@@ -56,6 +56,64 @@ interface ModelRow {
   last_synced: string;
 }
 
+async function fetchRepoFiles(
+  repoId: string,
+  orgName: string,
+  category: string,
+  now: string,
+  errors: string[]
+): Promise<ModelRow[]> {
+  try {
+    const res = await fetch(`${HF_API_BASE}/models/${repoId}/tree/main`);
+    if (!res.ok) return [];
+
+    const files: any[] = await res.json();
+    const rows: ModelRow[] = [];
+
+    for (const file of files) {
+      const lower = file.rfilename.toLowerCase();
+      if (SKIP_PATTERNS.some((s) => lower.includes(s))) continue;
+
+      const runtime = inferRuntime(file.rfilename);
+      if (!runtime) continue;
+
+      rows.push({
+        hf_model_id: repoId,
+        file_path: file.rfilename,
+        data_type: inferDataType(file.rfilename),
+        size_bytes: file.lfs?.size ?? file.size ?? 0,
+        runtime,
+        source_org: orgName,
+        category,
+        last_synced: now,
+      });
+    }
+
+    return rows;
+  } catch (e) {
+    errors.push(`Failed to list files for ${repoId}: ${e}`);
+    return [];
+  }
+}
+
+async function runConcurrent<T>(
+  tasks: (() => Promise<T>)[],
+  concurrency: number
+): Promise<T[]> {
+  const results: T[] = [];
+  let index = 0;
+
+  async function worker() {
+    while (index < tasks.length) {
+      const i = index++;
+      results[i] = await tasks[i]();
+    }
+  }
+
+  await Promise.all(Array.from({ length: concurrency }, worker));
+  return results;
+}
+
 async function main() {
   const supabaseUrl = process.env.PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
   const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -75,7 +133,7 @@ async function main() {
     console.log(`Fetching repos for ${org.name}...`);
     try {
       const reposRes = await fetch(
-        `${HF_API_BASE}/models?author=${encodeURIComponent(org.name)}&limit=1000&full=true`
+        `${HF_API_BASE}/models?author=${encodeURIComponent(org.name)}&limit=1000`
       );
       if (!reposRes.ok) {
         errors.push(`Failed to list ${org.name}: ${reposRes.status}`);
@@ -83,33 +141,17 @@ async function main() {
       }
 
       const repos: any[] = await reposRes.json();
-      console.log(`  Found ${repos.length} repos`);
+      const activeRepos = repos.filter((r) => !r.private && !r.disabled);
+      console.log(`  Found ${activeRepos.length} repos, fetching file trees (${CONCURRENCY} concurrent)...`);
 
-      for (const repo of repos) {
-        if (repo.private || repo.disabled) continue;
+      const tasks = activeRepos.map((repo) => () =>
+        fetchRepoFiles(repo.id, org.name, repo.pipeline_tag ?? 'uncategorized', now, errors)
+      );
 
-        const files: any[] = repo.siblings ?? [];
-        const category = repo.pipeline_tag ?? 'uncategorized';
+      const results = await runConcurrent(tasks, CONCURRENCY);
+      for (const repoRows of results) rows.push(...repoRows);
 
-        for (const file of files) {
-          const lower = file.rfilename.toLowerCase();
-          if (SKIP_PATTERNS.some((s) => lower.includes(s))) continue;
-
-          const runtime = inferRuntime(file.rfilename);
-          if (!runtime) continue;
-
-          rows.push({
-            hf_model_id: repo.id,
-            file_path: file.rfilename,
-            data_type: inferDataType(file.rfilename),
-            size_bytes: file.lfs?.size ?? file.size ?? 0,
-            runtime,
-            source_org: org.name,
-            category,
-            last_synced: now,
-          });
-        }
-      }
+      console.log(`  Done. Running total: ${rows.length} model files`);
     } catch (e) {
       errors.push(`Failed to process org ${org.name}: ${e}`);
     }
