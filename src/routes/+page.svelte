@@ -367,7 +367,7 @@
     width: 8px;
     height: 8px;
     flex-shrink: 0;
-    transform: translateY(-1px);
+    transform: translateY(-2px);
   }
 
   .pulse-ring {

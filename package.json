@@ -9,7 +9,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
-    "sync:models": "npx supabase functions invoke sync-models --no-verify-jwt"
+    "sync:models": "node --env-file=.env --import tsx/esm scripts/sync-models.ts"
   },
   "devDependencies": {
     "@sveltejs/adapter-vercel": "^5.7.0",

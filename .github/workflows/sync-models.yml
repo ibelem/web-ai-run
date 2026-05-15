@@ -9,20 +9,12 @@ jobs:
   sync:
     runs-on: ubuntu-latest
     steps:
-      - name: Invoke sync-models Edge Function
-        run: |
-          response=$(curl -s -w "\n%{http_code}" -X POST \
-            "${{ secrets.SUPABASE_URL }}/functions/v1/sync-models" \
-            -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
-            -H "Content-Type: application/json")
-
-          http_code=$(echo "$response" | tail -1)
-          body=$(echo "$response" | sed '$d')
-
-          echo "Status: $http_code"
-          echo "Response: $body"
-
-          if [ "$http_code" -ne 200 ]; then
-            echo "::error::Sync failed with status $http_code"
-            exit 1
-          fi
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+      - run: npx tsx scripts/sync-models.ts
+        env:
+          PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}

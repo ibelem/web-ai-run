@@ -1,21 +1,26 @@
 const MODEL_EXTENSIONS = ['.onnx', '.tflite', '.litertlm'];
-const SKIP_SUFFIXES = ['.onnx.data'];
+// Matches .onnx.data (old style) and .onnx_data, .onnx_data_1, .onnx_data_N (new style)
+const SKIP_PATTERNS = ['.onnx.data', '.onnx_data'];
 
 const DATA_TYPE_PATTERNS: [RegExp, string][] = [
   [/[_-]q4f16/, 'q4f16'],
   [/[_-]bnb4/, 'bnb4'],
-  [/[_-]uint8/, 'uint8'],
-  [/[_-]int4/, 'int4'],
-  [/[_-]int8/, 'int8'],
-  [/[_-]quantized/, 'int8'],
+  [/[_-]fp8/, 'fp8'],
+  [/[_-]bf16/, 'bf16'],
   [/[_-]fp16/, 'fp16'],
   [/[_-]fp32/, 'fp32'],
+  [/[_-]uint8/, 'uint8'],
+  [/[_-]uint4/, 'uint4'],
+  [/[_-]int4/, 'int4'],
+  [/[_-]int8/, 'int8'],
+  [/[_-]q8/, 'int8'],        // shorthand alias for int8
+  [/[_-]quantized/, 'int8'], // legacy Xenova convention
   [/[_-]q4(?!f)/, 'q4'],
 ];
 
 export function inferRuntime(filename: string): 'onnx' | 'litert' | null {
   const lower = filename.toLowerCase();
-  if (lower.endsWith('.onnx') && !lower.endsWith('.onnx.data')) return 'onnx';
+  if (lower.endsWith('.onnx') && !SKIP_PATTERNS.some((s) => lower.includes(s))) return 'onnx';
   if (lower.endsWith('.tflite') || lower.endsWith('.litertlm')) return 'litert';
   return null;
 }
@@ -45,8 +50,8 @@ export function parseModelFile(
 ): ParsedFile | null {
   const lower = filename.toLowerCase();
 
-  for (const suffix of SKIP_SUFFIXES) {
-    if (lower.endsWith(suffix)) return null;
+  for (const pattern of SKIP_PATTERNS) {
+    if (lower.includes(pattern)) return null;
   }
 
   const runtime = inferRuntime(filename);

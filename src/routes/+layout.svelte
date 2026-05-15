@@ -410,7 +410,7 @@
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-dropdown);
     z-index: var(--z-dropdown);
-    padding: var(--space-half) 0;
+    padding: 0;
   }
 
   .dropdown-item {
