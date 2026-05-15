@@ -11,14 +11,31 @@
   let { data } = $props<{ data: { models: ModelRow[]; error: string | null; initialSearch: string } }>();
 
   let searchQuery = $state(data.initialSearch);
-  let selectedRuntime = $state('');
-  let selectedOrg = $state('');
-  let selectedDataType = $state('');
-  let selectedCategory = $state('');
+  let selectedRuntimes = $state<Set<string>>(new Set());
+  let selectedOrgs = $state<Set<string>>(new Set());
+  let selectedDataTypes = $state<Set<string>>(new Set());
+  let selectedCategories = $state<Set<string>>(new Set());
+  let selectedSizes = $state<Set<string>>(new Set());
   let selectedIds = $state<Set<string>>(new Set());
   let showSaveDialog = $state(false);
   let recipeName = $state('');
   let savingRecipe = $state(false);
+
+  const SIZE_BUCKETS = [
+    { key: 'lt1m',  test: (b: number) => b < 1_000_000 },
+    { key: '1m',    test: (b: number) => b >= 1_000_000 && b < 5_000_000 },
+    { key: '5m',    test: (b: number) => b >= 5_000_000 && b < 10_000_000 },
+    { key: '10m',   test: (b: number) => b >= 10_000_000 && b < 20_000_000 },
+    { key: '20m',   test: (b: number) => b >= 20_000_000 && b < 50_000_000 },
+    { key: '50m',   test: (b: number) => b >= 50_000_000 && b < 100_000_000 },
+    { key: '100m',  test: (b: number) => b >= 100_000_000 && b < 200_000_000 },
+    { key: '200m',  test: (b: number) => b >= 200_000_000 && b < 500_000_000 },
+    { key: '500m',  test: (b: number) => b >= 500_000_000 && b < 1_000_000_000 },
+    { key: '1gb',   test: (b: number) => b >= 1_000_000_000 && b < 2_000_000_000 },
+    { key: '2gb',   test: (b: number) => b >= 2_000_000_000 && b < 3_000_000_000 },
+    { key: '3gb',   test: (b: number) => b >= 3_000_000_000 && b < 4_000_000_000 },
+    { key: 'gt4gb', test: (b: number) => b >= 4_000_000_000 },
+  ];
 
   function toggleSelect(id: string) {
     const next = new Set(selectedIds);
@@ -58,7 +75,6 @@
   }
 
   const allModels: ModelRow[] = $derived(data.models);
-
   const runtimes = $derived([...new Set(allModels.map((m) => m.runtime))].sort());
   const orgs = $derived([...new Set(allModels.map((m) => m.source_org))].sort());
   const dataTypes = $derived([...new Set(allModels.map((m) => m.data_type))].sort());
@@ -68,31 +84,35 @@
 
   const filteredModels = $derived(
     allModels.filter((m) => {
-      if (selectedRuntime && m.runtime !== selectedRuntime) return false;
-      if (selectedOrg && m.source_org !== selectedOrg) return false;
-      if (selectedDataType && m.data_type !== selectedDataType) return false;
-      if (selectedCategory && m.category !== selectedCategory) return false;
+      if (selectedRuntimes.size > 0 && !selectedRuntimes.has(m.runtime)) return false;
+      if (selectedOrgs.size > 0 && !selectedOrgs.has(m.source_org)) return false;
+      if (selectedDataTypes.size > 0 && !selectedDataTypes.has(m.data_type)) return false;
+      if (selectedCategories.size > 0 && !selectedCategories.has(m.category)) return false;
+      if (selectedSizes.size > 0) {
+        const bucket = SIZE_BUCKETS.find((b) => selectedSizes.has(b.key) && b.test(m.size_bytes));
+        if (!bucket) return false;
+      }
       if (searchQuery) {
         const q = searchQuery.toLowerCase();
-        const matchesId = m.hf_model_id.toLowerCase().includes(q);
-        const matchesFile = m.file_path.toLowerCase().includes(q);
-        if (!matchesId && !matchesFile) return false;
+        if (!m.hf_model_id.toLowerCase().includes(q) && !m.file_path.toLowerCase().includes(q)) return false;
       }
       return true;
     })
   );
 
   function handleFilter(filters: {
-    runtime: string;
-    org: string;
-    dataType: string;
-    category: string;
+    runtimes: Set<string>;
+    orgs: Set<string>;
+    dataTypes: Set<string>;
+    categories: Set<string>;
+    sizes: Set<string>;
     search: string;
   }) {
-    selectedRuntime = filters.runtime;
-    selectedOrg = filters.org;
-    selectedDataType = filters.dataType;
-    selectedCategory = filters.category;
+    selectedRuntimes = filters.runtimes;
+    selectedOrgs = filters.orgs;
+    selectedDataTypes = filters.dataTypes;
+    selectedCategories = filters.categories;
+    selectedSizes = filters.sizes;
     searchQuery = filters.search;
   }
 </script>
@@ -129,10 +149,11 @@
       {orgs}
       {dataTypes}
       {categories}
-      bind:selectedRuntime
-      bind:selectedOrg
-      bind:selectedDataType
-      bind:selectedCategory
+      bind:selectedRuntimes
+      bind:selectedOrgs
+      bind:selectedDataTypes
+      bind:selectedCategories
+      bind:selectedSizes
       bind:searchQuery
       onfilter={handleFilter}
     />
@@ -187,7 +208,7 @@
   }
 
   .page-header p {
-    font-size: var(--text-base);
+    font-size: var(--color-text-secondary, var(--text-base));
     color: var(--color-text-secondary);
   }
 

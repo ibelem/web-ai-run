@@ -19,7 +19,8 @@ export const load: PageLoad = async ({ url }) => {
     .from('models')
     .select('id, hf_model_id, file_path, data_type, size_bytes, runtime, source_org, category')
     .eq('enabled', true)
-    .order('hf_model_id', { ascending: true });
+    .order('hf_model_id', { ascending: true })
+    .limit(50000);
 
   const models: ModelRow[] = (data as ModelRow[]) ?? [];
 

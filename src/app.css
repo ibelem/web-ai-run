@@ -40,8 +40,8 @@
 
   /* Border radius */
   --radius-sm: 1px;
-  --radius-base: 2px;
-  --radius-lg: 3px;
+  --radius-base: 3px;
+  --radius-lg: 5px;
 
   /* Z-index scale */
   --z-base: 0;
