@@ -64,23 +64,25 @@ async function fetchRepoFiles(
   errors: string[]
 ): Promise<ModelRow[]> {
   try {
-    const res = await fetch(`${HF_API_BASE}/models/${repoId}/tree/main`);
+    const res = await fetch(`${HF_API_BASE}/models/${repoId}/tree/main?recursive=true`);
     if (!res.ok) return [];
 
     const files: any[] = await res.json();
     const rows: ModelRow[] = [];
 
     for (const file of files) {
-      const lower = file.rfilename.toLowerCase();
+      if (file.type !== 'file') continue;
+      const filePath: string = file.path ?? file.rfilename ?? '';
+      const lower = filePath.toLowerCase();
       if (SKIP_PATTERNS.some((s) => lower.includes(s))) continue;
 
-      const runtime = inferRuntime(file.rfilename);
+      const runtime = inferRuntime(filePath);
       if (!runtime) continue;
 
       rows.push({
         hf_model_id: repoId,
-        file_path: file.rfilename,
-        data_type: inferDataType(file.rfilename),
+        file_path: filePath,
+        data_type: inferDataType(filePath),
         size_bytes: file.lfs?.size ?? file.size ?? 0,
         runtime,
         source_org: orgName,
