@@ -75,7 +75,7 @@ async function main() {
     console.log(`Fetching repos for ${org.name}...`);
     try {
       const reposRes = await fetch(
-        `${HF_API_BASE}/models?author=${encodeURIComponent(org.name)}&limit=1000`
+        `${HF_API_BASE}/models?author=${encodeURIComponent(org.name)}&limit=1000&full=true`
       );
       if (!reposRes.ok) {
         errors.push(`Failed to list ${org.name}: ${reposRes.status}`);
@@ -88,35 +88,26 @@ async function main() {
       for (const repo of repos) {
         if (repo.private || repo.disabled) continue;
 
-        try {
-          const filesRes = await fetch(
-            `${HF_API_BASE}/models/${repo.id}/tree/main`
-          );
-          if (!filesRes.ok) continue;
+        const files: any[] = repo.siblings ?? [];
+        const category = repo.pipeline_tag ?? 'uncategorized';
 
-          const files: any[] = await filesRes.json();
-          const category = repo.pipeline_tag ?? 'uncategorized';
+        for (const file of files) {
+          const lower = file.rfilename.toLowerCase();
+          if (SKIP_PATTERNS.some((s) => lower.includes(s))) continue;
 
-          for (const file of files) {
-            const lower = file.rfilename.toLowerCase();
-            if (SKIP_PATTERNS.some((s) => lower.includes(s))) continue;
+          const runtime = inferRuntime(file.rfilename);
+          if (!runtime) continue;
 
-            const runtime = inferRuntime(file.rfilename);
-            if (!runtime) continue;
-
-            rows.push({
-              hf_model_id: repo.id,
-              file_path: file.rfilename,
-              data_type: inferDataType(file.rfilename),
-              size_bytes: file.lfs?.size ?? file.size ?? 0,
-              runtime,
-              source_org: org.name,
-              category,
-              last_synced: now,
-            });
-          }
-        } catch (e) {
-          errors.push(`Failed to list files for ${repo.id}: ${e}`);
+          rows.push({
+            hf_model_id: repo.id,
+            file_path: file.rfilename,
+            data_type: inferDataType(file.rfilename),
+            size_bytes: file.lfs?.size ?? file.size ?? 0,
+            runtime,
+            source_org: org.name,
+            category,
+            last_synced: now,
+          });
         }
       }
     } catch (e) {

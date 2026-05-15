@@ -18,6 +18,7 @@ export const load: PageLoad = async ({ url }) => {
   const { data, error } = await supabase
     .from('models')
     .select('id, hf_model_id, file_path, data_type, size_bytes, runtime, source_org, category')
+    .eq('enabled', true)
     .order('hf_model_id', { ascending: true });
 
   const models: ModelRow[] = (data as ModelRow[]) ?? [];
