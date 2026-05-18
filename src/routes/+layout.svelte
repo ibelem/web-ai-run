@@ -53,20 +53,14 @@
     showMobileMenu = false;
   }
 
-  const publicNavItems = [
-    { href: '/model', label: 'Model' },
-    { href: '/run', label: 'Run' },
-  ];
-
-  const authNavItems = [
-    { href: '/results', label: 'Results' },
-    { href: '/recipe', label: 'Recipe' },
-    { href: '/custom', label: 'Custom' },
-  ];
-
-  const intelNavItems = [
-    { href: '/leaderboard', label: 'Leaderboard' },
-  ];
+  const navItems = $derived([
+    { href: '/model',       label: 'Model',       show: true },
+    { href: '/recipe',      label: 'Recipe',      show: $isAuthenticated },
+    { href: '/custom',      label: 'Custom',      show: $isAuthenticated },
+    { href: '/run',         label: 'Run',         show: true },
+    { href: '/results',     label: 'Results',     show: $isAuthenticated },
+    { href: '/leaderboard', label: 'Leaderboard', show: data.role === 'intel' || data.role === 'admin' },
+  ]);
 </script>
 
 <nav class="top-bar">
@@ -126,37 +120,17 @@
       </svg>
     </a>
     <div class="nav-links">
-      {#each publicNavItems as item}
-        <a
-          href={item.href}
-          class="nav-item"
-          class:active={$page.url.pathname.startsWith(item.href)}
-        >
-          {item.label}
-        </a>
+      {#each navItems as item}
+        {#if item.show}
+          <a
+            href={item.href}
+            class="nav-item"
+            class:active={$page.url.pathname.startsWith(item.href)}
+          >
+            {item.label}
+          </a>
+        {/if}
       {/each}
-      {#if $isAuthenticated}
-        {#each authNavItems as item}
-          <a
-            href={item.href}
-            class="nav-item"
-            class:active={$page.url.pathname.startsWith(item.href)}
-          >
-            {item.label}
-          </a>
-        {/each}
-      {/if}
-      {#if data.role === 'intel' || data.role === 'admin'}
-        {#each intelNavItems as item}
-          <a
-            href={item.href}
-            class="nav-item"
-            class:active={$page.url.pathname.startsWith(item.href)}
-          >
-            {item.label}
-          </a>
-        {/each}
-      {/if}
       {#if data.role === 'admin'}
         <a
           href="/admin/users"
@@ -227,40 +201,18 @@
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div class="mobile-overlay" onclick={closeMobileMenu} onkeydown={() => {}}></div>
   <div class="mobile-menu">
-    {#each publicNavItems as item}
-      <a
-        href={item.href}
-        class="mobile-menu-item"
-        class:active={$page.url.pathname.startsWith(item.href)}
-        onclick={closeMobileMenu}
-      >
-        {item.label}
-      </a>
+    {#each navItems as item}
+      {#if item.show}
+        <a
+          href={item.href}
+          class="mobile-menu-item"
+          class:active={$page.url.pathname.startsWith(item.href)}
+          onclick={closeMobileMenu}
+        >
+          {item.label}
+        </a>
+      {/if}
     {/each}
-    {#if $isAuthenticated}
-      {#each authNavItems as item}
-        <a
-          href={item.href}
-          class="mobile-menu-item"
-          class:active={$page.url.pathname.startsWith(item.href)}
-          onclick={closeMobileMenu}
-        >
-          {item.label}
-        </a>
-      {/each}
-    {/if}
-    {#if data.role === 'intel' || data.role === 'admin'}
-      {#each intelNavItems as item}
-        <a
-          href={item.href}
-          class="mobile-menu-item"
-          class:active={$page.url.pathname.startsWith(item.href)}
-          onclick={closeMobileMenu}
-        >
-          {item.label}
-        </a>
-      {/each}
-    {/if}
     {#if data.role === 'admin'}
       <a
         href="/admin/users"
@@ -433,8 +385,6 @@
 
   main {
     padding: var(--space-4) var(--space-3);
-    max-width: 1200px;
-    margin: 0 auto;
   }
 
   .hamburger {

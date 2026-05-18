@@ -2,14 +2,6 @@ import { createClient } from '@supabase/supabase-js';
 
 const HF_API_BASE = 'https://huggingface.co/api';
 
-const HF_ORGS = [
-  { name: 'Xenova', runtime: 'onnx' },
-  { name: 'onnx-community', runtime: 'onnx' },
-  { name: 'webnn', runtime: 'onnx' },
-  { name: 'webgpu', runtime: 'onnx' },
-  { name: 'litert-community', runtime: 'litert' },
-] as const;
-
 const SKIP_PATTERNS = ['.onnx.data', '.onnx_data'];
 const CONCURRENCY = 10;
 
@@ -25,7 +17,7 @@ const DATA_TYPE_PATTERNS: [RegExp, string][] = [
   [/[_-]int4/, 'int4'],
   [/[_-]int8/, 'int8'],
   [/[_-]q8/, 'int8'],
-  [/[_-]quantized/, 'int8'],
+  [/[_-]quantized/, 'quantized'],
   [/[_-]q4(?!f)/, 'q4'],
 ];
 
@@ -52,14 +44,14 @@ interface ModelRow {
   size_bytes: number;
   runtime: string;
   source_org: string;
-  category: string;
+  task: string;
   last_synced: string;
 }
 
 async function fetchRepoFiles(
   repoId: string,
   orgName: string,
-  category: string,
+  task: string,
   now: string,
   errors: string[]
 ): Promise<ModelRow[]> {
@@ -86,7 +78,7 @@ async function fetchRepoFiles(
         size_bytes: file.lfs?.size ?? file.size ?? 0,
         runtime,
         source_org: orgName,
-        category,
+        task,
         last_synced: now,
       });
     }
@@ -126,6 +118,20 @@ async function main() {
   }
 
   const supabase = createClient(supabaseUrl, supabaseKey);
+
+  const { data: orgsData, error: orgsError } = await supabase
+    .from('orgs')
+    .select('name')
+    .eq('enabled', true)
+    .order('name', { ascending: true });
+
+  if (orgsError) {
+    console.error('Failed to load orgs from DB:', orgsError.message);
+    process.exit(1);
+  }
+
+  const HF_ORGS = orgsData ?? [];
+  console.log(`Loaded ${HF_ORGS.length} enabled orgs from DB: ${HF_ORGS.map((o) => o.name).join(', ')}`);
 
   const rows: ModelRow[] = [];
   const errors: string[] = [];
@@ -178,6 +184,21 @@ async function main() {
   }
 
   console.log(`Upserted: ${upserted}`);
+
+  // Delete rows for synced orgs that weren't touched this run — file was removed from HF
+  const syncedOrgs = HF_ORGS.map((o) => o.name);
+  const { error: deleteError, count: deleted } = await supabase
+    .from('models')
+    .delete({ count: 'exact' })
+    .in('source_org', syncedOrgs)
+    .lt('last_synced', now);
+
+  if (deleteError) {
+    errors.push(`Delete stale rows failed: ${deleteError.message}`);
+  } else {
+    console.log(`Deleted stale rows: ${deleted ?? 0}`);
+  }
+
   if (errors.length > 0) {
     console.error(`\nErrors (${errors.length}):`);
     errors.slice(0, 20).forEach((e) => console.error(`  - ${e}`));

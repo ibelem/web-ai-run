@@ -27,8 +27,19 @@
   let downloadPercent = $state(0);
   let environment = $state<EnvironmentInfo | null>(null);
   let useWorker = $state(true);
+  let hfExtModels = $state<any[]>([]);
+
+  const totalModels = $derived(data.modelIds.length + hfExtModels.length);
 
   onMount(async () => {
+    try {
+      const raw = sessionStorage.getItem('hf_ext_models');
+      if (raw) {
+        hfExtModels = JSON.parse(raw);
+        sessionStorage.removeItem('hf_ext_models');
+      }
+    } catch {}
+
     availableBackends = await detectAvailableBackends();
     environment = await detectEnvironment();
     useWorker = isWorkerSupported();
@@ -39,16 +50,18 @@
   });
 
   async function startBenchmark() {
-    if (data.modelIds.length === 0) return;
+    const modelsToRun = hfExtModels.length > 0
+      ? hfExtModels
+      : data.modelIds.map((id: string) => ({
+          hf_model_id: id,
+          file_path: 'onnx/model.onnx',
+          data_type: 'fp32',
+          runtime: 'onnx' as const,
+        }));
 
-    const models = data.modelIds.map((id: string) => ({
-      hf_model_id: id,
-      file_path: 'onnx/model.onnx',
-      data_type: 'fp32',
-      runtime: 'onnx' as const,
-    }));
+    if (modelsToRun.length === 0) return;
 
-    queue = buildTestQueue(models, selectedBackends);
+    queue = buildTestQueue(modelsToRun, selectedBackends);
     isRunning = true;
     results = [];
 
@@ -122,7 +135,9 @@
   <header class="page-header">
     <h1>Benchmark</h1>
     <p>
-      {#if data.modelIds.length > 0}
+      {#if hfExtModels.length > 0}
+        {hfExtModels.length} model{hfExtModels.length > 1 ? 's' : ''} from HuggingFace (live)
+      {:else if data.modelIds.length > 0}
         {data.modelIds.length} model{data.modelIds.length > 1 ? 's' : ''} selected
       {:else}
         Select models from the Model page to benchmark.
@@ -136,10 +151,10 @@
 
     <div class="actions">
       {#if !isRunning}
-        <button class="btn-primary" onclick={startBenchmark} disabled={data.modelIds.length === 0}>
+        <button class="btn-primary" onclick={startBenchmark} disabled={totalModels === 0}>
           Run Benchmark
         </button>
-        {#if data.modelIds.length === 0}
+        {#if totalModels === 0}
           <p class="action-hint">No models selected. <a href="/model">Browse models</a> to pick one, or <a href="/custom">upload your own</a>.</p>
         {/if}
       {:else}

@@ -15,8 +15,16 @@
     size_bytes: number;
     runtime: 'onnx' | 'litert';
     source_org: string;
-    category: string;
+    task: string;
     last_synced: string;
+  }
+
+  function inferFormat(path: string): string {
+    const lower = path.toLowerCase();
+    if (lower.endsWith('.litertlm')) return 'litertlm';
+    if (lower.endsWith('.tflite')) return 'tflite';
+    if (lower.endsWith('.onnx')) return 'onnx';
+    return 'unknown';
   }
 
   let environment = $state<EnvironmentInfo | null>(null);
@@ -45,7 +53,7 @@
 
     try {
       const { data: models } = await (supabase.from('models') as any)
-        .select('id, hf_model_id, file_path, data_type, size_bytes, runtime, source_org, category, last_synced')
+        .select('id, hf_model_id, file_path, data_type, size_bytes, runtime, source_org, task, last_synced')
         .order('last_synced', { ascending: false })
         .limit(8);
       if (models) recentModels = models;
@@ -233,11 +241,11 @@
               <span class="model-org">{model.source_org}</span>
             </div>
             <div class="model-badges">
-              <span class="badge badge-runtime" data-runtime={model.runtime}>{model.runtime}</span>
+              <span class="badge badge-format" data-format={inferFormat(model.file_path)}>{inferFormat(model.file_path)}</span>
               <span class="badge badge-dtype">{model.data_type}</span>
               <span class="badge badge-size">{formatSize(model.size_bytes)}</span>
-              {#if model.category !== 'uncategorized'}
-                <span class="badge badge-cat">{model.category}</span>
+              {#if model.task !== 'uncategorized'}
+                <span class="badge badge-cat">{model.task}</span>
               {/if}
             </div>
             <span class="model-synced">{formatRelative(model.last_synced)}</span>
@@ -858,12 +866,13 @@
     white-space: nowrap;
   }
 
-  .badge-runtime[data-runtime="onnx"] {
+  .badge-format[data-format="onnx"] {
     color: var(--color-runtime-ort);
     border-color: var(--color-runtime-ort);
   }
 
-  .badge-runtime[data-runtime="litert"] {
+  .badge-format[data-format="tflite"],
+  .badge-format[data-format="litertlm"] {
     color: var(--color-runtime-litert);
     border-color: var(--color-runtime-litert);
   }

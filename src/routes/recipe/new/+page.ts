@@ -9,7 +9,7 @@ export const load: PageLoad = async () => {
   if (!session) throw redirect(302, '/recipe');
 
   const { data, error } = await (supabase.from('models') as any)
-    .select('id, hf_model_id, file_path, data_type, size_bytes, runtime, source_org, category')
+    .select('id, hf_model_id, file_path, data_type, size_bytes, runtime, source_org, task')
     .order('hf_model_id', { ascending: true });
 
   return {

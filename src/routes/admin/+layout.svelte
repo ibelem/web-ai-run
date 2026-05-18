@@ -9,6 +9,9 @@
     <a href="/admin/users" class="subnav-item" class:active={$page.url.pathname === '/admin/users'}>
       Users
     </a>
+    <a href="/admin/orgs" class="subnav-item" class:active={$page.url.pathname === '/admin/orgs'}>
+      Orgs
+    </a>
     <a href="/admin/models" class="subnav-item" class:active={$page.url.pathname === '/admin/models'}>
       Models
     </a>

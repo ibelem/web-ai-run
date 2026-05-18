@@ -14,7 +14,7 @@ export async function discoverModels(orgs: OrgConfig[]): Promise<ModelEntry[]> {
 
     for (const repo of publicRepos) {
       const files = await client.listModelFiles(repo.id);
-      const category = repo.pipeline_tag ?? 'uncategorized';
+      const task = repo.pipeline_tag ?? 'uncategorized';
 
       for (const file of files) {
         const parsed = parseModelFile(file.rfilename, file.size, repo.id);
@@ -27,7 +27,7 @@ export async function discoverModels(orgs: OrgConfig[]): Promise<ModelEntry[]> {
           size_bytes: parsed.size_bytes,
           runtime: parsed.runtime,
           source_org: org.name,
-          category,
+          task,
         });
       }
     }

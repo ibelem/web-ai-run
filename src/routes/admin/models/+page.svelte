@@ -1,11 +1,56 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
+  import { invalidateModelCache } from '$lib/model-cache';
 
   let { data, form } = $props<{ data: { models: any[] }; form: any }>();
 
   const PAGE_SIZE = 50;
   let currentPage = $state(1);
   let searchQuery = $state('');
+  let sortCol = $state<string>('task');
+  let sortDir = $state<'asc' | 'desc'>('asc');
+
+  type Col = { key: string; label: string };
+  const COLUMNS: Col[] = [
+    { key: 'task', label: 'Task' },
+    { key: 'source_org', label: 'Org' },
+    { key: 'hf_model_id', label: 'Repo' },
+    { key: 'file_path', label: 'File' },
+    { key: 'data_type', label: 'Type' },
+    { key: 'format', label: 'Format' },
+    { key: 'enabled', label: 'Enabled' },
+  ];
+
+  function repoName(hf_model_id: string): string {
+    const slash = hf_model_id.indexOf('/');
+    return slash >= 0 ? hf_model_id.slice(slash + 1) : hf_model_id;
+  }
+
+  function inferFormat(path: string): string {
+    const lower = path.toLowerCase();
+    if (lower.endsWith('.litertlm')) return 'litertlm';
+    if (lower.endsWith('.tflite')) return 'tflite';
+    if (lower.endsWith('.onnx')) return 'onnx';
+    return 'unknown';
+  }
+
+  function sortValue(m: any, key: string): string | number | boolean {
+    if (key === 'hf_model_id') return repoName(m.hf_model_id).toLowerCase();
+    if (key === 'format') return inferFormat(m.file_path);
+    const v = m[key];
+    if (typeof v === 'boolean') return v ? 0 : 1;
+    return typeof v === 'string' ? v.toLowerCase() : (v ?? '');
+  }
+
+  function toggleSort(key: string) {
+    if (sortCol === key) {
+      sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+    } else {
+      sortCol = key;
+      sortDir = 'asc';
+    }
+    currentPage = 1;
+  }
 
   const filteredModels = $derived(
     searchQuery
@@ -17,9 +62,18 @@
       : data.models
   );
 
-  const totalPages = $derived(Math.ceil(filteredModels.length / PAGE_SIZE));
+  const sortedModels = $derived(
+    [...filteredModels].sort((a, b) => {
+      const av = sortValue(a, sortCol);
+      const bv = sortValue(b, sortCol);
+      const cmp = av < bv ? -1 : av > bv ? 1 : 0;
+      return sortDir === 'asc' ? cmp : -cmp;
+    })
+  );
+
+  const totalPages = $derived(Math.ceil(sortedModels.length / PAGE_SIZE));
   const pagedModels = $derived(
-    filteredModels.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
+    sortedModels.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
   );
 
   const enabledCount = $derived(data.models.filter((m) => m.enabled).length);
@@ -62,26 +116,33 @@
     <table class="models-table">
       <thead>
         <tr>
-          <th>Model</th>
-          <th>File</th>
-          <th>Runtime</th>
-          <th>Type</th>
-          <th>Org</th>
-          <th>Category</th>
-          <th>Enabled</th>
+          {#each COLUMNS as col}
+            <th>
+              <button class="sort-btn" onclick={() => toggleSort(col.key)}>
+                {col.label}
+                <span class="sort-icon">
+                  {#if sortCol === col.key}
+                    {sortDir === 'asc' ? '↑' : '↓'}
+                  {:else}
+                    <span class="sort-idle">↕</span>
+                  {/if}
+                </span>
+              </button>
+            </th>
+          {/each}
         </tr>
       </thead>
       <tbody>
         {#each pagedModels as model (model.id)}
           <tr class={model.enabled ? '' : 'disabled-row'}>
-            <td class="mono model-id">{model.hf_model_id}</td>
-            <td class="mono file-path">{model.file_path}</td>
-            <td><span class="badge">{model.runtime}</span></td>
-            <td><span class="badge">{model.data_type}</span></td>
+            <td>{model.task}</td>
             <td>{model.source_org}</td>
-            <td>{model.category}</td>
+            <td class="mono repo-name">{repoName(model.hf_model_id)}</td>
+            <td class="mono file-path">{model.file_path}</td>
+            <td><span class="badge">{model.data_type}</span></td>
+            <td><span class="badge">{inferFormat(model.file_path)}</span></td>
             <td>
-              <form method="POST" action="?/toggleEnabled" use:enhance>
+              <form method="POST" action="?/toggleEnabled" use:enhance={() => ({ update }) => { invalidateModelCache(); update(); }}>
                 <input type="hidden" name="id" value={model.id} />
                 <input type="hidden" name="enabled" value={model.enabled ? 'false' : 'true'} />
                 <button
@@ -200,15 +261,49 @@
   }
 
   .models-table th {
-    text-align: left;
+    padding: 0;
+    border-bottom: 1px solid var(--color-border);
+    background: var(--color-surface-sunken);
+    white-space: nowrap;
+  }
+
+  .sort-btn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    width: 100%;
     padding: 10px var(--space-2);
+    font-family: var(--font-ui);
     font-size: var(--text-xs);
     font-weight: 500;
     color: var(--color-text-secondary);
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    border-bottom: 1px solid var(--color-border);
-    background: var(--color-surface-sunken);
+    background: none;
+    border: none;
+    cursor: pointer;
+    white-space: nowrap;
+    text-align: left;
+    transition: color var(--transition-base);
+  }
+
+  .sort-btn:hover {
+    color: var(--color-text-primary);
+  }
+
+  .sort-icon {
+    font-size: 10px;
+    line-height: 1;
+  }
+
+  .sort-idle {
+    opacity: 0.3;
+  }
+
+  .repo-name {
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
     white-space: nowrap;
   }
 
@@ -237,13 +332,6 @@
   .mono {
     font-family: var(--font-mono);
     font-size: var(--text-xs);
-  }
-
-  .model-id {
-    max-width: 220px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   .file-path {

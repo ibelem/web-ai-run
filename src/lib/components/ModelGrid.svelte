@@ -9,7 +9,7 @@
     size_bytes: number;
     runtime: 'onnx' | 'litert';
     source_org: string;
-    category: string;
+    task: string;
   }
 
   interface Props {
@@ -28,7 +28,6 @@
     models.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
   );
 
-  // Reset to page 1 when models list changes (filters applied)
   $effect(() => {
     models;
     currentPage = 1;
@@ -48,7 +47,7 @@
     <p class="empty-hint">Try clearing your filters, or <a href="/custom">upload your own model</a> to benchmark.</p>
   </div>
 {:else}
-  <div class="grid">
+  <div class="list-wrap">
     {#each pagedModels as model (model.id)}
       <ModelCard
         hfModelId={model.hf_model_id}
@@ -57,7 +56,7 @@
         sizeBytes={model.size_bytes}
         runtime={model.runtime}
         sourceOrg={model.source_org}
-        category={model.category}
+        task={model.task}
         selected={selectedIds.has(model.id)}
         ontoggle={ontoggle ? () => ontoggle(model.id) : undefined}
       />
@@ -82,10 +81,16 @@
 {/if}
 
 <style>
-  .grid {
+  .list-wrap {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: var(--space-2);
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-1);
+  }
+
+  @media (max-width: 700px) {
+    .list-wrap {
+      grid-template-columns: 1fr;
+    }
   }
 
   .empty {

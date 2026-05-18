@@ -29,7 +29,7 @@ export interface ModelEntry {
   size_bytes: number;
   runtime: 'onnx' | 'litert';
   source_org: string;
-  category: string;
+  task: string;
 }
 
 export interface SyncResult {

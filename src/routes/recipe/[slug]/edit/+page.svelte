@@ -25,25 +25,34 @@
   let selectedBackends = $state<Backend[]>(initialBackends);
 
   let searchQuery = $state('');
-  let selectedRuntime = $state('');
-  let selectedOrg = $state('');
-  let selectedDataType = $state('');
-  let selectedCategory = $state('');
+  let selectedFormats = $state<Set<string>>(new Set());
+  let selectedOrgs = $state<Set<string>>(new Set());
+  let selectedDataTypes = $state<Set<string>>(new Set());
+  let selectedCategories = $state<Set<string>>(new Set());
+  let selectedSizes = $state<Set<string>>(new Set());
+
+  function inferFormat(path: string): string {
+    const lower = path.toLowerCase();
+    if (lower.endsWith('.litertlm')) return 'litertlm';
+    if (lower.endsWith('.tflite')) return 'tflite';
+    if (lower.endsWith('.onnx')) return 'onnx';
+    return 'unknown';
+  }
 
   const allModels = $derived(data.models);
-  const runtimes = $derived([...new Set(allModels.map((m) => m.runtime))].sort());
+  const formats = $derived([...new Set(allModels.map((m) => inferFormat(m.file_path)))].sort());
   const orgs = $derived([...new Set(allModels.map((m) => m.source_org))].sort());
   const dataTypes = $derived([...new Set(allModels.map((m) => m.data_type))].sort());
   const categories = $derived(
-    [...new Set(allModels.map((m) => m.category))].filter((c) => c !== 'uncategorized').sort()
+    [...new Set(allModels.map((m) => m.task))].filter((c) => c !== 'uncategorized').sort()
   );
 
   const filteredModels = $derived(
     allModels.filter((m) => {
-      if (selectedRuntime && m.runtime !== selectedRuntime) return false;
-      if (selectedOrg && m.source_org !== selectedOrg) return false;
-      if (selectedDataType && m.data_type !== selectedDataType) return false;
-      if (selectedCategory && m.category !== selectedCategory) return false;
+      if (selectedFormats.size > 0 && !selectedFormats.has(inferFormat(m.file_path))) return false;
+      if (selectedOrgs.size > 0 && !selectedOrgs.has(m.source_org)) return false;
+      if (selectedDataTypes.size > 0 && !selectedDataTypes.has(m.data_type)) return false;
+      if (selectedCategories.size > 0 && !selectedCategories.has(m.task)) return false;
       if (searchQuery) {
         const q = searchQuery.toLowerCase();
         if (!m.hf_model_id.toLowerCase().includes(q) && !m.file_path.toLowerCase().includes(q)) return false;
@@ -59,12 +68,12 @@
     selectedIds = next;
   }
 
-  function handleFilter(filters: { runtime: string; org: string; dataType: string; category: string; search: string }) {
-    selectedRuntime = filters.runtime;
-    selectedOrg = filters.org;
-    selectedDataType = filters.dataType;
-    selectedCategory = filters.category;
-    searchQuery = filters.search;
+  function handleFilter(filters: { formats: Set<string>; orgs: Set<string>; dataTypes: Set<string>; categories: Set<string>; sizes: Set<string> }) {
+    selectedFormats = filters.formats;
+    selectedOrgs = filters.orgs;
+    selectedDataTypes = filters.dataTypes;
+    selectedCategories = filters.categories;
+    selectedSizes = filters.sizes;
   }
 
   const ALL_BACKENDS: Backend[] = ['wasm_1', 'wasm_n', 'webgpu', 'webnn_cpu', 'webnn_gpu', 'webnn_npu'];
@@ -160,15 +169,15 @@
     </h2>
 
     <ModelFilters
-      {runtimes}
+      {formats}
       {orgs}
       {dataTypes}
       {categories}
-      bind:selectedRuntime
-      bind:selectedOrg
-      bind:selectedDataType
-      bind:selectedCategory
-      bind:searchQuery
+      bind:selectedFormats
+      bind:selectedOrgs
+      bind:selectedDataTypes
+      bind:selectedCategories
+      bind:selectedSizes
       onfilter={handleFilter}
     />
 

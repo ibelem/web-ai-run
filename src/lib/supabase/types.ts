@@ -64,7 +64,7 @@ export interface Database {
           size_bytes: number;
           runtime: 'onnx' | 'litert';
           source_org: string;
-          category: string;
+          task: string;
           last_synced: string;
         };
         Insert: {
@@ -74,12 +74,12 @@ export interface Database {
           size_bytes: number;
           runtime: 'onnx' | 'litert';
           source_org: string;
-          category?: string;
+          task?: string;
         };
         Update: {
           data_type?: string;
           size_bytes?: number;
-          category?: string;
+          task?: string;
           last_synced?: string;
         };
       };

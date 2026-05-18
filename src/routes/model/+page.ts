@@ -1,5 +1,6 @@
 import type { PageLoad } from './$types';
 import { createClient } from '$lib/supabase/client';
+import { loadModels, type FetchMode } from '$lib/model-cache';
 
 export interface ModelRow {
   id: string;
@@ -9,24 +10,42 @@ export interface ModelRow {
   size_bytes: number;
   runtime: 'onnx' | 'litert';
   source_org: string;
-  category: string;
+  task: string;
+  last_synced: string;
 }
 
 export const load: PageLoad = async ({ url }) => {
   const supabase = createClient();
 
-  const { data, error } = await supabase
-    .from('models')
-    .select('id, hf_model_id, file_path, data_type, size_bytes, runtime, source_org, category')
-    .eq('enabled', true)
-    .order('hf_model_id', { ascending: true })
-    .limit(50000);
+  async function fetchFromSupabase(mode: FetchMode): Promise<ModelRow[]> {
+    let query = supabase
+      .from('models')
+      .select('id, hf_model_id, file_path, data_type, size_bytes, runtime, source_org, task, last_synced')
+      .eq('enabled', true)
+      .order('hf_model_id', { ascending: true })
+      .limit(50000);
 
-  const models: ModelRow[] = (data as ModelRow[]) ?? [];
+    if (!mode.full) {
+      query = query.gt('last_synced', mode.since);
+    }
+
+    const { data, error } = await query;
+    if (error) throw new Error(error.message);
+    return (data as ModelRow[]) ?? [];
+  }
+
+  let models: ModelRow[] = [];
+  let error: string | null = null;
+
+  try {
+    models = await loadModels<ModelRow>(fetchFromSupabase);
+  } catch (e: any) {
+    error = e.message ?? 'Failed to load models';
+  }
 
   return {
     models,
-    error: error?.message ?? null,
+    error,
     initialSearch: url.searchParams.get('q') ?? '',
   };
 };

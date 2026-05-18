@@ -3,6 +3,7 @@
   import { get } from 'svelte/store';
   import ModelFilters from '$lib/components/ModelFilters.svelte';
   import ModelGrid from '$lib/components/ModelGrid.svelte';
+  import HFSearch from '$lib/components/HFSearch.svelte';
   import { isAuthenticated, auth } from '$lib/stores/auth';
   import { createRecipe } from '$lib/recipes/crud';
   import type { RecipeModel } from '$lib/supabase/types';
@@ -11,7 +12,7 @@
   let { data } = $props<{ data: { models: ModelRow[]; error: string | null; initialSearch: string } }>();
 
   let searchQuery = $state(data.initialSearch);
-  let selectedRuntimes = $state<Set<string>>(new Set());
+  let selectedFormats = $state<Set<string>>(new Set());
   let selectedOrgs = $state<Set<string>>(new Set());
   let selectedDataTypes = $state<Set<string>>(new Set());
   let selectedCategories = $state<Set<string>>(new Set());
@@ -20,6 +21,8 @@
   let showSaveDialog = $state(false);
   let recipeName = $state('');
   let savingRecipe = $state(false);
+  let showFilters = $state(false);
+  let showHFSearch = $state(false);
 
   const SIZE_BUCKETS = [
     { key: 'lt1m',  test: (b: number) => b < 1_000_000 },
@@ -74,20 +77,28 @@
     }
   }
 
+  function inferFormat(path: string): string {
+    const lower = path.toLowerCase();
+    if (lower.endsWith('.litertlm')) return 'litertlm';
+    if (lower.endsWith('.tflite')) return 'tflite';
+    if (lower.endsWith('.onnx')) return 'onnx';
+    return 'unknown';
+  }
+
   const allModels: ModelRow[] = $derived(data.models);
-  const runtimes = $derived([...new Set(allModels.map((m) => m.runtime))].sort());
+  const formats = $derived([...new Set(allModels.map((m) => inferFormat(m.file_path)))].sort());
   const orgs = $derived([...new Set(allModels.map((m) => m.source_org))].sort());
   const dataTypes = $derived([...new Set(allModels.map((m) => m.data_type))].sort());
   const categories = $derived(
-    [...new Set(allModels.map((m) => m.category))].filter((c) => c !== 'uncategorized').sort()
+    [...new Set(allModels.map((m) => m.task))].filter((c) => c !== 'uncategorized').sort()
   );
 
   const filteredModels = $derived(
     allModels.filter((m) => {
-      if (selectedRuntimes.size > 0 && !selectedRuntimes.has(m.runtime)) return false;
+      if (selectedFormats.size > 0 && !selectedFormats.has(inferFormat(m.file_path))) return false;
       if (selectedOrgs.size > 0 && !selectedOrgs.has(m.source_org)) return false;
       if (selectedDataTypes.size > 0 && !selectedDataTypes.has(m.data_type)) return false;
-      if (selectedCategories.size > 0 && !selectedCategories.has(m.category)) return false;
+      if (selectedCategories.size > 0 && !selectedCategories.has(m.task)) return false;
       if (selectedSizes.size > 0) {
         const bucket = SIZE_BUCKETS.find((b) => selectedSizes.has(b.key) && b.test(m.size_bytes));
         if (!bucket) return false;
@@ -101,19 +112,17 @@
   );
 
   function handleFilter(filters: {
-    runtimes: Set<string>;
+    formats: Set<string>;
     orgs: Set<string>;
     dataTypes: Set<string>;
     categories: Set<string>;
     sizes: Set<string>;
-    search: string;
   }) {
-    selectedRuntimes = filters.runtimes;
+    selectedFormats = filters.formats;
     selectedOrgs = filters.orgs;
     selectedDataTypes = filters.dataTypes;
     selectedCategories = filters.categories;
     selectedSizes = filters.sizes;
-    searchQuery = filters.search;
   }
 </script>
 
@@ -122,7 +131,7 @@
     <div class="header-row">
       <div>
         <h1>Model Browser</h1>
-        <p>Select models to benchmark. All models are sourced from HuggingFace.</p>
+        <p>Select models to benchmark.</p>
       </div>
       {#if selectedIds.size > 0}
         <div class="header-actions">
@@ -144,21 +153,62 @@
       <p>Failed to load models: {data.error}</p>
     </div>
   {:else}
-    <ModelFilters
-      {runtimes}
-      {orgs}
-      {dataTypes}
-      {categories}
-      bind:selectedRuntimes
-      bind:selectedOrgs
-      bind:selectedDataTypes
-      bind:selectedCategories
-      bind:selectedSizes
-      bind:searchQuery
-      onfilter={handleFilter}
-    />
+    <div class="page-body">
+      <div class="sidebar-wrap" class:open={showFilters}>
+        <ModelFilters
+          {formats}
+          {orgs}
+          {dataTypes}
+          {categories}
+          bind:selectedFormats
+          bind:selectedOrgs
+          bind:selectedDataTypes
+          bind:selectedCategories
+          bind:selectedSizes
+          onfilter={handleFilter}
+        />
+      </div>
 
-    <ModelGrid models={filteredModels} {selectedIds} ontoggle={toggleSelect} />
+      <div class="content">
+        <div class="content-toolbar">
+          <button class="filter-toggle" onclick={() => showFilters = !showFilters}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="4" y1="6" x2="20" y2="6"/>
+              <line x1="8" y1="12" x2="20" y2="12"/>
+              <line x1="12" y1="18" x2="20" y2="18"/>
+            </svg>
+            Filters
+            {#if selectedFormats.size + selectedOrgs.size + selectedDataTypes.size + selectedCategories.size + selectedSizes.size > 0}
+              <span class="filter-count">{selectedFormats.size + selectedOrgs.size + selectedDataTypes.size + selectedCategories.size + selectedSizes.size}</span>
+            {/if}
+          </button>
+          <input
+            type="search"
+            class="search-input"
+            placeholder="Search models..."
+            bind:value={searchQuery}
+          />
+          <span class="result-count">{filteredModels.length} models</span>
+          <button
+            class="hf-toggle"
+            class:active={showHFSearch}
+            onclick={() => showHFSearch = !showHFSearch}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="11" cy="11" r="8"/>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            HuggingFace
+          </button>
+        </div>
+        <ModelGrid models={filteredModels} {selectedIds} ontoggle={toggleSelect} />
+        {#if showHFSearch && searchQuery.trim()}
+          <HFSearch {searchQuery} localModels={allModels} />
+        {:else if showHFSearch && !searchQuery.trim()}
+          <div class="hf-search-hint">Type a search query above to search HuggingFace.</div>
+        {/if}
+      </div>
+    </div>
   {/if}
 </div>
 
@@ -187,6 +237,127 @@
 <style>
   .model-page {
     max-width: 100%;
+  }
+
+  .page-body {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    gap: var(--space-4);
+    align-items: start;
+  }
+
+  .sidebar-wrap {
+    /* visible on desktop always */
+  }
+
+  .content {
+    min-width: 0;
+  }
+
+  .content-toolbar {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin-bottom: var(--space-2);
+  }
+
+  .filter-toggle {
+    display: none;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--font-ui);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    padding: var(--space-1) var(--space-2);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-base);
+    background: var(--color-surface);
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .filter-toggle:hover {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+  }
+
+  .filter-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 9px;
+    background: var(--color-primary);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  .search-input {
+    flex: 1;
+    max-width: 360px;
+    font-family: var(--font-ui);
+    font-size: var(--text-sm);
+    padding: var(--space-1) var(--space-2);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-base);
+    background: var(--color-surface);
+    color: var(--color-text-primary);
+    outline: none;
+    transition: border-color var(--transition-base);
+  }
+
+  .search-input:focus {
+    border-color: var(--color-focus-ring);
+  }
+
+  .result-count {
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+    white-space: nowrap;
+  }
+
+  .hf-toggle {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-family: var(--font-ui);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    padding: var(--space-1) var(--space-2);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-base);
+    background: var(--color-surface);
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+    transition: border-color var(--transition-base), color var(--transition-base), background var(--transition-base);
+  }
+
+  .hf-toggle:hover {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+  }
+
+  .hf-toggle.active {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+    background: var(--color-accent-light);
+  }
+
+  .hf-search-hint {
+    margin-top: var(--space-3);
+    padding: var(--space-2) var(--space-3);
+    border: 1.5px dashed var(--color-border-strong);
+    border-radius: var(--radius-lg);
+    background: var(--color-surface-sunken);
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
   }
 
   .page-header {
@@ -338,5 +509,56 @@
     background: var(--color-surface-sunken);
     color: var(--color-error);
     font-size: var(--text-sm);
+  }
+
+  @media (max-width: 768px) {
+    .page-header {
+      margin-bottom: var(--space-2);
+    }
+
+    .header-row {
+      flex-wrap: wrap;
+      gap: var(--space-1);
+    }
+
+    .page-header h1 {
+      font-size: var(--text-lg);
+    }
+
+    .page-header p {
+      font-size: var(--text-sm);
+    }
+
+    .header-actions {
+      width: 100%;
+    }
+
+    .btn-run,
+    .btn-save {
+      flex: 1;
+      font-size: var(--text-sm);
+      padding: 8px 14px;
+      text-align: center;
+    }
+
+    .page-body {
+      grid-template-columns: 1fr;
+    }
+
+    .sidebar-wrap {
+      display: none;
+    }
+
+    .sidebar-wrap.open {
+      display: block;
+    }
+
+    .filter-toggle {
+      display: flex;
+    }
+
+    .search-input {
+      max-width: none;
+    }
   }
 </style>
