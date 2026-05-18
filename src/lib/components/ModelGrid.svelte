@@ -93,12 +93,6 @@
     }
   }
 
-  .empty {
-    text-align: center;
-    padding: var(--space-5) var(--space-2);
-    color: var(--color-text-muted);
-  }
-
   .empty-hint {
     margin-top: var(--space-1);
     font-size: var(--text-sm);

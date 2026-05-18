@@ -17,8 +17,8 @@
   let { data } = $props();
 
   let availableBackends = $state<Backend[]>(['wasm_1']);
-  let selectedBackends = $state<Backend[]>(['wasm_1']);
-  let iterations = $state(10);
+  let selectedBackends = $state<Backend[]>(['webgpu']);
+  let iterations = $state(50);
   let saveResults = $state(false);
   let queue = $state<TestItem[]>([]);
   let results = $state<TestResult[]>([]);
@@ -37,6 +37,15 @@
       if (raw) {
         hfExtModels = JSON.parse(raw);
         sessionStorage.removeItem('hf_ext_models');
+        // Pre-select backends and iterations from ActionPanel payload
+        const backendsFromPanel = hfExtModels[0]?.backends;
+        if (Array.isArray(backendsFromPanel) && backendsFromPanel.length > 0) {
+          selectedBackends = backendsFromPanel as Backend[];
+        }
+        const iterationsFromPanel = hfExtModels[0]?.iterations;
+        if (typeof iterationsFromPanel === 'number' && iterationsFromPanel > 0) {
+          iterations = iterationsFromPanel;
+        }
       }
     } catch {}
 
@@ -206,22 +215,6 @@
     max-width: 100%;
   }
 
-  .page-header {
-    margin-bottom: var(--space-3);
-  }
-
-  .page-header h1 {
-    font-size: var(--text-xl);
-    font-weight: 700;
-    letter-spacing: -0.01em;
-    margin-bottom: var(--space-half);
-  }
-
-  .page-header p {
-    font-size: var(--text-base);
-    color: var(--color-text-secondary);
-  }
-
   .config-section {
     display: flex;
     flex-direction: column;
@@ -238,21 +231,6 @@
     gap: var(--space-1);
   }
 
-  .btn-primary {
-    font-family: var(--font-ui);
-    font-size: var(--text-base);
-    font-weight: 500;
-    padding: 10px 20px;
-    border: none;
-    border-radius: var(--radius-sm);
-    background: var(--color-primary);
-    color: #FFFFFF;
-    cursor: pointer;
-    transition: background var(--transition-base);
-  }
-
-  .btn-primary:hover { background: var(--color-primary-hover); }
-  .btn-primary:disabled { background: var(--color-disabled); color: var(--color-text-muted); cursor: not-allowed; }
 
   .action-hint {
     font-size: var(--text-sm);

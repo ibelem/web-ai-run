@@ -135,6 +135,7 @@ async function main() {
 
   const rows: ModelRow[] = [];
   const errors: string[] = [];
+  const fetchedRepoIds: string[] = [];
   const now = new Date().toISOString();
 
   for (const org of HF_ORGS) {
@@ -157,7 +158,14 @@ async function main() {
       );
 
       const results = await runConcurrent(tasks, CONCURRENCY);
-      for (const repoRows of results) rows.push(...repoRows);
+      const successfulRepoIds: string[] = [];
+      for (let i = 0; i < results.length; i++) {
+        const repoRows = results[i];
+        // Track repos that responded (even if they had 0 supported files)
+        if (repoRows !== undefined) successfulRepoIds.push(activeRepos[i].id);
+        rows.push(...repoRows);
+      }
+      fetchedRepoIds.push(...successfulRepoIds);
 
       console.log(`  Done. Running total: ${rows.length} model files`);
     } catch (e) {
@@ -185,19 +193,25 @@ async function main() {
 
   console.log(`Upserted: ${upserted}`);
 
-  // Delete rows for synced orgs that weren't touched this run — file was removed from HF
-  const syncedOrgs = HF_ORGS.map((o) => o.name);
-  const { error: deleteError, count: deleted } = await supabase
-    .from('models')
-    .delete({ count: 'exact' })
-    .in('source_org', syncedOrgs)
-    .lt('last_synced', now);
+  // Delete stale rows only for repos we successfully fetched this run.
+  // This avoids wiping rows for repos that failed due to rate limits or network errors.
+  const DELETE_BATCH = 50;
+  let deleted = 0;
+  for (let i = 0; i < fetchedRepoIds.length; i += DELETE_BATCH) {
+    const batch = fetchedRepoIds.slice(i, i + DELETE_BATCH);
+    const { error: deleteError, count } = await supabase
+      .from('models')
+      .delete({ count: 'exact' })
+      .in('hf_model_id', batch)
+      .lt('last_synced', now);
 
-  if (deleteError) {
-    errors.push(`Delete stale rows failed: ${deleteError.message}`);
-  } else {
-    console.log(`Deleted stale rows: ${deleted ?? 0}`);
+    if (deleteError) {
+      errors.push(`Delete stale rows failed: ${deleteError.message}`);
+    } else {
+      deleted += count ?? 0;
+    }
   }
+  console.log(`Deleted stale rows: ${deleted}`);
 
   if (errors.length > 0) {
     console.error(`\nErrors (${errors.length}):`);

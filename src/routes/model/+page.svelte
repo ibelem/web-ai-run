@@ -1,13 +1,12 @@
 <script lang="ts">
-  import { goto } from '$app/navigation';
-  import { get } from 'svelte/store';
   import ModelFilters from '$lib/components/ModelFilters.svelte';
   import ModelGrid from '$lib/components/ModelGrid.svelte';
-  import HFSearch from '$lib/components/HFSearch.svelte';
-  import { isAuthenticated, auth } from '$lib/stores/auth';
-  import { createRecipe } from '$lib/recipes/crud';
-  import type { RecipeModel } from '$lib/supabase/types';
+  import HFSearch, { type SelectedHFModel } from '$lib/components/HFSearch.svelte';
+  import HFUrlImport from '$lib/components/HFUrlImport.svelte';
+  import { isAuthenticated } from '$lib/stores/auth';
   import type { ModelRow } from './+page.ts';
+  import { invalidateModelCache } from '$lib/model-cache';
+  import ActionPanel from '$lib/components/ActionPanel.svelte';
 
   let { data } = $props<{ data: { models: ModelRow[]; error: string | null; initialSearch: string } }>();
 
@@ -17,12 +16,26 @@
   let selectedDataTypes = $state<Set<string>>(new Set());
   let selectedCategories = $state<Set<string>>(new Set());
   let selectedSizes = $state<Set<string>>(new Set());
-  let selectedIds = $state<Set<string>>(new Set());
-  let showSaveDialog = $state(false);
-  let recipeName = $state('');
-  let savingRecipe = $state(false);
+  function loadStoredSelection(): { ids: string[]; hfModels: SelectedHFModel[] } {
+    try {
+      const raw = sessionStorage.getItem('model_selection');
+      if (raw) return JSON.parse(raw);
+    } catch {}
+    return { ids: [], hfModels: [] };
+  }
+  const _stored = loadStoredSelection();
+  let selectedIds = $state<Set<string>>(new Set(_stored.ids));
+  let selectedHFModels = $state<SelectedHFModel[]>(_stored.hfModels);
   let showFilters = $state(false);
+  let showActionPanel = $state(false);
   let showHFSearch = $state(false);
+  let refreshing = $state(false);
+
+  function refreshModels() {
+    refreshing = true;
+    invalidateModelCache();
+    window.location.reload();
+  }
 
   const SIZE_BUCKETS = [
     { key: 'lt1m',  test: (b: number) => b < 1_000_000 },
@@ -47,35 +60,16 @@
     selectedIds = next;
   }
 
-  function runSelected() {
-    const ids = [...selectedIds].join(',');
-    window.location.href = `/run?models=${ids}`;
-  }
-
-  async function saveAsRecipe() {
-    if (!recipeName.trim()) return;
-    savingRecipe = true;
-    const authState = get(auth);
-    if (!authState.user) return;
-
-    const models: RecipeModel[] = data.models
-      .filter((m: ModelRow) => selectedIds.has(m.id))
-      .map((m: ModelRow) => ({
-        hf_model_id: m.hf_model_id,
-        file_path: m.file_path,
-        data_type: m.data_type,
-        backends: ['wasm_1'],
-      }));
-
+  $effect(() => {
     try {
-      await createRecipe(authState.user.id, recipeName.trim(), models);
-      showSaveDialog = false;
-      recipeName = '';
-      goto('/recipe');
-    } finally {
-      savingRecipe = false;
-    }
-  }
+      sessionStorage.setItem('model_selection', JSON.stringify({
+        ids: [...selectedIds],
+        hfModels: selectedHFModels,
+      }));
+    } catch {}
+  });
+
+  const totalSelected = $derived(selectedIds.size + selectedHFModels.length);
 
   function inferFormat(path: string): string {
     const lower = path.toLowerCase();
@@ -86,6 +80,11 @@
   }
 
   const allModels: ModelRow[] = $derived(data.models);
+
+  const isHFUrl = $derived((() => {
+    try { return new URL(searchQuery.trim()).hostname === 'huggingface.co'; }
+    catch { return false; }
+  })());
   const formats = $derived([...new Set(allModels.map((m) => inferFormat(m.file_path)))].sort());
   const orgs = $derived([...new Set(allModels.map((m) => m.source_org))].sort());
   const dataTypes = $derived([...new Set(allModels.map((m) => m.data_type))].sort());
@@ -103,7 +102,7 @@
         const bucket = SIZE_BUCKETS.find((b) => selectedSizes.has(b.key) && b.test(m.size_bytes));
         if (!bucket) return false;
       }
-      if (searchQuery) {
+      if (searchQuery && !showHFSearch) {
         const q = searchQuery.toLowerCase();
         if (!m.hf_model_id.toLowerCase().includes(q) && !m.file_path.toLowerCase().includes(q)) return false;
       }
@@ -133,15 +132,15 @@
         <h1>Model Browser</h1>
         <p>Select models to benchmark.</p>
       </div>
-      {#if selectedIds.size > 0}
+      {#if totalSelected > 0}
         <div class="header-actions">
           {#if $isAuthenticated}
-            <button class="btn-save" onclick={() => showSaveDialog = true}>
+            <button class="btn-save" onclick={() => showActionPanel = true}>
               Save as Recipe
             </button>
           {/if}
-          <button class="btn-run" onclick={runSelected}>
-            Run {selectedIds.size} Selected
+          <button class="btn-run" onclick={() => showActionPanel = true}>
+            Run {totalSelected} Selected
           </button>
         </div>
       {/if}
@@ -165,7 +164,9 @@
           bind:selectedDataTypes
           bind:selectedCategories
           bind:selectedSizes
+          {refreshing}
           onfilter={handleFilter}
+          onrefresh={refreshModels}
         />
       </div>
 
@@ -188,7 +189,6 @@
             placeholder="Search models..."
             bind:value={searchQuery}
           />
-          <span class="result-count">{filteredModels.length} models</span>
           <button
             class="hf-toggle"
             class:active={showHFSearch}
@@ -200,39 +200,34 @@
             </svg>
             HuggingFace
           </button>
+          <span class="result-count">{filteredModels.length} models</span>
         </div>
-        <ModelGrid models={filteredModels} {selectedIds} ontoggle={toggleSelect} />
-        {#if showHFSearch && searchQuery.trim()}
-          <HFSearch {searchQuery} localModels={allModels} />
-        {:else if showHFSearch && !searchQuery.trim()}
-          <div class="hf-search-hint">Type a search query above to search HuggingFace.</div>
+        {#if isHFUrl}
+          <HFUrlImport url={searchQuery.trim()} localModels={allModels} bind:selectedHFModels />
+        {:else}
+          {#if showHFSearch}
+            <HFSearch {searchQuery} localModels={allModels} bind:selectedHFModels />
+          {/if}
+          <ModelGrid models={filteredModels} {selectedIds} ontoggle={toggleSelect} />
         {/if}
       </div>
     </div>
   {/if}
 </div>
 
-{#if showSaveDialog}
-  <div class="dialog-backdrop" role="presentation" onclick={() => showSaveDialog = false}>
-    <div class="dialog-panel" role="dialog" aria-modal="true" onclick={(e) => e.stopPropagation()}>
-      <h2 class="dialog-title">Save as Recipe</h2>
-      <p class="dialog-desc">{selectedIds.size} model{selectedIds.size > 1 ? 's' : ''} selected</p>
-      <input
-        type="text"
-        class="dialog-input"
-        placeholder="Recipe name"
-        bind:value={recipeName}
-        onkeydown={(e) => { if (e.key === 'Enter') saveAsRecipe(); }}
-      />
-      <div class="dialog-actions">
-        <button class="btn-ghost" onclick={() => showSaveDialog = false}>Cancel</button>
-        <button class="btn-primary-sm" onclick={saveAsRecipe} disabled={savingRecipe || !recipeName.trim()}>
-          {savingRecipe ? 'Saving...' : 'Save'}
-        </button>
-      </div>
-    </div>
-  </div>
-{/if}
+<ActionPanel
+  bind:open={showActionPanel}
+  localModels={allModels}
+  {selectedIds}
+  bind:selectedHFModels
+  onclose={() => showActionPanel = false}
+  ondeselect={(id) => toggleSelect(id)}
+  ondeselecthf={(hf_model_id, file_path) => {
+    selectedHFModels = selectedHFModels.filter(
+      (m) => !(m.hf_model_id === hf_model_id && m.file_path === file_path)
+    );
+  }}
+/>
 
 <style>
   .model-page {
@@ -299,7 +294,6 @@
 
   .search-input {
     flex: 1;
-    max-width: 360px;
     font-family: var(--font-ui);
     font-size: var(--text-sm);
     padding: var(--space-1) var(--space-2);
@@ -319,9 +313,10 @@
     font-size: var(--text-sm);
     color: var(--color-text-muted);
     white-space: nowrap;
+    margin-left: auto;
   }
 
-  .hf-toggle {
+.hf-toggle {
     display: flex;
     align-items: center;
     gap: 5px;
@@ -350,37 +345,11 @@
     background: var(--color-accent-light);
   }
 
-  .hf-search-hint {
-    margin-top: var(--space-3);
-    padding: var(--space-2) var(--space-3);
-    border: 1.5px dashed var(--color-border-strong);
-    border-radius: var(--radius-lg);
-    background: var(--color-surface-sunken);
-    font-size: var(--text-sm);
-    color: var(--color-text-muted);
-  }
-
-  .page-header {
-    margin-bottom: var(--space-3);
-  }
-
   .header-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: var(--space-2);
-  }
-
-  .page-header h1 {
-    font-size: var(--text-xl);
-    font-weight: 700;
-    letter-spacing: -0.01em;
-    margin-bottom: var(--space-half);
-  }
-
-  .page-header p {
-    font-size: var(--color-text-secondary, var(--text-base));
-    color: var(--color-text-secondary);
   }
 
   .header-actions {
@@ -421,94 +390,9 @@
 
   .btn-save:hover { background: var(--color-accent-light); }
 
-  .dialog-backdrop {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.5);
-    z-index: var(--z-overlay);
-    display: grid;
-    place-items: center;
-  }
-
-  .dialog-panel {
-    background: var(--color-surface-raised);
-    border: 1px solid var(--color-border-strong);
-    border-radius: var(--radius-lg);
-    padding: var(--space-3);
-    max-width: 400px;
-    width: calc(100% - var(--space-4));
-    box-shadow: var(--shadow-overlay);
-  }
-
-  .dialog-title {
-    font-size: var(--text-lg);
-    font-weight: 300;
-    margin-bottom: var(--space-half);
-  }
-
-  .dialog-desc {
-    font-size: var(--text-sm);
-    color: var(--color-text-muted);
-    margin-bottom: var(--space-2);
-  }
-
-  .dialog-input {
-    width: 100%;
-    font-family: var(--font-ui);
-    font-size: var(--text-sm);
-    padding: var(--space-1);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-base);
-    background: var(--color-surface);
-    color: var(--color-text-primary);
-    outline: none;
-    margin-bottom: var(--space-2);
-  }
-
-  .dialog-input:focus { border-color: var(--color-focus-ring); }
-
-  .dialog-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: var(--space-1);
-  }
-
-  .btn-primary-sm {
-    font-family: var(--font-ui);
-    font-size: var(--text-base);
-    font-weight: 500;
-    padding: 10px 20px;
-    border: none;
-    border-radius: var(--radius-sm);
-    background: var(--color-primary);
-    color: #FFFFFF;
-    cursor: pointer;
-    transition: background var(--transition-base);
-  }
-
-  .btn-primary-sm:hover { background: var(--color-primary-hover); }
-  .btn-primary-sm:disabled { background: var(--color-disabled); color: var(--color-text-muted); cursor: not-allowed; }
-
-  .btn-ghost {
-    font-family: var(--font-ui);
-    font-size: var(--text-sm);
-    padding: var(--space-1) var(--space-2);
-    border: none;
-    border-radius: var(--radius-base);
-    background: none;
-    color: var(--color-text-secondary);
-    cursor: pointer;
-  }
-
-  .btn-ghost:hover { background: var(--color-nav-item-hover); }
-
   .error-banner {
     padding: var(--space-2);
-    border: 1px solid var(--color-error);
     border-radius: var(--radius-base);
-    background: var(--color-surface-sunken);
-    color: var(--color-error);
-    font-size: var(--text-sm);
   }
 
   @media (max-width: 768px) {
@@ -559,6 +443,20 @@
 
     .search-input {
       max-width: none;
+    }
+
+    .content-toolbar {
+      flex-wrap: wrap;
+    }
+
+    .search-input {
+      order: 10;
+      width: 100%;
+      flex-basis: 100%;
+    }
+
+    .result-count {
+      margin-left: auto;
     }
   }
 </style>

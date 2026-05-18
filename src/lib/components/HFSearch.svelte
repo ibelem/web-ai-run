@@ -1,14 +1,19 @@
 <script lang="ts">
-  import { goto } from '$app/navigation';
-  import { isAuthenticated, auth } from '$lib/stores/auth';
-  import { get } from 'svelte/store';
-  import { listRecipes, createRecipe, updateRecipe } from '$lib/recipes/crud';
-
   interface Props {
     searchQuery: string;
     localModels?: { hf_model_id: string; file_path: string }[];
+    selectedHFModels?: SelectedHFModel[];
   }
-  let { searchQuery, localModels = [] }: Props = $props();
+
+  export interface SelectedHFModel {
+    hf_model_id: string;
+    file_path: string;
+    data_type: string;
+    runtime: 'onnx' | 'litert';
+    task: string;
+  }
+
+  let { searchQuery, localModels = [], selectedHFModels = $bindable([]) }: Props = $props();
 
   interface HFRepo {
     id: string;
@@ -25,14 +30,6 @@
     runtime: 'onnx' | 'litert';
   }
 
-  interface FileRow {
-    repoId: string;
-    author: string;
-    pipelineTag: string;
-    likes: number;
-    file: HFFile;
-  }
-
   const HF_API = 'https://huggingface.co/api';
   const PAGE_SIZE = 20;
 
@@ -42,15 +39,11 @@
   let hasMore = $state(false);
   let skip = $state(0);
   let searchError = $state('');
+  let autoFetchCount = $state(0);
+  const MAX_AUTO_FETCH = 3;
+  let dismissingRepos = $state(new Set<string>());
+  let dismissedRepos = $state(new Set<string>());
   let repoFiles = $state<Record<string, HFFile[] | null>>({});
-  let recipeTarget = $state<{ repoId: string; file: HFFile } | null>(null);
-  let recipes = $state<any[]>([]);
-  let loadingRecipes = $state(false);
-  let selectedRecipeId = $state<string>('');
-  let newRecipeName = $state('');
-  let savingRecipe = $state(false);
-  let recipeError = $state('');
-  let recipeSaved = $state(false);
 
   const localSet = $derived(
     new Set(localModels.map((m) => `${m.hf_model_id}::${m.file_path}`))
@@ -141,6 +134,8 @@
     repoFiles = {};
     hasMore = false;
     skip = 0;
+    dismissingRepos = new Set();
+    dismissedRepos = new Set();
 
     try {
       const res = await fetch(
@@ -152,6 +147,7 @@
       hfResults = filtered;
       hasMore = data.length === PAGE_SIZE;
       skip = PAGE_SIZE;
+      autoFetchCount = 0;
       fetchTrees(filtered);
     } catch (e: any) {
       searchError = e.message ?? 'Failed to search HuggingFace';
@@ -163,9 +159,17 @@
   function fetchTrees(repos: HFRepo[]) {
     for (const repo of repos) {
       if (repoFiles[repo.id] !== undefined) continue;
-      repoFiles = { ...repoFiles, [repo.id]: null }; // null = loading
+      repoFiles = { ...repoFiles, [repo.id]: null };
       fetchTree(repo.id).then((files) => {
         repoFiles = { ...repoFiles, [repo.id]: files };
+        if (files.length === 0) {
+          setTimeout(() => {
+            dismissingRepos = new Set([...dismissingRepos, repo.id]);
+            setTimeout(() => {
+              dismissedRepos = new Set([...dismissedRepos, repo.id]);
+            }, 450);
+          }, 300); // brief pause so user sees the repo before it fades
+        }
       });
     }
   }
@@ -182,6 +186,7 @@
       hfResults = [...hfResults, ...filtered];
       hasMore = data.length === PAGE_SIZE;
       skip = skip + PAGE_SIZE;
+      autoFetchCount += 1;
       fetchTrees(filtered);
     } catch (e: any) {
       searchError = e.message ?? 'Failed to load more';
@@ -190,91 +195,49 @@
     }
   }
 
-  // Flatten repos + files into rows for display
-  const rows = $derived(
-    hfResults.flatMap((repo): FileRow[] => {
-      const files = repoFiles[repo.id];
-      if (!files || files.length === 0) {
-        // Placeholder row while loading or when no files
-        return [{
-          repoId: repo.id,
-          author: orgName(repo.id),
-          pipelineTag: repo.pipeline_tag ?? '',
-          likes: repo.likes,
-          file: { path: '', size: 0, format: '', dataType: '', runtime: 'onnx' },
-        }];
-      }
-      return files.map((file) => ({
-        repoId: repo.id,
-        author: orgName(repo.id),
-        pipelineTag: repo.pipeline_tag ?? '',
-        likes: repo.likes,
-        file,
-      }));
-    })
+  // Hide only fully dismissed repos (animation complete)
+  const visibleRepos = $derived(
+    hfResults.filter((repo) => !dismissedRepos.has(repo.id))
   );
 
-  function runFile(repoId: string, file: HFFile) {
-    const payload = [{
-      hf_model_id: repoId,
-      file_path: file.path,
-      data_type: file.dataType,
-      runtime: file.runtime,
-    }];
-    sessionStorage.setItem('hf_ext_models', JSON.stringify(payload));
-    goto('/run');
+  // When all current repos are resolved and hasMore, auto-fetch up to MAX_AUTO_FETCH times
+  const allResolved = $derived(
+    hfResults.length > 0 && hfResults.every((r) => repoFiles[r.id] !== null && repoFiles[r.id] !== undefined)
+  );
+
+  $effect(() => {
+    if (allResolved && hasMore && !loadingMore && autoFetchCount < MAX_AUTO_FETCH) {
+      loadMore();
+    }
+  });
+
+  function formatCounts(files: HFFile[]): { format: string; count: number }[] {
+    const counts: Record<string, number> = {};
+    for (const f of files) if (f.format) counts[f.format] = (counts[f.format] ?? 0) + 1;
+    return Object.entries(counts).map(([format, count]) => ({ format, count }));
   }
 
-  async function openRecipePicker(repoId: string, file: HFFile) {
-    if (recipeTarget && recipeTarget.repoId === repoId && recipeTarget.file.path === file.path) {
-      recipeTarget = null;
-      return;
-    }
-    recipeTarget = { repoId, file };
-    recipeSaved = false;
-    recipeError = '';
-    selectedRecipeId = '';
-    newRecipeName = '';
-    if (!get(isAuthenticated)) return;
-    loadingRecipes = true;
-    try {
-      const authState = get(auth);
-      recipes = await listRecipes(authState.user?.id);
-    } catch (e: any) {
-      recipeError = e.message ?? 'Failed to load recipes';
-    } finally {
-      loadingRecipes = false;
-    }
+  function fileKey(repoId: string, filePath: string): string {
+    return `${repoId}::${filePath}`;
   }
 
-  async function saveToRecipe() {
-    if (!recipeTarget) return;
-    savingRecipe = true;
-    recipeError = '';
-    try {
-      const authState = get(auth);
-      if (!authState.user) throw new Error('Not authenticated');
-      const model = {
-        hf_model_id: recipeTarget.repoId,
-        file_path: recipeTarget.file.path,
-        data_type: recipeTarget.file.dataType,
-        backends: ['wasm_1'],
-      };
-      if (selectedRecipeId === 'new') {
-        if (!newRecipeName.trim()) throw new Error('Recipe name is required');
-        await createRecipe(authState.user.id, newRecipeName.trim(), [model]);
-      } else {
-        const recipe = recipes.find((r) => r.id === selectedRecipeId);
-        if (!recipe) throw new Error('Recipe not found');
-        await updateRecipe(recipe.id, { models: [...(recipe.models ?? []), model] });
-      }
-      recipeSaved = true;
-      recipeTarget = null;
-      goto('/recipe');
-    } catch (e: any) {
-      recipeError = e.message ?? 'Failed to save recipe';
-    } finally {
-      savingRecipe = false;
+  function isSelected(repoId: string, filePath: string): boolean {
+    return selectedHFModels.some((m) => m.hf_model_id === repoId && m.file_path === filePath);
+  }
+
+  function toggleFile(repoId: string, file: HFFile, task: string) {
+    if (isSelected(repoId, file.path)) {
+      selectedHFModels = selectedHFModels.filter(
+        (m) => !(m.hf_model_id === repoId && m.file_path === file.path)
+      );
+    } else {
+      selectedHFModels = [...selectedHFModels, {
+        hf_model_id: repoId,
+        file_path: file.path,
+        data_type: file.dataType,
+        runtime: file.runtime,
+        task,
+      }];
     }
   }
 
@@ -289,6 +252,9 @@
 </script>
 
 <div class="hf-search">
+  {#if !searchQuery.trim()}
+    <div class="hf-status">Type a search query above to search HuggingFace.</div>
+  {:else}
   <div class="hf-section-header">
     <span class="hf-label">HuggingFace</span>
     <h3>Live results for "{searchQuery}"</h3>
@@ -305,141 +271,97 @@
   {:else if hfResults.length === 0}
     <div class="hf-status">No results found on HuggingFace for "{searchQuery}".</div>
   {:else}
-    <div class="hf-list">
-      {#each rows as row (`${row.repoId}::${row.file.path}`)}
-        {@const inLibrary = row.file.path ? localSet.has(`${row.repoId}::${row.file.path}`) : false}
-        {@const isLoading = repoFiles[row.repoId] === null}
-        {@const noFiles = repoFiles[row.repoId] !== null && repoFiles[row.repoId] !== undefined && (repoFiles[row.repoId]?.length ?? 0) === 0 && !row.file.path}
-        {@const isRecipeOpen = recipeTarget?.repoId === row.repoId && recipeTarget?.file.path === row.file.path}
+    <div class="repo-list">
+      {#each visibleRepos as repo (repo.id)}
+        {@const files = repoFiles[repo.id]}
+        {@const isLoading = files === null}
+        {@const counts = files ? formatCounts(files) : []}
 
-        <div class="file-card" class:in-library={inLibrary}>
-          {#if row.pipelineTag}
-            <span class="col col-task tag tag-task" title={row.pipelineTag}>{row.pipelineTag}</span>
-          {:else}
-            <span class="col col-task"></span>
-          {/if}
-          <span class="col col-org" title={row.author}>{row.author}</span>
-          <span class="col col-repo" title={row.repoId}>{repoName(row.repoId)}</span>
-          <span class="col col-file">
-            {#if isLoading}
-              <span class="spinner spinner-sm"></span>
-            {:else if noFiles}
-              <span class="no-files">No ONNX or LiteRT files</span>
-            {:else if row.file.path}
-              <span title={row.file.path}>{stripExt(row.file.path)}</span>
-            {/if}
-          </span>
-          {#if row.file.format}
-            <span class="col col-format tag tag-format" data-format={row.file.format} title="Format: {row.file.format}">{row.file.format}</span>
-          {:else}
-            <span class="col col-format"></span>
-          {/if}
-          {#if row.file.dataType}
-            <span class="col col-dtype tag tag-dtype" data-dtype={row.file.dataType} title="Data type: {row.file.dataType}">{row.file.dataType}</span>
-          {:else}
-            <span class="col col-dtype"></span>
-          {/if}
-          <span class="col col-size" title={row.file.size > 0 ? `Size: ${formatSize(row.file.size)}` : ''}>{row.file.size > 0 ? formatSize(row.file.size) : ''}</span>
-          {#if row.likes > 0}
-            <span class="col col-stars stars">
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-              </svg>
-              {row.likes}
-            </span>
-          {:else}
-            <span class="col col-stars"></span>
-          {/if}
-          {#if inLibrary}
-            <span class="col col-lib tag tag-inlib">In library</span>
-          {:else}
-            <span class="col col-lib"></span>
-          {/if}
-          <span class="col col-actions">
-            {#if row.file.path}
-              <button class="btn-run" onclick={() => runFile(row.repoId, row.file)}>Run</button>
-              <button
-                class="btn-recipe"
-                class:active={isRecipeOpen}
-                onclick={() => openRecipePicker(row.repoId, row.file)}
-              >+ Recipe</button>
-            {/if}
-          </span>
-        </div>
-
-        {#if isRecipeOpen}
-          <div class="recipe-picker">
-            {#if !$isAuthenticated}
-              <p class="recipe-signin">
-                <a href="/auth/login">Sign in to save</a> this model to a recipe.
-              </p>
-            {:else if loadingRecipes}
-              <div class="recipe-loading">
+        <div class="repo-group" class:dismissing={dismissingRepos.has(repo.id)}>
+          <!-- Repo header: full width -->
+          <div class="repo-header">
+            <div class="repo-header-left">
+              {#if repo.pipeline_tag}
+                <span class="tag tag-task" title={repo.pipeline_tag}>{repo.pipeline_tag}</span>
+              {/if}
+              <a class="repo-name" href="https://huggingface.co/{repo.id}" target="_blank" rel="noopener noreferrer" title={repo.id}>{repo.id}</a>
+              {#if isLoading}
                 <span class="spinner spinner-sm"></span>
-                Loading recipes...
-              </div>
-            {:else}
-              <p class="recipe-picker-label">Add to recipe</p>
-              <div class="recipe-options">
-                {#if recipes.length === 0}
-                  <div class="recipe-empty">No recipes yet.</div>
-                {:else}
-                  {#each recipes as recipe (recipe.id)}
-                    <label class="recipe-option" class:selected={selectedRecipeId === recipe.id}>
-                      <input type="radio" name="recipe-picker-{row.repoId}-{row.file.path}" value={recipe.id} bind:group={selectedRecipeId} />
-                      <span class="recipe-option-name">{recipe.name}</span>
-                      <span class="recipe-option-count">{recipe.models?.length ?? 0} model{(recipe.models?.length ?? 0) === 1 ? '' : 's'}</span>
-                    </label>
-                  {/each}
-                {/if}
-                <label class="recipe-option recipe-option-new" class:selected={selectedRecipeId === 'new'}>
-                  <input type="radio" name="recipe-picker-{row.repoId}-{row.file.path}" value="new" bind:group={selectedRecipeId} />
-                  <span class="recipe-option-name">New recipe</span>
-                </label>
-              </div>
-              {#if selectedRecipeId === 'new'}
-                <input
-                  type="text"
-                  class="recipe-name-input"
-                  placeholder="Recipe name"
-                  bind:value={newRecipeName}
-                  onkeydown={(e) => { if (e.key === 'Enter') saveToRecipe(); }}
-                />
+              {:else if files !== null && files !== undefined && files.length === 0}
+                <span class="no-formats-label">No supported formats (onnx / tflite / litertlm)</span>
+              {:else}
+                {#each counts as c (c.format)}
+                  <span class="tag tag-format fmt-count" data-format={c.format}>{c.format} ×{c.count}</span>
+                {/each}
               {/if}
-              {#if recipeError}
-                <p class="recipe-error">{recipeError}</p>
+            </div>
+            <div class="repo-header-right">
+              {#if repo.likes > 0}
+                <span class="stars">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                  </svg>
+                  {repo.likes}
+                </span>
               {/if}
-              <div class="recipe-picker-actions">
-                <button class="btn-recipe-cancel" onclick={() => { recipeTarget = null; }}>Cancel</button>
-                <button
-                  class="btn-recipe-save"
-                  onclick={saveToRecipe}
-                  disabled={savingRecipe || !selectedRecipeId || (selectedRecipeId === 'new' && !newRecipeName.trim())}
-                >{savingRecipe ? 'Saving...' : 'Save'}</button>
-              </div>
-            {/if}
+            </div>
           </div>
-        {/if}
+          {#if files && files.length > 0}
+            <div class="file-grid">
+              {#each files as file (file.path)}
+                {@const inLibrary = localSet.has(`${repo.id}::${file.path}`)}
+                {@const selected = isSelected(repo.id, file.path)}
+                {@const task = repo.pipeline_tag ?? ''}
+
+                <div
+                  class="file-card"
+                  class:in-library={inLibrary}
+                  class:selected
+                  onclick={() => toggleFile(repo.id, file, task)}
+                  role="checkbox"
+                  aria-checked={selected}
+                  tabindex="0"
+                  onkeydown={(e) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); toggleFile(repo.id, file, task); } }}
+                >
+                  <div class="col col-check">
+                    <input type="checkbox" checked={selected} class="check" tabindex="-1" onclick={(e) => { e.stopPropagation(); toggleFile(repo.id, file, task); }} />
+                  </div>
+                  <div class="col col-info" title="{repo.id} — {file.path}">
+                    {#if task && task !== 'uncategorized'}
+                      <span class="info-task">{task}</span>
+                    {/if}
+                    <span class="info-file">{stripExt(file.path)}</span>
+                  </div>
+                  <span class="col col-lib">{#if inLibrary}<span class="tag tag-inlib">In library</span>{/if}</span>
+                  <span class="col col-format" title="Format: {file.format}"><span class="tag tag-format" data-format={file.format}>{file.format}</span></span>
+                  <span class="col col-dtype" title="Data type: {file.dataType}"><span class="tag tag-dtype" data-dtype={file.dataType}>{file.dataType}</span></span>
+                  <span class="col col-size" title="Size: {formatSize(file.size)}"><span class="tag tag-size">{formatSize(file.size)}</span></span>
+                </div>
+              {/each}
+            </div>
+          {/if}
+        </div>
       {/each}
     </div>
 
-    {#if hasMore}
+    {#if loadingMore}
       <div class="load-more-wrap">
-        <button class="btn-load-more" onclick={loadMore} disabled={loadingMore}>
-          {loadingMore ? 'Loading...' : 'Load more'}
-        </button>
+        <span class="spinner spinner-sm"></span>
+        <span class="load-more-hint">Fetching more repos...</span>
+      </div>
+    {:else if hasMore && autoFetchCount >= MAX_AUTO_FETCH}
+      <div class="load-more-wrap">
+        <button class="btn-load-more" onclick={loadMore}>Load more</button>
       </div>
     {/if}
+  {/if}
   {/if}
 </div>
 
 <style>
   .hf-search {
     margin-top: var(--space-3);
-    border: 1.5px dashed var(--color-border-strong);
-    border-radius: var(--radius-lg);
-    background: var(--color-surface-sunken);
-    padding: var(--space-3);
+    margin-bottom: var(--space-3);
   }
 
   .hf-section-header {
@@ -490,109 +412,84 @@
     padding: var(--space-2) 0;
   }
 
-  .hf-list {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: var(--space-1);
+  .repo-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
   }
 
-  @media (max-width: 700px) {
-    .hf-list {
-      grid-template-columns: 1fr;
-    }
-  }
-
-  /* 76px task | 72px org | 120px repo | 1fr file | 58px format | 52px dtype | 56px size | 44px stars | 68px in-lib | 110px actions */
-  .file-card {
-    display: grid;
-    grid-template-columns: 76px 72px 120px 1fr 58px 52px 56px 44px 68px 110px;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 10px;
-    background: var(--color-surface-raised);
+  .repo-group {
     border: 1px solid var(--color-border);
     border-radius: var(--radius-base);
-    min-width: 0;
-    transition: border-color var(--transition-base), background var(--transition-base);
-  }
-
-  .file-card:hover {
-    border-color: var(--color-border-strong);
-  }
-
-  .file-card.in-library {
-    border-color: color-mix(in srgb, var(--color-success, #10b981) 40%, var(--color-border));
-    background: color-mix(in srgb, var(--color-success, #10b981) 5%, var(--color-surface-raised));
-  }
-
-  .col {
+    background: var(--color-surface-raised);
     overflow: hidden;
-    min-width: 0;
+    transform-origin: top;
   }
 
-  .col-task,
-  .col-format,
-  .col-dtype,
-  .col-lib {
+  .repo-group.dismissing {
+    animation: repo-dismiss 400ms ease-out forwards;
+    pointer-events: none;
+  }
+
+  @keyframes repo-dismiss {
+    0%   { opacity: 1; transform: scaleY(1);   max-height: 400px; margin-bottom: var(--space-2); }
+    60%  { opacity: 0; transform: scaleY(0.85); }
+    100% { opacity: 0; transform: scaleY(0);    max-height: 0;    margin-bottom: 0; padding: 0; }
+  }
+
+  .repo-header {
     display: flex;
     align-items: center;
-    overflow: hidden;
+    justify-content: space-between;
+    gap: var(--space-1);
+    padding: 7px 12px;
+    background: var(--color-surface-sunken);
+    border-bottom: 1px solid var(--color-border);
   }
 
-  .col-org,
-  .col-repo,
-  .col-file {
+  .repo-header-left {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    flex: 1;
+    flex-wrap: wrap;
+  }
+
+  .repo-header-right {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+    flex-shrink: 0;
+  }
+
+  .repo-name {
     font-family: var(--font-mono);
     font-size: var(--text-xs);
+    font-weight: 600;
+    color: var(--color-primary);
+    text-decoration: none;
+    white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
-  .col-org {
-    color: var(--color-text-muted);
+  .repo-name:hover {
+    text-decoration: underline;
   }
 
-  .col-repo {
-    font-weight: 600;
-    color: var(--color-text-primary);
-  }
-
-  .col-file {
-    color: var(--color-text-muted);
-    display: flex;
-    align-items: center;
-    gap: 4px;
-  }
-
-  .col-size {
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    color: var(--color-text-muted);
-    white-space: nowrap;
-    text-align: right;
-  }
-
-  .col-stars {
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    color: var(--color-text-muted);
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-  }
-
-  .col-actions {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    justify-content: flex-end;
+  .fmt-count {
+    flex-shrink: 0;
+    width: auto !important;
   }
 
   .stars {
     display: inline-flex;
     align-items: center;
     gap: 3px;
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
   }
 
   .no-files {
@@ -601,29 +498,145 @@
     font-style: italic;
   }
 
-  .tag {
+  .no-formats-label {
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+    font-style: italic;
+  }
+
+  .file-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .file-card {
+    display: grid;
+    grid-template-columns: 20px 1fr 60px 46px 46px 60px;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    border-bottom: 1px solid var(--color-border);
+    min-width: 0;
+    cursor: pointer;
+    transition: background var(--transition-base), border-color var(--transition-base);
+  }
+
+  @media (max-width: 700px) {
+    .file-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .file-card:nth-child(odd) {
+      border-right: none;
+    }
+  }
+
+  @media (max-width: 500px) {
+    .file-card {
+      grid-template-columns: 20px 1fr 46px 46px;
+    }
+
+    .col-lib,
+    .col-size {
+      display: none;
+    }
+  }
+
+  .file-card.selected {
+    border-color: var(--color-info);
+    background: color-mix(in srgb, var(--color-info) 6%, var(--color-surface-raised));
+  }
+
+
+  .file-card:nth-child(odd) {
+    border-right: 1px solid var(--color-border);
+  }
+
+  .file-card:hover {
+    background: var(--color-accent-light);
+  }
+
+  .file-card.in-library {
+    background: color-mix(in srgb, var(--color-success, #10b981) 5%, var(--color-surface-raised));
+  }
+
+  .file-card.in-library:hover {
+    background: color-mix(in srgb, var(--color-success, #10b981) 10%, var(--color-surface-raised));
+  }
+
+  .col {
+    overflow: hidden;
+    min-width: 0;
+  }
+
+  .col-check {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .check {
+    width: 14px;
+    height: 14px;
+    cursor: pointer;
+
+    flex-shrink: 0;
+  }
+
+  .col-format,
+  .col-dtype,
+  .col-lib {
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+  }
+
+  .col-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    min-width: 0;
+    overflow: hidden;
+    line-height: 1.2;
+  }
+
+  .info-task {
     font-family: var(--font-ui);
     font-size: 10px;
-    padding: 1px 5px;
-    border-radius: var(--radius-sm);
-    border: 1px solid var(--color-border);
-    color: var(--color-text-secondary);
-    white-space: nowrap;
+    color: var(--color-text-muted);
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 100%;
-    display: inline-block;
-    line-height: 1.6;
+    white-space: nowrap;
   }
 
-  .tag-task,
-  .tag-format,
-  .tag-dtype {
+  .info-file {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--color-text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .col-size {
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+  }
+
+  .tag-size {
     width: 100%;
+    text-align: center;
+    font-family: var(--font-mono);
   }
 
-  .tag-format,
-  .tag-dtype {
+
+  /* Inside file-card columns, stretch to fill */
+  .col-format .tag-format,
+  .col-dtype .tag-dtype,
+  .col-lib .tag-inlib,
+  .col-size .tag-size {
+    width: 100%;
     text-align: center;
   }
 
@@ -654,216 +667,18 @@
     border-color: color-mix(in srgb, var(--color-success, #10b981) 30%, transparent);
   }
 
-  .btn-run {
-    font-family: var(--font-ui);
-    font-size: 10px;
-    font-weight: 500;
-    padding: 2px 8px;
-    border: none;
-    border-radius: var(--radius-sm);
-    background: var(--color-primary);
-    color: #fff;
-    cursor: pointer;
-    white-space: nowrap;
-    transition: background var(--transition-base);
-  }
-
-  .btn-run:hover {
-    background: var(--color-primary-hover);
-  }
-
-  .btn-recipe {
-    font-family: var(--font-ui);
-    font-size: 10px;
-    font-weight: 500;
-    padding: 2px 8px;
-    border: 1px solid var(--color-border-strong);
-    border-radius: var(--radius-sm);
-    background: none;
-    color: var(--color-text-secondary);
-    cursor: pointer;
-    white-space: nowrap;
-    transition: background var(--transition-base), border-color var(--transition-base), color var(--transition-base);
-  }
-
-  .btn-recipe:hover,
-  .btn-recipe.active {
-    border-color: var(--color-primary);
-    color: var(--color-primary);
-    background: var(--color-accent-light);
-  }
-
-  /* Recipe picker */
-  .recipe-picker {
-    grid-column: 1 / -1;
-    margin: 0 var(--space-2) var(--space-1);
-    padding: var(--space-2);
-    background: var(--color-surface-raised);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-base);
-  }
-
-  .recipe-signin {
-    font-size: var(--text-sm);
-    color: var(--color-text-secondary);
-  }
-
-  .recipe-signin a {
-    color: var(--color-primary);
-    text-decoration: none;
-  }
-
-  .recipe-signin a:hover {
-    text-decoration: underline;
-  }
-
-  .recipe-loading {
-    display: flex;
-    align-items: center;
-    gap: var(--space-half);
-    font-size: var(--text-sm);
-    color: var(--color-text-muted);
-  }
-
-  .recipe-picker-label {
-    font-size: var(--text-xs);
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--color-text-muted);
-    margin-bottom: var(--space-1);
-  }
-
-  .recipe-options {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    margin-bottom: var(--space-1);
-    max-height: 180px;
-    overflow-y: auto;
-  }
-
-  .recipe-empty {
-    font-size: var(--text-sm);
-    color: var(--color-text-muted);
-    padding: var(--space-half) 0;
-  }
-
-  .recipe-option {
-    display: flex;
-    align-items: center;
-    gap: var(--space-1);
-    padding: var(--space-half) var(--space-1);
-    border: 1px solid transparent;
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-    transition: background var(--transition-base), border-color var(--transition-base);
-  }
-
-  .recipe-option:hover {
-    background: var(--color-surface-sunken);
-    border-color: var(--color-border);
-  }
-
-  .recipe-option.selected {
-    background: var(--color-accent-light);
-    border-color: var(--color-primary);
-  }
-
-  .recipe-option input[type="radio"] {
-    accent-color: var(--color-primary);
-    flex-shrink: 0;
-  }
-
-  .recipe-option-name {
-    font-size: var(--text-sm);
-    color: var(--color-text-primary);
-    flex: 1;
-  }
-
-  .recipe-option-count {
-    font-size: var(--text-xs);
-    color: var(--color-text-muted);
-  }
-
-  .recipe-option-new .recipe-option-name {
-    color: var(--color-primary);
-    font-weight: 500;
-  }
-
-  .recipe-name-input {
-    width: 100%;
-    font-family: var(--font-ui);
-    font-size: var(--text-sm);
-    padding: var(--space-half) var(--space-1);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-sm);
-    background: var(--color-surface);
-    color: var(--color-text-primary);
-    outline: none;
-    margin-bottom: var(--space-1);
-    box-sizing: border-box;
-    transition: border-color var(--transition-base);
-  }
-
-  .recipe-name-input:focus {
-    border-color: var(--color-primary);
-  }
-
-  .recipe-error {
-    font-size: var(--text-xs);
-    color: var(--color-error);
-    margin-bottom: var(--space-half);
-  }
-
-  .recipe-picker-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: var(--space-half);
-  }
-
-  .btn-recipe-cancel {
-    font-family: var(--font-ui);
-    font-size: var(--text-xs);
-    padding: 4px 10px;
-    border: none;
-    border-radius: var(--radius-sm);
-    background: none;
-    color: var(--color-text-secondary);
-    cursor: pointer;
-  }
-
-  .btn-recipe-cancel:hover {
-    background: var(--color-surface-sunken);
-  }
-
-  .btn-recipe-save {
-    font-family: var(--font-ui);
-    font-size: var(--text-xs);
-    font-weight: 500;
-    padding: 4px 12px;
-    border: none;
-    border-radius: var(--radius-sm);
-    background: var(--color-primary);
-    color: #fff;
-    cursor: pointer;
-    transition: background var(--transition-base);
-  }
-
-  .btn-recipe-save:hover {
-    background: var(--color-primary-hover);
-  }
-
-  .btn-recipe-save:disabled {
-    background: var(--color-disabled, #ccc);
-    color: var(--color-text-muted);
-    cursor: not-allowed;
-  }
 
   .load-more-wrap {
     display: flex;
+    align-items: center;
     justify-content: center;
+    gap: var(--space-1);
     margin-top: var(--space-2);
+  }
+
+  .load-more-hint {
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
   }
 
   .btn-load-more {
@@ -890,24 +705,4 @@
     cursor: not-allowed;
   }
 
-  .spinner {
-    display: inline-block;
-    width: 16px;
-    height: 16px;
-    border: 2px solid var(--color-border);
-    border-top-color: var(--color-primary);
-    border-radius: 50%;
-    animation: spin 0.7s linear infinite;
-    flex-shrink: 0;
-  }
-
-  .spinner-sm {
-    width: 10px;
-    height: 10px;
-    border-width: 1.5px;
-  }
-
-  @keyframes spin {
-    to { transform: rotate(360deg); }
-  }
 </style>

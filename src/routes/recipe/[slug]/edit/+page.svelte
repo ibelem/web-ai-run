@@ -201,21 +201,6 @@
     max-width: 100%;
   }
 
-  .page-header {
-    margin-bottom: var(--space-3);
-  }
-
-  .page-header h1 {
-    font-size: var(--text-xl);
-    font-weight: 300;
-    margin-bottom: var(--space-half);
-  }
-
-  .page-header p {
-    font-size: var(--text-base);
-    color: var(--color-text-secondary);
-  }
-
   .form-section {
     margin-bottom: var(--space-3);
     padding: var(--space-2);
@@ -347,17 +332,4 @@
   .btn-primary:hover { opacity: 0.85; }
   .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 
-  .btn-ghost {
-    font-family: var(--font-ui);
-    font-size: var(--text-sm);
-    padding: var(--space-1) var(--space-2);
-    border: none;
-    border-radius: var(--radius-base);
-    background: none;
-    color: var(--color-text-secondary);
-    cursor: pointer;
-    text-decoration: none;
-  }
-
-  .btn-ghost:hover { background: var(--color-nav-item-hover); }
 </style>

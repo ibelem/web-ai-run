@@ -9,6 +9,7 @@
     selectedDataTypes: Set<string>;
     selectedCategories: Set<string>;
     selectedSizes: Set<string>;
+    refreshing?: boolean;
     onfilter: (filters: {
       formats: Set<string>;
       orgs: Set<string>;
@@ -16,6 +17,7 @@
       categories: Set<string>;
       sizes: Set<string>;
     }) => void;
+    onrefresh?: () => void;
   }
 
   let {
@@ -28,7 +30,9 @@
     selectedDataTypes = $bindable(new Set()),
     selectedCategories = $bindable(new Set()),
     selectedSizes = $bindable(new Set()),
+    refreshing = false,
     onfilter,
+    onrefresh,
   }: Props = $props();
 
   const SIZE_BUCKETS = [
@@ -166,7 +170,17 @@
 
   {#if orgs.length > 0}
     <div class="filter-section">
-      <span class="section-label">Org</span>
+      <div class="section-label-row">
+        <span class="section-label">Organization</span>
+        {#if onrefresh}
+          <button class="refresh-btn" onclick={onrefresh} disabled={refreshing} title="Force refresh model library">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class:spinning={refreshing}>
+              <polyline points="23 4 23 10 17 10"/>
+              <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+            </svg>
+          </button>
+        {/if}
+      </div>
       <div class="tag-group">
         {#each orgs as org}
           <button
@@ -250,11 +264,16 @@
 
   .filter-section {
     padding: var(--space-2) 0;
-    border-bottom: 1px solid var(--color-border);
   }
 
   .filter-section:last-child {
     border-bottom: none;
+  }
+
+  .section-label-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
   }
 
   .section-label {
@@ -265,6 +284,40 @@
     text-transform: uppercase;
     letter-spacing: 0.05em;
     margin-bottom: var(--space-1);
+  }
+
+  .refresh-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-base);
+    background: var(--color-surface);
+    color: var(--color-text-muted);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: border-color var(--transition-base), color var(--transition-base);
+  }
+
+  .refresh-btn:hover:not(:disabled) {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+  }
+
+  .refresh-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .refresh-btn svg.spinning {
+    animation: spin 0.7s linear infinite;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
   }
 
   .tag-group {

@@ -55,7 +55,7 @@
       const { data: models } = await (supabase.from('models') as any)
         .select('id, hf_model_id, file_path, data_type, size_bytes, runtime, source_org, task, last_synced')
         .order('last_synced', { ascending: false })
-        .limit(8);
+        .limit(9);
       if (models) recentModels = models;
     } catch (e) {
       console.error('Failed to fetch models:', e);
@@ -86,13 +86,6 @@
     });
   }
 
-  function formatSize(bytes: number): string {
-    if (bytes >= 1_000_000_000) return `${(bytes / 1_000_000_000).toFixed(1)} GB`;
-    if (bytes >= 1_000_000) return `${(bytes / 1_000_000).toFixed(1)} MB`;
-    if (bytes >= 1_000) return `${(bytes / 1_000).toFixed(1)} KB`;
-    return `${bytes} B`;
-  }
-
   function formatRelative(iso: string): string {
     const diff = Date.now() - new Date(iso).getTime();
     const mins = Math.floor(diff / 60000);
@@ -101,6 +94,13 @@
     if (hours < 24) return `${hours}h ago`;
     const days = Math.floor(hours / 24);
     return `${days}d ago`;
+  }
+
+  function stripExt(path: string): string {
+    const name = path.split('/').pop() ?? path;
+    const dot = name.lastIndexOf('.');
+    const base = dot > 0 ? name.slice(0, dot) : name;
+    return base.replace(/[_-](q4f16|bnb4|fp8|bf16|fp16|fp32|uint8|uint4|int4|int8|q8|quantized|q4)$/i, '');
   }
 </script>
 
@@ -138,16 +138,22 @@
         </div>
 
         <div class="hero-tags">
-          <span class="hero-tag">WebNN · WebGPU · Wasm</span>
-          <span class="hero-tag">.tflite .litertlm .onnx</span>
+          <span class="hero-tag">WebNN</span>
+          <span class="hero-tag">WebGPU</span>
+          <span class="hero-tag">Wasm</span>
+          <span class="hero-tag">.tflite</span>
+          <span class="hero-tag">.litertlm</span>
+          <span class="hero-tag">.onnx</span>
           <span class="hero-tag">LiteRT.js</span>
           <span class="hero-tag">ONNX Runtime Web</span>
-          <span class="hero-tag">HuggingFace Models</span>
+          <span class="hero-tag">HuggingFace</span>
         </div>
       </div>
 
       <div class="hero-right">
         <div class="hero-card-mock">
+          <div class="mock-float-badge mock-float-top">Average: 2.1ms</div>
+          <div class="mock-float-badge mock-float-bottom">50 iterations</div>
           <div class="mock-header">
             <div>
               <div class="mock-label">mobilenet_v2 · onnx</div>
@@ -183,15 +189,13 @@
             <span class="mock-footer-value">2.1 ms</span>
           </div>
         </div>
-        <div class="mock-float-badge mock-float-top">Average: 2.1ms</div>
-        <div class="mock-float-badge mock-float-bottom">50 iterations</div>
       </div>
     </div>
   </section>
 
   <!-- Capabilities -->
-  <section class="card capabilities">
-    <h2 class="card-title">Detected Environment</h2>
+  <section id="capabilities" class="card capabilities">
+    <h2 class="card-title">Environment</h2>
     {#if loadingEnv}
       <p class="muted">Detecting environment...</p>
     {:else if environment}
@@ -205,7 +209,7 @@
           <span class="env-value">{environment.browser} {environment.browser_version}</span>
         </div>
       </div>
-      <p class="privacy-notice">Your device information is not recorded unless you explicitly agree when running a benchmark.</p>
+      <p class="privacy-notice">Your environment information is NOT recorded unless you explicitly agree when running a benchmark.</p>
     {/if}
   </section>
 
@@ -235,18 +239,14 @@
     {:else}
       <div class="model-list">
         {#each recentModels as model (model.id)}
-          <a href="/model?q={model.hf_model_id.split('/').pop()}" class="model-row">
+          <a href="/model?q={encodeURIComponent(model.hf_model_id)}" class="model-row">
             <div class="model-info">
-              <span class="model-name">{model.hf_model_id.split('/').pop()}</span>
-              <span class="model-org">{model.source_org}</span>
+              <span class="model-repo">{model.hf_model_id}</span>
+              <span class="model-file">{stripExt(model.file_path)}</span>
             </div>
             <div class="model-badges">
               <span class="badge badge-format" data-format={inferFormat(model.file_path)}>{inferFormat(model.file_path)}</span>
-              <span class="badge badge-dtype">{model.data_type}</span>
-              <span class="badge badge-size">{formatSize(model.size_bytes)}</span>
-              {#if model.task !== 'uncategorized'}
-                <span class="badge badge-cat">{model.task}</span>
-              {/if}
+              <span class="badge badge-dtype" data-dtype={model.data_type}>{model.data_type}</span>
             </div>
             <span class="model-synced">{formatRelative(model.last_synced)}</span>
           </a>
@@ -493,6 +493,7 @@
     max-width: 360px;
     border-radius: var(--radius-lg);
     padding: 20px;
+    margin: 20px 16px;
     background: var(--color-surface);
     border: 1px solid var(--color-border);
     animation: hero-float 6s ease-in-out infinite;
@@ -662,19 +663,55 @@
     50% { transform: translateY(-6px) rotate(0.3deg); }
   }
 
-  @media (max-width: 768px) {
+  @media (max-width: 900px) {
     .hero-content {
       grid-template-columns: 1fr;
-      padding: 32px 24px;
-      gap: 32px;
+      padding: 32px 24px 16px;
+      gap: 16px;
     }
 
     .hero-title {
       font-size: 32px;
     }
 
+    .hero-subtitle {
+      font-size: 15px;
+    }
+
     .hero-right {
+      display: flex;
+      justify-content: center;
+      padding-bottom: 16px;
+    }
+
+    .hero-card-mock {
+      max-width: 100%;
+      margin: 8px 0;
+    }
+
+    .mock-float-top,
+    .mock-float-bottom {
       display: none;
+    }
+  }
+
+  @media (max-width: 500px) {
+    .hero-content {
+      padding: 24px 16px 8px;
+    }
+
+    .hero-title {
+      font-size: 26px;
+    }
+
+    .hero-ctas {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .hero-btn-primary,
+    .hero-btn-secondary {
+      justify-content: center;
     }
   }
 
@@ -807,83 +844,114 @@
 
   /* Recent Models */
   .model-list {
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
     gap: 1px;
+    background: var(--color-border);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-base);
+    overflow: hidden;
     margin-bottom: var(--space-2);
   }
 
   .model-row {
-    display: flex;
+    display: grid;
+    grid-template-columns: 1fr auto auto;
     align-items: center;
-    gap: var(--space-2);
-    padding: var(--space-1) var(--space-1);
-    border-radius: var(--radius-base);
+    gap: 6px;
+    padding: 6px 10px;
+    background: var(--color-surface-raised);
     text-decoration: none;
+    min-width: 0;
     transition: background var(--transition-base);
   }
 
   .model-row:hover {
-    background: var(--color-nav-item-hover);
+    background: var(--color-accent-light);
   }
 
   .model-info {
     display: flex;
-    align-items: baseline;
-    gap: var(--space-1);
-    flex: 1;
+    flex-direction: column;
+    gap: 0;
     min-width: 0;
+    overflow: hidden;
+    line-height: 1.2;
   }
 
-  .model-name {
+  .model-repo {
     font-family: var(--font-mono);
-    font-size: var(--text-sm);
-    font-weight: 500;
+    font-size: var(--text-xs);
     color: var(--color-text-primary);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
-  .model-org {
+  .model-file {
+    font-family: var(--font-mono);
     font-size: var(--text-xs);
     color: var(--color-text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
     white-space: nowrap;
   }
 
   .model-badges {
     display: flex;
-    gap: var(--space-half);
+    gap: 3px;
     flex-shrink: 0;
   }
 
   .badge {
-    font-size: var(--text-xs);
+    font-family: var(--font-mono);
+    font-size: 11px;
     padding: 1px 5px;
     border-radius: var(--radius-sm);
     border: 1px solid var(--color-border);
     color: var(--color-text-secondary);
     white-space: nowrap;
+    text-align: center;
   }
 
-  .badge-format[data-format="onnx"] {
-    color: var(--color-runtime-ort);
-    border-color: var(--color-runtime-ort);
-  }
+  .badge-format[data-format="onnx"]     { color: #3b82f6; border-color: #3b82f6; }
+  .badge-format[data-format="tflite"]   { color: #10b981; border-color: #10b981; }
+  .badge-format[data-format="litertlm"] { color: #f97316; border-color: #f97316; }
 
-  .badge-format[data-format="tflite"],
-  .badge-format[data-format="litertlm"] {
-    color: var(--color-runtime-litert);
-    border-color: var(--color-runtime-litert);
-  }
+  .badge-dtype { width: 40px; }
+
+  .badge-dtype[data-dtype="fp32"]      { color: var(--color-primary); border-color: var(--color-primary); }
+  .badge-dtype[data-dtype="fp16"]      { color: #8b5cf6; border-color: #8b5cf6; }
+  .badge-dtype[data-dtype="bf16"]      { color: #7c3aed; border-color: #7c3aed; }
+  .badge-dtype[data-dtype="fp8"]       { color: #a855f7; border-color: #a855f7; }
+  .badge-dtype[data-dtype="int8"]      { color: #06b6d4; border-color: #06b6d4; }
+  .badge-dtype[data-dtype="uint8"]     { color: #0891b2; border-color: #0891b2; }
+  .badge-dtype[data-dtype="int4"]      { color: #10b981; border-color: #10b981; }
+  .badge-dtype[data-dtype="uint4"]     { color: #059669; border-color: #059669; }
+  .badge-dtype[data-dtype="q4"]        { color: #16a34a; border-color: #16a34a; }
+  .badge-dtype[data-dtype="q4f16"]     { color: #6366f1; border-color: #6366f1; }
+  .badge-dtype[data-dtype="bnb4"]      { color: #f59e0b; border-color: #f59e0b; }
+  .badge-dtype[data-dtype="quantized"] { color: #ea580c; border-color: #ea580c; }
 
   .model-synced {
-    font-size: var(--text-xs);
+    font-family: var(--font-mono);
+    font-size: 11px;
     color: var(--color-text-muted);
     white-space: nowrap;
     flex-shrink: 0;
-    width: 50px;
     text-align: right;
+  }
+
+  @media (max-width: 768px) {
+    .model-list {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  @media (max-width: 500px) {
+    .model-list {
+      grid-template-columns: 1fr;
+    }
   }
 
   .view-all {

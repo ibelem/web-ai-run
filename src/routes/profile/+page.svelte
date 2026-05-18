@@ -99,21 +99,6 @@
     max-width: 560px;
   }
 
-  .page-header {
-    margin-bottom: var(--space-3);
-  }
-
-  .page-header h1 {
-    font-size: var(--text-xl);
-    font-weight: 300;
-    margin-bottom: var(--space-half);
-  }
-
-  .page-header p {
-    font-size: var(--text-base);
-    color: var(--color-text-secondary);
-  }
-
   .profile-card {
     padding: var(--space-3);
     border: 1px solid var(--color-border);

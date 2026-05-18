@@ -176,21 +176,8 @@
 
   .btn-primary {
     width: 100%;
-    font-family: var(--font-ui);
-    font-size: var(--text-base);
-    font-weight: 500;
-    padding: 10px 20px;
     min-height: 40px;
-    border: none;
-    border-radius: var(--radius-sm);
-    background: var(--color-primary);
-    color: #FFFFFF;
-    cursor: pointer;
-    transition: background var(--transition-base);
   }
-
-  .btn-primary:hover { background: var(--color-primary-hover); }
-  .btn-primary:disabled { background: var(--color-disabled); color: var(--color-text-muted); cursor: not-allowed; }
 
   .error-text {
     font-size: var(--text-xs);

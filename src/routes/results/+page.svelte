@@ -97,34 +97,9 @@
     max-width: 100%;
   }
 
-  .page-header {
-    margin-bottom: var(--space-3);
-  }
-
-  .page-header h1 {
-    font-size: var(--text-xl);
-    font-weight: 300;
-    margin-bottom: var(--space-half);
-  }
-
-  .page-header p {
-    font-size: var(--text-base);
-    color: var(--color-text-secondary);
-  }
-
   .error-banner {
     padding: var(--space-2);
-    border: 1px solid var(--color-error);
     border-radius: var(--radius-base);
-    background: var(--color-surface-sunken);
-    color: var(--color-error);
-    font-size: var(--text-sm);
-  }
-
-  .empty {
-    text-align: center;
-    padding: var(--space-5) var(--space-2);
-    color: var(--color-text-muted);
   }
 
   .results-table-wrapper {

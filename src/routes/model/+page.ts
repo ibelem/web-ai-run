@@ -18,20 +18,31 @@ export const load: PageLoad = async ({ url }) => {
   const supabase = createClient();
 
   async function fetchFromSupabase(mode: FetchMode): Promise<ModelRow[]> {
-    let query = supabase
-      .from('models')
-      .select('id, hf_model_id, file_path, data_type, size_bytes, runtime, source_org, task, last_synced')
-      .eq('enabled', true)
-      .order('hf_model_id', { ascending: true })
-      .limit(50000);
+    const PAGE = 1000;
+    const all: ModelRow[] = [];
+    let from = 0;
 
-    if (!mode.full) {
-      query = query.gt('last_synced', mode.since);
+    while (true) {
+      let query = supabase
+        .from('models')
+        .select('id, hf_model_id, file_path, data_type, size_bytes, runtime, source_org, task, last_synced')
+        .eq('enabled', true)
+        .order('hf_model_id', { ascending: true })
+        .range(from, from + PAGE - 1);
+
+      if (!mode.full) {
+        query = query.gt('last_synced', mode.since);
+      }
+
+      const { data, error } = await query;
+      if (error) throw new Error(error.message);
+      const rows = (data as ModelRow[]) ?? [];
+      all.push(...rows);
+      if (rows.length < PAGE) break;
+      from += PAGE;
     }
 
-    const { data, error } = await query;
-    if (error) throw new Error(error.message);
-    return (data as ModelRow[]) ?? [];
+    return all;
   }
 
   let models: ModelRow[] = [];

@@ -8,8 +8,8 @@ export interface BackendDef {
 }
 
 export const BACKENDS: BackendDef[] = [
-  { id: 'wasm_1', label: 'Wasm (1 thread)', runtime: 'both', requiresFlag: false },
-  { id: 'wasm_n', label: 'Wasm (multi-thread)', runtime: 'both', requiresFlag: false },
+  { id: 'wasm_1', label: 'Wasm', runtime: 'both', requiresFlag: false },
+  { id: 'wasm_n', label: 'Wasm (Threads)', runtime: 'both', requiresFlag: false },
   { id: 'webgpu', label: 'WebGPU', runtime: 'both', requiresFlag: false },
   { id: 'webnn_cpu', label: 'WebNN CPU', runtime: 'both', requiresFlag: true },
   { id: 'webnn_gpu', label: 'WebNN GPU', runtime: 'both', requiresFlag: true },

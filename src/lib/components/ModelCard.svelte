@@ -39,7 +39,6 @@
   const format = $derived(inferFormat(filePath));
 </script>
 
-<!-- 20px check | 76px task | 160px org/repo | 1fr file | 58px format | 52px dtype | 56px size -->
 <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 <div
   class="model-row"
@@ -53,7 +52,7 @@
 >
   <div class="col col-check">
     {#if ontoggle}
-      <input type="checkbox" checked={selected} class="check" tabindex="-1" onclick={(e) => e.stopPropagation()} />
+      <input type="checkbox" checked={selected} class="check" tabindex="-1" onclick={(e) => { e.stopPropagation(); ontoggle?.(); }} />
     {/if}
   </div>
   <div class="col col-task">
@@ -61,8 +60,10 @@
       <span class="tag tag-task" title={task}>{task}</span>
     {/if}
   </div>
-  <div class="col col-repo" title={hfModelId}>{hfModelId}</div>
-  <div class="col col-file" title={filePath}>{fileLabel}</div>
+  <div class="col col-info" title="{hfModelId} — {filePath}">
+    <span class="info-repo">{hfModelId}</span>
+    <span class="info-file">{fileLabel}</span>
+  </div>
   <div class="col col-format" title="Format: {format}">
     <span class="tag tag-format" data-format={format}>{format}</span>
   </div>
@@ -77,7 +78,7 @@
 <style>
   .model-row {
     display: grid;
-    grid-template-columns: 20px 76px 160px 1fr 36px 36px 60px;
+    grid-template-columns: 20px 80px 1fr 36px 36px 60px;
     align-items: center;
     gap: 6px;
     padding: 6px 10px;
@@ -117,12 +118,21 @@
     width: 14px;
     height: 14px;
     cursor: pointer;
-    accent-color: var(--color-primary);
+
     flex-shrink: 0;
   }
 
-  .col-repo,
-  .col-file {
+  .col-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    min-width: 0;
+    overflow: hidden;
+    line-height: 1.2;
+  }
+
+  .info-repo,
+  .info-file {
     font-family: var(--font-mono);
     font-size: var(--text-xs);
     overflow: hidden;
@@ -130,11 +140,11 @@
     white-space: nowrap;
   }
 
-  .col-repo {
+  .info-repo {
     color: var(--color-text-primary);
   }
 
-  .col-file {
+  .info-file {
     color: var(--color-text-muted);
   }
 
@@ -158,21 +168,6 @@
     overflow: hidden;
   }
 
-  .tag {
-    font-family: var(--font-ui);
-    font-size: 10px;
-    padding: 1px 5px;
-    border-radius: var(--radius-sm);
-    border: 1px solid var(--color-border);
-    color: var(--color-text-secondary);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 100%;
-    display: inline-block;
-    line-height: 1.6;
-  }
-
   .tag-task,
   .tag-format,
   .tag-dtype {
@@ -186,6 +181,16 @@
 
   .tag-task {
     background: var(--color-surface-sunken);
+  }
+
+  @media (max-width: 600px) {
+    .model-row {
+      grid-template-columns: 20px 1fr 36px 36px 60px;
+    }
+
+    .col-task {
+      display: none;
+    }
   }
 
   .tag-format[data-format="onnx"]     { color: #3b82f6; border-color: #3b82f6; }

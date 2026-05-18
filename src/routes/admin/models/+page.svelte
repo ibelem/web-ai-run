@@ -184,10 +184,6 @@
     max-width: 100%;
   }
 
-  .page-header {
-    margin-bottom: var(--space-3);
-  }
-
   .header-row {
     display: flex;
     align-items: center;
@@ -195,25 +191,9 @@
     gap: var(--space-2);
   }
 
-  .page-header h1 {
-    font-size: var(--text-xl);
-    font-weight: 700;
-    letter-spacing: -0.01em;
-    margin-bottom: var(--space-half);
-  }
-
-  .page-header p {
-    font-size: var(--text-base);
-    color: var(--color-text-secondary);
-  }
-
   .error-banner {
     padding: var(--space-1) var(--space-2);
-    border: 1px solid var(--color-error);
     border-radius: var(--radius-lg);
-    background: var(--color-surface-sunken);
-    color: var(--color-error);
-    font-size: var(--text-sm);
     margin-bottom: var(--space-2);
   }
 

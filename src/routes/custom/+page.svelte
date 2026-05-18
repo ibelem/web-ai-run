@@ -237,22 +237,6 @@
     max-width: 100%;
   }
 
-  .page-header {
-    margin-bottom: var(--space-3);
-  }
-
-  .page-header h1 {
-    font-size: var(--text-xl);
-    font-weight: 700;
-    letter-spacing: -0.01em;
-    margin-bottom: var(--space-half);
-  }
-
-  .page-header p {
-    font-size: var(--text-base);
-    color: var(--color-text-secondary);
-  }
-
   .dropzone {
     border: 1px dashed var(--color-border);
     border-radius: var(--radius-lg);
@@ -375,20 +359,6 @@
     gap: var(--space-1);
   }
 
-  .btn-primary {
-    font-family: var(--font-ui);
-    font-size: var(--text-base);
-    font-weight: 500;
-    padding: 10px 20px;
-    border: none;
-    border-radius: var(--radius-sm);
-    background: var(--color-primary);
-    color: #FFFFFF;
-    cursor: pointer;
-    transition: background var(--transition-base);
-  }
-
-  .btn-primary:hover { background: var(--color-primary-hover); }
 
   .btn-stop {
     font-family: var(--font-ui);
@@ -443,25 +413,6 @@
   .env-label { color: var(--color-text-muted); }
   .env-value { color: var(--color-text-primary); }
 
-  .dialog-backdrop {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.5);
-    z-index: var(--z-overlay);
-    display: grid;
-    place-items: center;
-  }
-
-  .dialog-panel {
-    background: var(--color-surface-raised);
-    border: 1px solid var(--color-border-strong);
-    border-radius: var(--radius-lg);
-    padding: var(--space-3);
-    max-width: 400px;
-    width: calc(100% - var(--space-4));
-    box-shadow: var(--shadow-overlay);
-  }
-
   .dialog-panel h2 {
     font-size: var(--text-lg);
     font-weight: 300;
@@ -475,9 +426,7 @@
   }
 
   .dialog-actions {
-    display: flex;
     flex-direction: column;
-    gap: var(--space-1);
   }
 
   .btn-secondary {

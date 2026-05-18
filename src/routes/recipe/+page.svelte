@@ -123,28 +123,13 @@
     max-width: 100%;
   }
 
-  .page-header {
-    margin-bottom: var(--space-3);
-  }
-
   .header-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: var(--space-2);
   }
-
-  .page-header h1 {
-    font-size: var(--text-xl);
-    font-weight: 300;
-    margin-bottom: var(--space-half);
-  }
-
-  .page-header p {
-    font-size: var(--text-base);
-    color: var(--color-text-secondary);
-  }
-
+  
   .btn-primary {
     font-family: var(--font-ui);
     font-size: var(--text-sm);
@@ -163,17 +148,7 @@
 
   .error-banner {
     padding: var(--space-2);
-    border: 1px solid var(--color-error);
     border-radius: var(--radius-base);
-    background: var(--color-surface-sunken);
-    color: var(--color-error);
-    font-size: var(--text-sm);
-  }
-
-  .empty {
-    text-align: center;
-    padding: var(--space-5) var(--space-2);
-    color: var(--color-text-muted);
   }
 
   .empty .btn-secondary {
@@ -307,37 +282,6 @@
 
   .btn-secondary:hover { background: var(--color-nav-item-hover); }
 
-  .btn-ghost {
-    font-family: var(--font-ui);
-    font-size: var(--text-sm);
-    padding: var(--space-1) var(--space-2);
-    border: none;
-    border-radius: var(--radius-base);
-    background: none;
-    color: var(--color-text-secondary);
-    cursor: pointer;
-  }
-
-  .btn-ghost:hover { background: var(--color-nav-item-hover); }
-
-  .dialog-backdrop {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.5);
-    z-index: var(--z-overlay);
-    display: grid;
-    place-items: center;
-  }
-
-  .dialog-panel {
-    background: var(--color-surface-raised);
-    border: 1px solid var(--color-border-strong);
-    border-radius: var(--radius-lg);
-    padding: var(--space-3);
-    max-width: 400px;
-    width: calc(100% - var(--space-4));
-    box-shadow: var(--shadow-overlay);
-  }
 
   .dialog-panel h2 {
     font-size: var(--text-lg);
@@ -352,8 +296,6 @@
   }
 
   .dialog-actions {
-    display: flex;
     flex-direction: column;
-    gap: var(--space-1);
   }
 </style>
