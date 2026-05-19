@@ -25,6 +25,39 @@
     runtime: 'onnx' | 'litert';
   }
 
+  interface GroupedImportedFile {
+    key: string;
+    strippedPath: string;
+    format: string;
+    runtime: 'onnx' | 'litert';
+    files: ImportedFile[];
+  }
+
+  function groupFiles(files: ImportedFile[]): GroupedImportedFile[] {
+    const map = new Map<string, GroupedImportedFile>();
+    for (const f of files) {
+      const stripped = stripExt(f.path);
+      const key = `${stripped}::${f.format}`;
+      if (!map.has(key)) {
+        map.set(key, { key, strippedPath: stripped, format: f.format, runtime: f.runtime, files: [] });
+      }
+      map.get(key)!.files.push(f);
+    }
+    return [...map.values()];
+  }
+
+  function dtypeLabel(dt: string): string {
+    return dt === 'quantized' ? 'quant' : dt;
+  }
+
+  function groupSizeRange(files: ImportedFile[]): string {
+    if (files.length === 0) return '';
+    const sizes = files.map((f) => f.size);
+    const min = Math.min(...sizes);
+    const max = Math.max(...sizes);
+    return min === max ? formatSize(min) : `${formatSize(min)}...${formatSize(max)}`;
+  }
+
   interface ImportedRepo {
     id: string;          // org/repo
     task: string;
@@ -296,33 +329,42 @@
             </div>
 
             {#if repo.files.length > 0}
+            {@const grouped = groupFiles(repo.files)}
             <div class="file-grid">
-              {#each repo.files as file (file.path)}
-                {@const inLibrary = localSet.has(`${repo.id}::${file.path}`)}
-                {@const selected = isSelected(repo.id, file.path)}
+              {#each grouped as group (group.key)}
+                {@const anySelected = group.files.some((f) => isSelected(repo.id, f.path))}
+                {@const inLibrary = group.files.some((f) => localSet.has(`${repo.id}::${f.path}`))}
+
                 <div
                   class="file-card"
+                  class:has-selection={anySelected}
                   class:in-library={inLibrary}
-                  class:selected
-                  onclick={() => toggleFile(repo, file)}
-                  role="checkbox"
-                  aria-checked={selected}
-                  tabindex="0"
-                  onkeydown={(e) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); toggleFile(repo, file); } }}
                 >
-                  <div class="col col-check">
-                    <input type="checkbox" checked={selected} class="check" tabindex="-1" onclick={(e) => { e.stopPropagation(); toggleFile(repo, file); }} />
+                  <div class="card-left">
+                    <div class="card-top">
+                      {#if repo.task && repo.task !== 'uncategorized'}
+                        <span class="info-task">{repo.task}</span>
+                      {/if}
+                      {#if inLibrary}
+                        <span class="tag tag-inlib">In library</span>
+                      {/if}
+                      <span class="info-file" title={group.strippedPath}>{group.strippedPath}</span>
+                    </div>
+                    <div class="card-bottom">
+                      <span class="tag tag-format" data-format={group.format}>{group.format}</span>
+                    </div>
                   </div>
-                  <div class="col col-info" title="{repo.id} — {file.path}">
-                    {#if repo.task && repo.task !== 'uncategorized'}
-                      <span class="info-task">{repo.task}</span>
-                    {/if}
-                    <span class="info-file">{stripExt(file.path)}</span>
+                  <div class="card-chips">
+                    {#each group.files as file (file.path)}
+                      <button
+                        class="chip"
+                        class:chip-selected={isSelected(repo.id, file.path)}
+                        data-dtype={file.dataType}
+                        title={`${file.dataType} · ${formatSize(file.size)}`}
+                        onclick={() => toggleFile(repo, file)}
+                      >{dtypeLabel(file.dataType)}</button>
+                    {/each}
                   </div>
-                  <span class="col col-lib">{#if inLibrary}<span class="tag tag-inlib">In library</span>{/if}</span>
-                  <span class="col col-format" title="Format: {file.format}"><span class="tag tag-format" data-format={file.format}>{file.format}</span></span>
-                  <span class="col col-dtype" title="Data type: {file.dataType}"><span class="tag tag-dtype" data-dtype={file.dataType}>{file.dataType}</span></span>
-                  <span class="col col-size" title="Size: {formatSize(file.size)}"><span class="tag tag-size">{formatSize(file.size)}</span></span>
                 </div>
               {/each}
             </div>
@@ -457,18 +499,6 @@
     grid-template-columns: repeat(2, 1fr);
   }
 
-  .file-card {
-    display: grid;
-    grid-template-columns: 20px 1fr 60px 46px 46px 60px;
-    align-items: center;
-    gap: 6px;
-    padding: 5px 10px;
-    border-bottom: 1px solid var(--color-border);
-    min-width: 0;
-    cursor: pointer;
-    transition: background var(--transition-base), border-color var(--transition-base);
-  }
-
   @media (max-width: 700px) {
     .file-grid {
       grid-template-columns: 1fr;
@@ -479,69 +509,57 @@
     }
   }
 
-  @media (max-width: 500px) {
-    .file-card {
-      grid-template-columns: 20px 1fr 46px 46px;
-    }
-
-    .col-lib,
-    .col-size {
-      display: none;
-    }
+  .file-card {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 10px;
+    border-bottom: 1px solid var(--color-border);
+    min-width: 0;
+    pointer-events: none;
+    transition: background var(--transition-base);
   }
 
   .file-card:nth-child(odd) {
     border-right: 1px solid var(--color-border);
   }
 
-  .file-card:hover {
-    background: var(--color-accent-light);
-  }
-
-  .file-card.selected {
-    border-color: var(--color-info);
-    background: color-mix(in srgb, var(--color-info) 6%, var(--color-surface-raised));
+  .file-card.has-selection {
+    border-color: rgba(99, 102, 241, 0.5);
+    background: color-mix(in srgb, #6366f1 4%, var(--color-surface-raised));
   }
 
   .file-card.in-library {
-    background: color-mix(in srgb, var(--color-success, #10b981) 5%, var(--color-surface-raised));
+    background: color-mix(in srgb, #10b981 5%, var(--color-surface-raised));
   }
 
-  .col {
-    overflow: hidden;
-    min-width: 0;
-  }
-
-  .col-check {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .check {
-    width: 14px;
-    height: 14px;
-    cursor: pointer;
-
-    flex-shrink: 0;
-  }
-
-  .col-format,
-  .col-dtype,
-  .col-lib,
-  .col-size {
-    display: flex;
-    align-items: center;
-    overflow: hidden;
-  }
-
-  .col-info {
+  .card-left {
+    flex: 1;
     display: flex;
     flex-direction: column;
-    gap: 0;
-    min-width: 0;
+    gap: 2px;
     overflow: hidden;
-    line-height: 1.2;
+    min-width: 0;
+  }
+
+  .card-top,
+  .card-bottom {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex-wrap: wrap;
+    min-width: 0;
+  }
+
+  .card-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    justify-content: flex-end;
+    align-content: flex-start;
+    max-width: 180px;
+    flex-shrink: 0;
+    pointer-events: auto;
   }
 
   .info-task {
@@ -560,41 +578,71 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    min-width: 0;
   }
 
-  .col-format .tag-format,
-  .col-dtype .tag-dtype,
-  .col-lib .tag-inlib,
-  .col-size .tag-size {
-    width: 100%;
-    text-align: center;
+  .size-range {
+    font-family: var(--font-mono);
+    color: var(--color-text-muted);
+    border-color: var(--color-border);
+    white-space: nowrap;
+    flex-shrink: 0;
   }
 
-  .tag-size { font-family: var(--font-mono); }
+  .chip {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: var(--radius-sm);
+    border: 1px solid;
+    background: none;
+    cursor: pointer;
+    transition: opacity 0.12s, transform 0.12s;
+    user-select: none;
+    line-height: 1.4;
+  }
+
+  .chip:hover { opacity: 0.8; transform: translateY(-1px); }
+
+  .chip[data-dtype="fp32"]      { color: var(--color-primary); border-color: var(--color-primary); }
+  .chip[data-dtype="fp16"]      { color: #8b5cf6; border-color: #8b5cf6; }
+  .chip[data-dtype="bf16"]      { color: #7c3aed; border-color: #7c3aed; }
+  .chip[data-dtype="fp8"]       { color: #a855f7; border-color: #a855f7; }
+  .chip[data-dtype="int8"]      { color: #06b6d4; border-color: #06b6d4; }
+  .chip[data-dtype="uint8"]     { color: #0891b2; border-color: #0891b2; }
+  .chip[data-dtype="int4"]      { color: #10b981; border-color: #10b981; }
+  .chip[data-dtype="uint4"]     { color: #059669; border-color: #059669; }
+  .chip[data-dtype="q4"]        { color: #16a34a; border-color: #16a34a; }
+  .chip[data-dtype="q4f16"]     { color: #6366f1; border-color: #6366f1; }
+  .chip[data-dtype="bnb4"]      { color: #f59e0b; border-color: #f59e0b; }
+  .chip[data-dtype="quantized"] { color: #ea580c; border-color: #ea580c; }
+
+  .chip.chip-selected { color: #fff; }
+  .chip.chip-selected[data-dtype="fp32"]      { background: var(--color-primary); border-color: var(--color-primary); }
+  .chip.chip-selected[data-dtype="fp16"]      { background: #8b5cf6; border-color: #8b5cf6; }
+  .chip.chip-selected[data-dtype="bf16"]      { background: #7c3aed; border-color: #7c3aed; }
+  .chip.chip-selected[data-dtype="fp8"]       { background: #a855f7; border-color: #a855f7; }
+  .chip.chip-selected[data-dtype="int8"]      { background: #06b6d4; border-color: #06b6d4; }
+  .chip.chip-selected[data-dtype="uint8"]     { background: #0891b2; border-color: #0891b2; }
+  .chip.chip-selected[data-dtype="int4"]      { background: #10b981; border-color: #10b981; }
+  .chip.chip-selected[data-dtype="uint4"]     { background: #059669; border-color: #059669; }
+  .chip.chip-selected[data-dtype="q4"]        { background: #16a34a; border-color: #16a34a; }
+  .chip.chip-selected[data-dtype="q4f16"]     { background: #6366f1; border-color: #6366f1; }
+  .chip.chip-selected[data-dtype="bnb4"]      { background: #f59e0b; border-color: #f59e0b; }
+  .chip.chip-selected[data-dtype="quantized"] { background: #ea580c; border-color: #ea580c; }
+
+  .tag-inlib {
+    background: color-mix(in srgb, var(--color-success, #10b981) 12%, transparent);
+    color: var(--color-success, #10b981);
+    border-color: color-mix(in srgb, var(--color-success, #10b981) 30%, transparent);
+    flex-shrink: 0;
+  }
 
   .tag-task { background: var(--color-surface-sunken); }
 
   .tag-format[data-format="onnx"]     { color: #3b82f6; border-color: #3b82f6; }
   .tag-format[data-format="tflite"]   { color: #10b981; border-color: #10b981; }
   .tag-format[data-format="litertlm"] { color: #f97316; border-color: #f97316; }
-
-  .tag-dtype[data-dtype="fp32"]      { color: var(--color-primary); border-color: var(--color-primary); }
-  .tag-dtype[data-dtype="fp16"]      { color: #8b5cf6; border-color: #8b5cf6; }
-  .tag-dtype[data-dtype="bf16"]      { color: #7c3aed; border-color: #7c3aed; }
-  .tag-dtype[data-dtype="fp8"]       { color: #a855f7; border-color: #a855f7; }
-  .tag-dtype[data-dtype="int8"]      { color: #06b6d4; border-color: #06b6d4; }
-  .tag-dtype[data-dtype="uint8"]     { color: #0891b2; border-color: #0891b2; }
-  .tag-dtype[data-dtype="int4"]      { color: #10b981; border-color: #10b981; }
-  .tag-dtype[data-dtype="uint4"]     { color: #059669; border-color: #059669; }
-  .tag-dtype[data-dtype="q4"]        { color: #16a34a; border-color: #16a34a; }
-  .tag-dtype[data-dtype="q4f16"]     { color: #6366f1; border-color: #6366f1; }
-  .tag-dtype[data-dtype="bnb4"]      { color: #f59e0b; border-color: #f59e0b; }
-  .tag-dtype[data-dtype="quantized"] { color: #ea580c; border-color: #ea580c; }
-
-  .tag-inlib {
-    background: color-mix(in srgb, var(--color-success, #10b981) 12%, transparent);
-    color: var(--color-success, #10b981);
-    border-color: color-mix(in srgb, var(--color-success, #10b981) 30%, transparent);
-  }
 
 </style>

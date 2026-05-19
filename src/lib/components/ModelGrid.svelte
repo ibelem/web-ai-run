@@ -1,5 +1,6 @@
 <script lang="ts">
   import ModelCard from './ModelCard.svelte';
+  import { inferFormat, stripExt } from '$lib/huggingface/parser';
 
   interface Model {
     id: string;
@@ -12,24 +13,60 @@
     task: string;
   }
 
+  interface GroupedModel {
+    key: string;
+    hfModelId: string;
+    filePath: string;
+    format: string;
+    task: string;
+    inLibrary: boolean;
+    variants: { id: string; dataType: string; sizeBytes: number }[];
+  }
+
   interface Props {
     models: Model[];
+    inLibraryIds?: Set<string>;
     selectedIds?: Set<string>;
     ontoggle?: (id: string) => void;
   }
 
-  let { models, selectedIds = new Set(), ontoggle }: Props = $props();
+  let { models, inLibraryIds = new Set(), selectedIds = new Set(), ontoggle }: Props = $props();
 
   const PAGE_SIZE = 200;
   let currentPage = $state(1);
 
-  const totalPages = $derived(Math.ceil(models.length / PAGE_SIZE));
-  const pagedModels = $derived(
-    models.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
+  function groupModels(flat: Model[], libIds: Set<string>): GroupedModel[] {
+    const map = new Map<string, GroupedModel>();
+    for (const m of flat) {
+      const stripped = stripExt(m.file_path);
+      const format = inferFormat(m.file_path);
+      const key = `${m.hf_model_id}::${stripped}::${format}`;
+      if (!map.has(key)) {
+        map.set(key, {
+          key,
+          hfModelId: m.hf_model_id,
+          filePath: stripped,
+          format,
+          task: m.task,
+          inLibrary: false,
+          variants: [],
+        });
+      }
+      const group = map.get(key)!;
+      group.variants.push({ id: m.id, dataType: m.data_type, sizeBytes: m.size_bytes });
+      if (libIds.has(m.id)) group.inLibrary = true;
+    }
+    return [...map.values()];
+  }
+
+  const groups = $derived(groupModels(models, inLibraryIds));
+  const totalPages = $derived(Math.ceil(groups.length / PAGE_SIZE));
+  const pagedGroups = $derived(
+    groups.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
   );
 
   $effect(() => {
-    models;
+    groups;
     currentPage = 1;
   });
 
@@ -41,31 +78,33 @@
   }
 </script>
 
-{#if models.length === 0}
+{#if groups.length === 0}
   <div class="empty">
     <p>No models found matching your filters.</p>
     <p class="empty-hint">Try clearing your filters, or <a href="/custom">upload your own model</a> to benchmark.</p>
   </div>
 {:else}
   <div class="list-wrap">
-    {#each pagedModels as model (model.id)}
+    {#each pagedGroups as group (group.key)}
       <ModelCard
-        hfModelId={model.hf_model_id}
-        filePath={model.file_path}
-        dataType={model.data_type}
-        sizeBytes={model.size_bytes}
-        runtime={model.runtime}
-        sourceOrg={model.source_org}
-        task={model.task}
-        selected={selectedIds.has(model.id)}
-        ontoggle={ontoggle ? () => ontoggle(model.id) : undefined}
+        hfModelId={group.hfModelId}
+        filePath={group.filePath}
+        format={group.format}
+        task={group.task}
+        inLibrary={group.inLibrary}
+        variants={group.variants}
+        {selectedIds}
+        {ontoggle}
       />
     {/each}
   </div>
 
   <div class="footer">
     <p class="count">
-      {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, models.length)} of {models.length} model{models.length === 1 ? '' : 's'}
+      {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, groups.length)} of {groups.length} model{groups.length === 1 ? '' : 's'}
+      {#if models.length !== groups.length}
+        <span class="file-count">({models.length} files)</span>
+      {/if}
     </p>
 
     {#if totalPages > 1}
@@ -119,6 +158,11 @@
   .count {
     font-size: var(--text-xs);
     color: var(--color-text-muted);
+  }
+
+  .file-count {
+    color: var(--color-text-muted);
+    opacity: 0.7;
   }
 
   .pagination {

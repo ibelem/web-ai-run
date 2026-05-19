@@ -39,9 +39,9 @@
   --space-6: 24px;
 
   /* Border radius */
-  --radius-sm: 1px;
+  --radius-sm: 3px;
   --radius-base: 3px;
-  --radius-lg: 5px;
+  --radius-lg: 3px;
 
   /* Z-index scale */
   --z-base: 0;

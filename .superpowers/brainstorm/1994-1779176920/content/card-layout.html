@@ -1,0 +1,277 @@
+<h2>Grouped Model Card Design</h2>
+<p class="subtitle">Current: one card per variant. Proposed: one card per filename, dtype chips on the right.</p>
+
+<style>
+  .compare-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+    margin-top: 8px;
+  }
+  .compare-section h3 {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #888;
+    margin: 0 0 10px 0;
+  }
+  .card-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  /* --- CURRENT CARD --- */
+  .old-card {
+    display: grid;
+    grid-template-columns: 18px 70px 1fr 40px 52px 56px;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 10px;
+    background: var(--color-surface, #1e1e2e);
+    border: 1px solid var(--color-border, #2e2e3e);
+    border-radius: 6px;
+    font-size: 12px;
+  }
+  .old-card.selected {
+    border-color: #38bdf8;
+    background: rgba(56,189,248,0.06);
+  }
+  .col-check input { width: 13px; height: 13px; cursor: pointer; accent-color: #38bdf8; }
+  .task-tag {
+    font-size: 10px;
+    padding: 2px 5px;
+    border-radius: 4px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: #aaa;
+  }
+  .info-repo { font-family: monospace; font-size: 11px; color: #e0e0e0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .info-file { font-family: monospace; font-size: 10px; color: #888; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .col-info { display: flex; flex-direction: column; overflow: hidden; }
+  .fmt-tag, .dtype-tag, .size-tag {
+    font-size: 10px;
+    font-family: monospace;
+    padding: 2px 5px;
+    border-radius: 4px;
+    border: 1px solid;
+    text-align: center;
+    white-space: nowrap;
+  }
+  .fmt-tag { color: #3b82f6; border-color: #3b82f6; }
+  .dtype-fp16 { color: #8b5cf6; border-color: #8b5cf6; }
+  .dtype-int8 { color: #06b6d4; border-color: #06b6d4; }
+  .dtype-q4 { color: #16a34a; border-color: #16a34a; }
+  .dtype-q4f16 { color: #6366f1; border-color: #6366f1; }
+  .dtype-fp32 { color: #6ea8fe; border-color: #6ea8fe; }
+  .size-tag { color: #888; border-color: #3a3a4a; background: rgba(255,255,255,0.03); }
+
+  /* --- NEW CARD --- */
+  .new-card {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: var(--color-surface, #1e1e2e);
+    border: 1px solid var(--color-border, #2e2e3e);
+    border-radius: 6px;
+    font-size: 12px;
+  }
+  .new-card-left {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    overflow: hidden;
+    min-width: 0;
+  }
+  .new-card-top {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .new-card-bottom {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .new-card-right {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    justify-content: flex-end;
+    align-content: flex-start;
+    max-width: 200px;
+    flex-shrink: 0;
+  }
+  .chip {
+    font-size: 11px;
+    font-family: monospace;
+    font-weight: 600;
+    padding: 3px 9px;
+    border-radius: 4px;
+    border: 1px solid;
+    cursor: pointer;
+    transition: all 0.15s;
+    user-select: none;
+  }
+  .chip:hover { opacity: 0.85; transform: translateY(-1px); }
+  .chip.chip-selected { color: #fff !important; }
+  .chip.chip-fp16 { color: #8b5cf6; border-color: #8b5cf6; }
+  .chip.chip-fp16.chip-selected { background: #8b5cf6; border-color: #8b5cf6; }
+  .chip.chip-int8 { color: #06b6d4; border-color: #06b6d4; }
+  .chip.chip-int8.chip-selected { background: #06b6d4; }
+  .chip.chip-q4 { color: #16a34a; border-color: #16a34a; }
+  .chip.chip-q4.chip-selected { background: #16a34a; }
+  .chip.chip-q4f16 { color: #6366f1; border-color: #6366f1; }
+  .chip.chip-q4f16.chip-selected { background: #6366f1; }
+  .chip.chip-fp32 { color: #6ea8fe; border-color: #6ea8fe; }
+  .chip.chip-fp32.chip-selected { background: #6ea8fe; }
+
+  .divider {
+    height: 1px;
+    background: rgba(255,255,255,0.06);
+    margin: 4px 0;
+  }
+
+  .new-card.has-selection {
+    border-color: rgba(99,102,241,0.5);
+    background: rgba(99,102,241,0.04);
+  }
+  .size-range { font-family: monospace; font-size: 10px; color: #666; }
+  .inlib-badge {
+    font-size: 10px;
+    padding: 1px 5px;
+    border-radius: 3px;
+    border: 1px solid #16a34a;
+    color: #16a34a;
+  }
+</style>
+
+<div class="compare-wrap">
+
+  <!-- CURRENT -->
+  <div class="compare-section">
+    <h3>Current — one row per variant (4 rows for same file)</h3>
+    <div class="card-list">
+      <div class="old-card">
+        <div class="col-check"><input type="checkbox" /></div>
+        <span class="task-tag">text-gen</span>
+        <div class="col-info"><span class="info-repo">onnx-community/Qwen2.5-0.5B</span><span class="info-file">onnx/model</span></div>
+        <span class="fmt-tag">onnx</span>
+        <span class="fmt-tag dtype-fp16">fp16</span>
+        <span class="size-tag">97.3 MB</span>
+      </div>
+      <div class="old-card selected">
+        <div class="col-check"><input type="checkbox" checked /></div>
+        <span class="task-tag">text-gen</span>
+        <div class="col-info"><span class="info-repo">onnx-community/Qwen2.5-0.5B</span><span class="info-file">onnx/model</span></div>
+        <span class="fmt-tag">onnx</span>
+        <span class="fmt-tag dtype-int8">int8</span>
+        <span class="size-tag">52.1 MB</span>
+      </div>
+      <div class="old-card">
+        <div class="col-check"><input type="checkbox" /></div>
+        <span class="task-tag">text-gen</span>
+        <div class="col-info"><span class="info-repo">onnx-community/Qwen2.5-0.5B</span><span class="info-file">onnx/model</span></div>
+        <span class="fmt-tag">onnx</span>
+        <span class="fmt-tag dtype-q4">q4</span>
+        <span class="size-tag">29.8 MB</span>
+      </div>
+      <div class="old-card">
+        <div class="col-check"><input type="checkbox" /></div>
+        <span class="task-tag">text-gen</span>
+        <div class="col-info"><span class="info-repo">onnx-community/Qwen2.5-0.5B</span><span class="info-file">onnx/model</span></div>
+        <span class="fmt-tag">onnx</span>
+        <span class="fmt-tag dtype-q4f16">q4f16</span>
+        <span class="size-tag">36.2 MB</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- PROPOSED -->
+  <div class="compare-section">
+    <h3>Proposed — grouped card, dtype chips on right (1 row, 4 chips)</h3>
+    <div class="card-list">
+      <div class="new-card has-selection" id="demo-card">
+        <div class="new-card-left">
+          <div class="new-card-top">
+            <span class="task-tag">text-gen</span>
+            <span class="info-repo">onnx-community / Qwen2.5-0.5B</span>
+          </div>
+          <div class="new-card-bottom">
+            <span class="fmt-tag">onnx</span>
+            <span class="info-file">onnx/model</span>
+            <span class="size-range">29–97 MB</span>
+          </div>
+        </div>
+        <div class="new-card-right">
+          <span class="chip chip-fp16" onclick="toggleChip(this)">fp16</span>
+          <span class="chip chip-int8 chip-selected" onclick="toggleChip(this)">int8</span>
+          <span class="chip chip-q4" onclick="toggleChip(this)">q4</span>
+          <span class="chip chip-q4f16 chip-selected" onclick="toggleChip(this)">q4f16</span>
+        </div>
+      </div>
+
+      <!-- second card showing 2-row wrap with more chips -->
+      <div class="new-card" id="demo-card-2">
+        <div class="new-card-left">
+          <div class="new-card-top">
+            <span class="task-tag">text-gen</span>
+            <span class="info-repo">onnx-community / Qwen2.5-7B</span>
+          </div>
+          <div class="new-card-bottom">
+            <span class="fmt-tag">onnx</span>
+            <span class="info-file">onnx/model</span>
+            <span class="size-range">1.4–4.7 GB</span>
+          </div>
+        </div>
+        <div class="new-card-right">
+          <span class="chip chip-fp16" onclick="toggleChip(this)">fp16</span>
+          <span class="chip chip-fp32" onclick="toggleChip(this)">fp32</span>
+          <span class="chip chip-int8" onclick="toggleChip(this)">int8</span>
+          <span class="chip chip-q4" onclick="toggleChip(this)">q4</span>
+          <span class="chip chip-q4f16" onclick="toggleChip(this)">q4f16</span>
+        </div>
+      </div>
+
+      <!-- "in library" state -->
+      <div class="new-card">
+        <div class="new-card-left">
+          <div class="new-card-top">
+            <span class="task-tag">asr</span>
+            <span class="info-repo">onnx-community / whisper-base</span>
+            <span class="inlib-badge">In library</span>
+          </div>
+          <div class="new-card-bottom">
+            <span class="fmt-tag">onnx</span>
+            <span class="info-file">onnx/encoder_model</span>
+            <span class="size-range">44 MB</span>
+          </div>
+        </div>
+        <div class="new-card-right">
+          <span class="chip chip-fp32" onclick="toggleChip(this)">fp32</span>
+          <span class="chip chip-fp16" onclick="toggleChip(this)">fp16</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<script>
+function toggleChip(el) {
+  el.classList.toggle('chip-selected');
+  // update card border
+  const card = el.closest('.new-card');
+  const anySelected = card.querySelectorAll('.chip-selected').length > 0;
+  card.classList.toggle('has-selection', anySelected);
+}
+</script>

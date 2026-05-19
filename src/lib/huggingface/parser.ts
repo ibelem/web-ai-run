@@ -45,10 +45,14 @@ export function inferFormat(path: string): string {
 }
 
 export function stripExt(path: string): string {
-  const name = path.split('/').pop() ?? path;
-  const dot = name.lastIndexOf('.');
-  const base = dot > 0 ? name.slice(0, dot) : name;
-  return base.replace(/[_-](q4f16|bnb4|fp8|bf16|fp16|fp32|uint8|uint4|int4|int8|q8|quantized|q4)$/i, '');
+  // Remove file extension from the full path (preserving directory prefix)
+  const dot = path.lastIndexOf('.');
+  const noExt = dot > 0 ? path.slice(0, dot) : path;
+  // Strip dtype suffix from the last path segment only
+  const slash = noExt.lastIndexOf('/');
+  const dir = slash >= 0 ? noExt.slice(0, slash + 1) : '';
+  const base = slash >= 0 ? noExt.slice(slash + 1) : noExt;
+  return dir + base.replace(/[_-](q4f16|bnb4|fp8|bf16|fp16|fp32|uint8|uint4|int4|int8|q8|quantized|q4)$/i, '');
 }
 
 export interface ParsedFile {
