@@ -3,7 +3,9 @@ import { createClient } from '@supabase/supabase-js';
 const HF_API_BASE = 'https://huggingface.co/api';
 
 const SKIP_PATTERNS = ['.onnx.data', '.onnx_data'];
-const CONCURRENCY = 10;
+const CONCURRENCY = 5;
+const RATE_LIMIT_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
+const RATE_LIMIT_MAX = 450;                  // stay under HF's 500 req/5min limit
 
 const DATA_TYPE_PATTERNS: [RegExp, string][] = [
   [/[_-]q4f16/, 'q4f16'],
@@ -43,6 +45,48 @@ function parseLinkNext(header: string | null): string | null {
   return match ? match[1] : null;
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// Proactive rate limiter: tracks requests in the current window and pauses
+// before sending if the budget is exhausted, rather than waiting for a 429.
+const rateLimiter = {
+  windowStart: Date.now(),
+  count: 0,
+  async throttle() {
+    const now = Date.now();
+    if (now - this.windowStart >= RATE_LIMIT_WINDOW_MS) {
+      this.windowStart = now;
+      this.count = 0;
+    }
+    if (this.count >= RATE_LIMIT_MAX) {
+      const wait = RATE_LIMIT_WINDOW_MS - (now - this.windowStart) + 1000;
+      console.log(`  Rate limit budget reached (${this.count} req). Pausing ${Math.ceil(wait / 1000)}s...`);
+      await sleep(wait);
+      this.windowStart = Date.now();
+      this.count = 0;
+    }
+    this.count++;
+  },
+};
+
+async function hfFetch(url: string): Promise<Response> {
+  await rateLimiter.throttle();
+  const res = await fetch(url);
+  // Fallback: if a 429 slips through despite throttling, wait out the window and retry once.
+  if (res.status === 429) {
+    const wait = RATE_LIMIT_WINDOW_MS + 1000;
+    console.warn(`  Unexpected 429. Waiting ${Math.ceil(wait / 1000)}s before retry...`);
+    await sleep(wait);
+    rateLimiter.windowStart = Date.now();
+    rateLimiter.count = 0;
+    await rateLimiter.throttle();
+    return fetch(url);
+  }
+  return res;
+}
+
 interface ModelRow {
   hf_model_id: string;
   file_path: string;
@@ -60,7 +104,7 @@ async function fetchAllRepos(orgName: string, errors: string[]): Promise<any[]> 
   let page = 1;
 
   while (url) {
-    const res = await fetch(url);
+    const res = await hfFetch(url);
     if (!res.ok) {
       errors.push(`Failed to list ${orgName} page ${page}: ${res.status}`);
       break;
@@ -74,20 +118,25 @@ async function fetchAllRepos(orgName: string, errors: string[]): Promise<any[]> 
   return repos;
 }
 
+// Returns null if the fetch failed (rate limit or network error) — caller must not delete stale rows for this repo.
+// Returns ModelRow[] (possibly empty) if the fetch succeeded — repo was reachable and had 0 supported files.
 async function fetchRepoFiles(
   repoId: string,
   orgName: string,
   task: string,
   now: string,
   errors: string[]
-): Promise<ModelRow[]> {
+): Promise<ModelRow[] | null> {
   try {
     const rows: ModelRow[] = [];
     let url: string | null = `${HF_API_BASE}/models/${repoId}/tree/main?recursive=true`;
 
     while (url) {
-      const res = await fetch(url);
-      if (!res.ok) return rows;
+      const res = await hfFetch(url);
+      if (!res.ok) {
+        errors.push(`Failed to fetch tree for ${repoId}: ${res.status}`);
+        return null;
+      }
 
       const files: any[] = await res.json();
 
@@ -118,7 +167,7 @@ async function fetchRepoFiles(
     return rows;
   } catch (e) {
     errors.push(`Failed to list files for ${repoId}: ${e}`);
-    return [];
+    return null;
   }
 }
 
@@ -184,8 +233,10 @@ async function main() {
       const successfulRepoIds: string[] = [];
       for (let i = 0; i < results.length; i++) {
         const repoRows = results[i];
-        if (repoRows !== undefined) successfulRepoIds.push(activeRepos[i].id);
-        rows.push(...repoRows);
+        if (repoRows !== null) {
+          successfulRepoIds.push(activeRepos[i].id);
+          rows.push(...repoRows);
+        }
       }
       fetchedRepoIds.push(...successfulRepoIds);
 
