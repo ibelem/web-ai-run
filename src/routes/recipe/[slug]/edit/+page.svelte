@@ -5,6 +5,7 @@
   import { updateRecipe } from '$lib/recipes/crud';
   import type { RecipeModel } from '$lib/supabase/types';
   import type { Backend } from '$lib/engine/types';
+  import { inferFormat } from '$lib/huggingface/parser';
 
   let { data } = $props();
 
@@ -30,14 +31,6 @@
   let selectedDataTypes = $state<Set<string>>(new Set());
   let selectedCategories = $state<Set<string>>(new Set());
   let selectedSizes = $state<Set<string>>(new Set());
-
-  function inferFormat(path: string): string {
-    const lower = path.toLowerCase();
-    if (lower.endsWith('.litertlm')) return 'litertlm';
-    if (lower.endsWith('.tflite')) return 'tflite';
-    if (lower.endsWith('.onnx')) return 'onnx';
-    return 'unknown';
-  }
 
   const allModels = $derived(data.models);
   const formats = $derived([...new Set(allModels.map((m) => inferFormat(m.file_path)))].sort());

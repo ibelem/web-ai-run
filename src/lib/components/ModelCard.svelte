@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { inferFormat, stripExt } from '$lib/huggingface/parser';
+
   interface Props {
     hfModelId: string;
     filePath: string;
@@ -18,21 +20,6 @@
     if (bytes >= 1_000_000) return `${(bytes / 1_000_000).toFixed(1)} MB`;
     if (bytes >= 1_000) return `${(bytes / 1_000).toFixed(1)} KB`;
     return `${bytes} B`;
-  }
-
-  function stripExt(path: string): string {
-    const name = path.split('/').pop() ?? path;
-    const dot = name.lastIndexOf('.');
-    const base = dot > 0 ? name.slice(0, dot) : name;
-    return base.replace(/[_-](q4f16|bnb4|fp8|bf16|fp16|fp32|uint8|uint4|int4|int8|q8|quantized|q4)$/i, '');
-  }
-
-  function inferFormat(path: string): string {
-    const lower = path.toLowerCase();
-    if (lower.endsWith('.litertlm')) return 'litertlm';
-    if (lower.endsWith('.tflite')) return 'tflite';
-    if (lower.endsWith('.onnx')) return 'onnx';
-    return 'unknown';
   }
 
   const fileLabel = $derived(stripExt(filePath));

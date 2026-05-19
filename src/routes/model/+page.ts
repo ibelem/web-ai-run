@@ -26,7 +26,6 @@ export const load: PageLoad = async ({ url }) => {
       let query = supabase
         .from('models')
         .select('id, hf_model_id, file_path, data_type, size_bytes, runtime, source_org, task, last_synced')
-        .eq('enabled', true)
         .order('hf_model_id', { ascending: true })
         .range(from, from + PAGE - 1);
 

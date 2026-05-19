@@ -33,26 +33,6 @@ export const actions: Actions = {
     return { success: true };
   },
 
-  toggleEnabled: async ({ request, locals }) => {
-    const session = await locals.getSession();
-    if (!session) redirect(303, '/');
-    if (session.user.app_metadata?.role !== 'admin') error(403, 'Admin access required');
-
-    const fd = await request.formData();
-    const id = fd.get('id') as string;
-    const enabled = fd.get('enabled') === 'true';
-
-    if (!id) return { success: false, error: 'Missing id' };
-
-    const { error: err } = await locals.supabase
-      .from('orgs')
-      .update({ enabled })
-      .eq('id', id);
-
-    if (err) return { success: false, error: err.message };
-    return { success: true };
-  },
-
   update: async ({ request, locals }) => {
     const session = await locals.getSession();
     if (!session) redirect(303, '/');

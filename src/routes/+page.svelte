@@ -6,6 +6,7 @@
   import { BACKENDS, detectAvailableBackends } from '$lib/engine/backends';
   import { detectEnvironment } from '$lib/engine/environment';
   import type { Backend, EnvironmentInfo } from '$lib/engine/types';
+  import { inferFormat, stripExt } from '$lib/huggingface/parser';
 
   interface RecentModel {
     id: string;
@@ -17,14 +18,6 @@
     source_org: string;
     task: string;
     last_synced: string;
-  }
-
-  function inferFormat(path: string): string {
-    const lower = path.toLowerCase();
-    if (lower.endsWith('.litertlm')) return 'litertlm';
-    if (lower.endsWith('.tflite')) return 'tflite';
-    if (lower.endsWith('.onnx')) return 'onnx';
-    return 'unknown';
   }
 
   let environment = $state<EnvironmentInfo | null>(null);
@@ -96,12 +89,6 @@
     return `${days}d ago`;
   }
 
-  function stripExt(path: string): string {
-    const name = path.split('/').pop() ?? path;
-    const dot = name.lastIndexOf('.');
-    const base = dot > 0 ? name.slice(0, dot) : name;
-    return base.replace(/[_-](q4f16|bnb4|fp8|bf16|fp16|fp32|uint8|uint4|int4|int8|q8|quantized|q4)$/i, '');
-  }
 </script>
 
 <div class="dashboard">

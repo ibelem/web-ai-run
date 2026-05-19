@@ -37,6 +37,12 @@ function inferDataType(filename: string): string {
   return 'fp32';
 }
 
+function parseLinkNext(header: string | null): string | null {
+  if (!header) return null;
+  const match = header.match(/<([^>]+)>;\s*rel="next"/);
+  return match ? match[1] : null;
+}
+
 interface ModelRow {
   hf_model_id: string;
   file_path: string;
@@ -48,6 +54,26 @@ interface ModelRow {
   last_synced: string;
 }
 
+async function fetchAllRepos(orgName: string, errors: string[]): Promise<any[]> {
+  const repos: any[] = [];
+  let url: string | null = `${HF_API_BASE}/models?author=${encodeURIComponent(orgName)}&limit=1000`;
+  let page = 1;
+
+  while (url) {
+    const res = await fetch(url);
+    if (!res.ok) {
+      errors.push(`Failed to list ${orgName} page ${page}: ${res.status}`);
+      break;
+    }
+    const batch: any[] = await res.json();
+    repos.push(...batch);
+    url = parseLinkNext(res.headers.get('Link'));
+    if (url) page++;
+  }
+
+  return repos;
+}
+
 async function fetchRepoFiles(
   repoId: string,
   orgName: string,
@@ -56,31 +82,37 @@ async function fetchRepoFiles(
   errors: string[]
 ): Promise<ModelRow[]> {
   try {
-    const res = await fetch(`${HF_API_BASE}/models/${repoId}/tree/main?recursive=true`);
-    if (!res.ok) return [];
-
-    const files: any[] = await res.json();
     const rows: ModelRow[] = [];
+    let url: string | null = `${HF_API_BASE}/models/${repoId}/tree/main?recursive=true`;
 
-    for (const file of files) {
-      if (file.type !== 'file') continue;
-      const filePath: string = file.path ?? file.rfilename ?? '';
-      const lower = filePath.toLowerCase();
-      if (SKIP_PATTERNS.some((s) => lower.includes(s))) continue;
+    while (url) {
+      const res = await fetch(url);
+      if (!res.ok) return rows;
 
-      const runtime = inferRuntime(filePath);
-      if (!runtime) continue;
+      const files: any[] = await res.json();
 
-      rows.push({
-        hf_model_id: repoId,
-        file_path: filePath,
-        data_type: inferDataType(filePath),
-        size_bytes: file.lfs?.size ?? file.size ?? 0,
-        runtime,
-        source_org: orgName,
-        task,
-        last_synced: now,
-      });
+      for (const file of files) {
+        if (file.type !== 'file') continue;
+        const filePath: string = file.path ?? file.rfilename ?? '';
+        const lower = filePath.toLowerCase();
+        if (SKIP_PATTERNS.some((s) => lower.includes(s))) continue;
+
+        const runtime = inferRuntime(filePath);
+        if (!runtime) continue;
+
+        rows.push({
+          hf_model_id: repoId,
+          file_path: filePath,
+          data_type: inferDataType(filePath),
+          size_bytes: file.lfs?.size ?? file.size ?? 0,
+          runtime,
+          source_org: orgName,
+          task,
+          last_synced: now,
+        });
+      }
+
+      url = parseLinkNext(res.headers.get('Link'));
     }
 
     return rows;
@@ -122,7 +154,6 @@ async function main() {
   const { data: orgsData, error: orgsError } = await supabase
     .from('orgs')
     .select('name')
-    .eq('enabled', true)
     .order('name', { ascending: true });
 
   if (orgsError) {
@@ -131,7 +162,7 @@ async function main() {
   }
 
   const HF_ORGS = orgsData ?? [];
-  console.log(`Loaded ${HF_ORGS.length} enabled orgs from DB: ${HF_ORGS.map((o) => o.name).join(', ')}`);
+  console.log(`Loaded ${HF_ORGS.length} orgs from DB: ${HF_ORGS.map((o) => o.name).join(', ')}`);
 
   const rows: ModelRow[] = [];
   const errors: string[] = [];
@@ -141,15 +172,7 @@ async function main() {
   for (const org of HF_ORGS) {
     console.log(`Fetching repos for ${org.name}...`);
     try {
-      const reposRes = await fetch(
-        `${HF_API_BASE}/models?author=${encodeURIComponent(org.name)}&limit=1000`
-      );
-      if (!reposRes.ok) {
-        errors.push(`Failed to list ${org.name}: ${reposRes.status}`);
-        continue;
-      }
-
-      const repos: any[] = await reposRes.json();
+      const repos = await fetchAllRepos(org.name, errors);
       const activeRepos = repos.filter((r) => !r.private && !r.disabled);
       console.log(`  Found ${activeRepos.length} repos, fetching file trees (${CONCURRENCY} concurrent)...`);
 
@@ -161,7 +184,6 @@ async function main() {
       const successfulRepoIds: string[] = [];
       for (let i = 0; i < results.length; i++) {
         const repoRows = results[i];
-        // Track repos that responded (even if they had 0 supported files)
         if (repoRows !== undefined) successfulRepoIds.push(activeRepos[i].id);
         rows.push(...repoRows);
       }

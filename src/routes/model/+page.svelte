@@ -7,6 +7,7 @@
   import type { ModelRow } from './+page.ts';
   import { invalidateModelCache } from '$lib/model-cache';
   import ActionPanel from '$lib/components/ActionPanel.svelte';
+  import { inferFormat } from '$lib/huggingface/parser';
 
   let { data } = $props<{ data: { models: ModelRow[]; error: string | null; initialSearch: string } }>();
 
@@ -70,14 +71,6 @@
   });
 
   const totalSelected = $derived(selectedIds.size + selectedHFModels.length);
-
-  function inferFormat(path: string): string {
-    const lower = path.toLowerCase();
-    if (lower.endsWith('.litertlm')) return 'litertlm';
-    if (lower.endsWith('.tflite')) return 'tflite';
-    if (lower.endsWith('.onnx')) return 'onnx';
-    return 'unknown';
-  }
 
   const allModels: ModelRow[] = $derived(data.models);
 

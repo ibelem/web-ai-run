@@ -1,4 +1,4 @@
-const MODEL_EXTENSIONS = ['.onnx', '.tflite', '.litertlm'];
+export const MODEL_EXTENSIONS = ['.onnx', '.tflite', '.litertlm'];
 // Matches .onnx.data (old style) and .onnx_data, .onnx_data_1, .onnx_data_N (new style)
 const SKIP_PATTERNS = ['.onnx.data', '.onnx_data'];
 
@@ -34,6 +34,21 @@ export function inferDataType(filename: string): string {
   }
 
   return 'fp32';
+}
+
+export function inferFormat(path: string): string {
+  const lower = path.toLowerCase();
+  if (lower.endsWith('.litertlm')) return 'litertlm';
+  if (lower.endsWith('.tflite')) return 'tflite';
+  if (lower.endsWith('.onnx')) return 'onnx';
+  return 'unknown';
+}
+
+export function stripExt(path: string): string {
+  const name = path.split('/').pop() ?? path;
+  const dot = name.lastIndexOf('.');
+  const base = dot > 0 ? name.slice(0, dot) : name;
+  return base.replace(/[_-](q4f16|bnb4|fp8|bf16|fp16|fp32|uint8|uint4|int4|int8|q8|quantized|q4)$/i, '');
 }
 
 export interface ParsedFile {

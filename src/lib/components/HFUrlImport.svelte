@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { SelectedHFModel } from './HFSearch.svelte';
+  import { inferFormat, inferDataType, inferRuntime, stripExt } from '$lib/huggingface/parser';
 
   interface Props {
     url: string;
@@ -32,7 +33,6 @@
   }
 
   const HF_API = 'https://huggingface.co/api';
-  const SKIP = ['.onnx.data', '.onnx_data'];
 
   let repos = $state<ImportedRepo[]>([]);
   let loading = $state(false);
@@ -82,39 +82,6 @@
 
   // --- Helpers ---
 
-  function inferFormat(path: string): string {
-    const lower = path.toLowerCase();
-    if (lower.endsWith('.litertlm')) return 'litertlm';
-    if (lower.endsWith('.tflite')) return 'tflite';
-    if (lower.endsWith('.onnx')) return 'onnx';
-    return '';
-  }
-
-  function inferDataType(path: string): string {
-    const lower = (path.split('/').pop() ?? path).toLowerCase();
-    if (/[_-]q4f16/.test(lower)) return 'q4f16';
-    if (/[_-]bnb4/.test(lower)) return 'bnb4';
-    if (/[_-]fp8/.test(lower)) return 'fp8';
-    if (/[_-]bf16/.test(lower)) return 'bf16';
-    if (/[_-]fp16/.test(lower)) return 'fp16';
-    if (/[_-]fp32/.test(lower)) return 'fp32';
-    if (/[_-]uint8/.test(lower)) return 'uint8';
-    if (/[_-]uint4/.test(lower)) return 'uint4';
-    if (/[_-]int4/.test(lower)) return 'int4';
-    if (/[_-]int8/.test(lower)) return 'int8';
-    if (/[_-]q8/.test(lower)) return 'int8';
-    if (/[_-]quantized/.test(lower)) return 'quantized';
-    if (/[_-]q4(?!f)/.test(lower)) return 'q4';
-    return 'fp32';
-  }
-
-  function inferRuntime(path: string): 'onnx' | 'litert' | null {
-    const lower = path.toLowerCase();
-    if (lower.endsWith('.onnx') && !SKIP.some((s) => lower.includes(s))) return 'onnx';
-    if (lower.endsWith('.tflite') || lower.endsWith('.litertlm')) return 'litert';
-    return null;
-  }
-
   function isSupported(path: string): boolean {
     return inferRuntime(path) !== null;
   }
@@ -124,13 +91,6 @@
     if (bytes >= 1_000_000) return `${(bytes / 1_000_000).toFixed(1)} MB`;
     if (bytes >= 1_000) return `${(bytes / 1_000).toFixed(1)} KB`;
     return `${bytes} B`;
-  }
-
-  function stripExt(path: string): string {
-    const name = path.split('/').pop() ?? path;
-    const dot = name.lastIndexOf('.');
-    const base = dot > 0 ? name.slice(0, dot) : name;
-    return base.replace(/[_-](q4f16|bnb4|fp8|bf16|fp16|fp32|uint8|uint4|int4|int8|q8|quantized|q4)$/i, '');
   }
 
   // --- Fetchers ---

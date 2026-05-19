@@ -60,7 +60,6 @@
       <thead>
         <tr>
           <th>Org Name</th>
-          <th>Enabled</th>
           <th></th>
         </tr>
       </thead>
@@ -86,17 +85,8 @@
               </td>
             </tr>
           {:else}
-            <tr class={org.enabled ? '' : 'disabled-row'}>
+            <tr>
               <td class="mono">{org.name}</td>
-              <td>
-                <form method="POST" action="?/toggleEnabled" use:enhance>
-                  <input type="hidden" name="id" value={org.id} />
-                  <input type="hidden" name="enabled" value={org.enabled ? 'false' : 'true'} />
-                  <button type="submit" class="toggle-btn {org.enabled ? 'toggle-on' : 'toggle-off'}">
-                    {org.enabled ? 'On' : 'Off'}
-                  </button>
-                </form>
-              </td>
               <td class="row-actions">
                 <button class="btn-edit" onclick={() => startEdit(org)}>Edit</button>
                 <form method="POST" action="?/remove" use:enhance>
@@ -225,24 +215,8 @@
 
   .orgs-table tr:last-child td { border-bottom: none; }
   .orgs-table tr:hover td { background: var(--color-accent-light); }
-  .disabled-row td { opacity: 0.45; }
 
   .mono { font-family: var(--font-mono); font-size: var(--text-sm); }
-
-  .toggle-btn {
-    font-family: var(--font-ui);
-    font-size: var(--text-xs);
-    font-weight: 600;
-    padding: 3px 10px;
-    border-radius: var(--radius-sm);
-    border: none;
-    cursor: pointer;
-    transition: opacity var(--transition-base);
-  }
-
-  .toggle-on { background: var(--color-primary); color: #fff; }
-  .toggle-off { background: var(--color-surface-sunken); color: var(--color-text-muted); border: 1px solid var(--color-border); }
-  .toggle-btn:hover { opacity: 0.8; }
 
   .row-actions {
     display: flex;

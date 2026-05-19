@@ -1,6 +1,5 @@
 <script lang="ts">
-  import { enhance } from '$app/forms';
-  import { invalidateModelCache } from '$lib/model-cache';
+  import { inferFormat } from '$lib/huggingface/parser';
 
   let { data, form } = $props<{ data: { models: any[] }; form: any }>();
 
@@ -18,7 +17,6 @@
     { key: 'file_path', label: 'File' },
     { key: 'data_type', label: 'Type' },
     { key: 'format', label: 'Format' },
-    { key: 'enabled', label: 'Enabled' },
   ];
 
   function repoName(hf_model_id: string): string {
@@ -26,19 +24,10 @@
     return slash >= 0 ? hf_model_id.slice(slash + 1) : hf_model_id;
   }
 
-  function inferFormat(path: string): string {
-    const lower = path.toLowerCase();
-    if (lower.endsWith('.litertlm')) return 'litertlm';
-    if (lower.endsWith('.tflite')) return 'tflite';
-    if (lower.endsWith('.onnx')) return 'onnx';
-    return 'unknown';
-  }
-
-  function sortValue(m: any, key: string): string | number | boolean {
+  function sortValue(m: any, key: string): string | number {
     if (key === 'hf_model_id') return repoName(m.hf_model_id).toLowerCase();
     if (key === 'format') return inferFormat(m.file_path);
     const v = m[key];
-    if (typeof v === 'boolean') return v ? 0 : 1;
     return typeof v === 'string' ? v.toLowerCase() : (v ?? '');
   }
 
@@ -76,8 +65,6 @@
     sortedModels.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
   );
 
-  const enabledCount = $derived(data.models.filter((m) => m.enabled).length);
-
   function goTo(page: number) {
     if (page >= 1 && page <= totalPages) currentPage = page;
   }
@@ -93,7 +80,7 @@
     <div class="header-row">
       <div>
         <h1>Model Management</h1>
-        <p>{enabledCount} of {data.models.length} models enabled</p>
+        <p>{data.models.length} models</p>
       </div>
     </div>
   </header>
@@ -134,26 +121,13 @@
       </thead>
       <tbody>
         {#each pagedModels as model (model.id)}
-          <tr class={model.enabled ? '' : 'disabled-row'}>
+          <tr>
             <td>{model.task}</td>
             <td>{model.source_org}</td>
             <td class="mono repo-name">{repoName(model.hf_model_id)}</td>
             <td class="mono file-path">{model.file_path}</td>
             <td><span class="badge">{model.data_type}</span></td>
             <td><span class="badge">{inferFormat(model.file_path)}</span></td>
-            <td>
-              <form method="POST" action="?/toggleEnabled" use:enhance={() => ({ update }) => { invalidateModelCache(); update(); }}>
-                <input type="hidden" name="id" value={model.id} />
-                <input type="hidden" name="enabled" value={model.enabled ? 'false' : 'true'} />
-                <button
-                  type="submit"
-                  class="toggle-btn {model.enabled ? 'toggle-on' : 'toggle-off'}"
-                  title={model.enabled ? 'Click to disable' : 'Click to enable'}
-                >
-                  {model.enabled ? 'On' : 'Off'}
-                </button>
-              </form>
-            </td>
           </tr>
         {/each}
       </tbody>
@@ -301,14 +275,6 @@
     background: var(--color-accent-light);
   }
 
-  .disabled-row td {
-    opacity: 0.45;
-  }
-
-  .disabled-row:hover td {
-    opacity: 0.65;
-  }
-
   .mono {
     font-family: var(--font-mono);
     font-size: var(--text-xs);
@@ -330,32 +296,6 @@
     font-size: var(--text-xs);
     font-family: var(--font-mono);
     white-space: nowrap;
-  }
-
-  .toggle-btn {
-    font-family: var(--font-ui);
-    font-size: var(--text-xs);
-    font-weight: 600;
-    padding: 3px 10px;
-    border-radius: var(--radius-sm);
-    border: none;
-    cursor: pointer;
-    transition: opacity var(--transition-base);
-  }
-
-  .toggle-on {
-    background: var(--color-primary);
-    color: #ffffff;
-  }
-
-  .toggle-off {
-    background: var(--color-surface-sunken);
-    color: var(--color-text-muted);
-    border: 1px solid var(--color-border);
-  }
-
-  .toggle-btn:hover {
-    opacity: 0.8;
   }
 
   .pagination {
