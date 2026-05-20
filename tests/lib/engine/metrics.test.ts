@@ -21,8 +21,9 @@ describe('metrics', () => {
 
   it('computeMetrics produces full BenchmarkMetrics', () => {
     const times = [10, 12, 11, 9, 13, 10, 11, 12, 10, 11];
-    const result = computeMetrics(times, 50, 10);
+    const result = computeMetrics(times, 50, null, 10);
     expect(result.compilation_ms).toBe(50);
+    expect(result.load_and_compile_ms).toBeNull();
     expect(result.first_inference_ms).toBe(10);
     expect(result.time_to_first_ms).toBe(60);
     expect(result.average_ms).toBeCloseTo(10.9, 1);

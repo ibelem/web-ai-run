@@ -479,7 +479,7 @@
     justify-content: center;
     gap: var(--space-2);
     padding: var(--space-4) var(--space-2);
-    font-size: var(--text-xs);
+    font-size: var(--text-base);
     color: var(--color-text-muted);
   }
 </style>

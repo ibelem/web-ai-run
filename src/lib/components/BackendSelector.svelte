@@ -14,21 +14,38 @@
 </script>
 
 <div class="backend-selector">
-  {#each BACKENDS as backend}
-    <button
-      class="backend-btn"
-      class:active={selected.includes(backend.id)}
-      class:unavailable={!available.includes(backend.id)}
-      disabled={!available.includes(backend.id)}
-      onclick={() => toggle(backend.id)}
-    >
-      {backend.label}
-    </button>
-  {/each}
+  <span class="config-label">Backends</span>
+  <div class="backend-btns">
+    {#each BACKENDS as backend}
+      <button
+        class="backend-btn"
+        class:active={selected.includes(backend.id)}
+        class:unavailable={!available.includes(backend.id)}
+        disabled={!available.includes(backend.id)}
+        onclick={() => toggle(backend.id)}
+      >
+        {backend.label}
+      </button>
+    {/each}
+  </div>
 </div>
 
 <style>
   .backend-selector {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-1);
+    flex-wrap: wrap;
+  }
+
+  .config-label {
+    font-size: var(--text-sm);
+    color: var(--color-text-secondary);
+    white-space: nowrap;
+    min-width: 103px;
+  }
+
+  .backend-btns {
     display: flex;
     flex-wrap: wrap;
     gap: var(--space-half);

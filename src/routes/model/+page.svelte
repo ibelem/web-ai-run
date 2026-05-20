@@ -1,15 +1,17 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import ModelFilters from '$lib/components/ModelFilters.svelte';
   import ModelGrid from '$lib/components/ModelGrid.svelte';
   import HFSearch, { type SelectedHFModel } from '$lib/components/HFSearch.svelte';
   import HFUrlImport from '$lib/components/HFUrlImport.svelte';
   import { isAuthenticated } from '$lib/stores/auth';
   import type { ModelRow } from './+page.ts';
-  import { invalidateModelCache } from '$lib/model-cache';
+  import { loadModels, invalidateModelCache, type FetchMode } from '$lib/model-cache';
+  import { createClient } from '$lib/supabase/client';
   import ActionPanel from '$lib/components/ActionPanel.svelte';
   import { inferFormat } from '$lib/huggingface/parser';
 
-  let { data } = $props<{ data: { models: ModelRow[]; error: string | null; initialSearch: string } }>();
+  let { data } = $props<{ data: { initialSearch: string } }>();
 
   let searchQuery = $state(data.initialSearch);
   let selectedFormats = $state<Set<string>>(new Set());
@@ -31,12 +33,50 @@
   let showActionPanel = $state(false);
   let showHFSearch = $state(false);
   let refreshing = $state(false);
+  let models = $state<ModelRow[]>([]);
+  let loadError = $state<string | null>(null);
+  let loadingModels = $state(true);
+
+  async function fetchModels() {
+    const supabase = createClient();
+
+    async function fetchFromSupabase(mode: FetchMode): Promise<ModelRow[]> {
+      const PAGE = 1000;
+      const all: ModelRow[] = [];
+      let from = 0;
+      while (true) {
+        let query = supabase
+          .from('models')
+          .select('id, hf_model_id, file_path, data_type, size_bytes, runtime, source_org, task, last_synced')
+          .order('hf_model_id', { ascending: true })
+          .range(from, from + PAGE - 1);
+        if (!mode.full) query = query.gt('last_synced', mode.since);
+        const { data: rows, error } = await query;
+        if (error) throw new Error(error.message);
+        const batch = (rows as ModelRow[]) ?? [];
+        all.push(...batch);
+        if (batch.length < PAGE) break;
+        from += PAGE;
+      }
+      return all;
+    }
+
+    try {
+      models = await loadModels<ModelRow>(fetchFromSupabase);
+    } catch (e: any) {
+      loadError = e.message ?? 'Failed to load models';
+    } finally {
+      loadingModels = false;
+    }
+  }
 
   function refreshModels() {
     refreshing = true;
     invalidateModelCache();
     window.location.reload();
   }
+
+  onMount(() => { fetchModels(); });
 
   const SIZE_BUCKETS = [
     { key: 'lt1m',  test: (b: number) => b < 1_000_000 },
@@ -72,7 +112,7 @@
 
   const totalSelected = $derived(selectedIds.size + selectedHFModels.length);
 
-  const allModels: ModelRow[] = $derived(data.models);
+  const allModels: ModelRow[] = $derived(models);
 
   const isHFUrl = $derived((() => {
     try { return new URL(searchQuery.trim()).hostname === 'huggingface.co'; }
@@ -140,9 +180,9 @@
     </div>
   </header>
 
-  {#if data.error}
+  {#if loadError}
     <div class="error-banner">
-      <p>Failed to load models: {data.error}</p>
+      <p>Failed to load models: {loadError}</p>
     </div>
   {:else}
     <div class="page-body">
@@ -201,7 +241,11 @@
           {#if showHFSearch}
             <HFSearch {searchQuery} localModels={allModels} bind:selectedHFModels />
           {/if}
-          <ModelGrid models={filteredModels} {selectedIds} ontoggle={toggleSelect} />
+          {#if loadingModels}
+            <div class="loading-models">Loading models...</div>
+          {:else}
+            <ModelGrid models={filteredModels} {selectedIds} ontoggle={toggleSelect} />
+          {/if}
         {/if}
       </div>
     </div>
@@ -288,8 +332,8 @@
   .search-input {
     flex: 1;
     font-family: var(--font-ui);
-    font-size: var(--text-sm);
-    padding: var(--space-1) var(--space-2);
+    font-size: var(--text-base);
+    padding: var(--space-2) var(--space-2);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-base);
     background: var(--color-surface);
@@ -303,7 +347,7 @@
   }
 
   .result-count {
-    font-size: var(--text-sm);
+    font-size: var(--text-xs);
     color: var(--color-text-muted);
     white-space: nowrap;
     margin-left: auto;
@@ -314,9 +358,9 @@
     align-items: center;
     gap: 5px;
     font-family: var(--font-ui);
-    font-size: var(--text-sm);
+    font-size: var(--text-base);
     font-weight: 500;
-    padding: var(--space-1) var(--space-2);
+    padding: var(--space-2) var(--space-2);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-base);
     background: var(--color-surface);
@@ -451,5 +495,12 @@
     .result-count {
       margin-left: auto;
     }
+  }
+
+  .loading-models {
+    padding: var(--space-4);
+    color: var(--color-text-muted);
+    font-size: var(--text-sm);
+    text-align: center;
   }
 </style>

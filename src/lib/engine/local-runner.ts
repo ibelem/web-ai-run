@@ -83,7 +83,7 @@ async function runLocalOrt(opts: InternalOpts): Promise<TestResult> {
     }
 
     await session.release();
-    const metrics = computeMetrics(inferenceTimes, compilationMs, firstInferenceMs);
+    const metrics = computeMetrics(inferenceTimes, compilationMs, null, firstInferenceMs);
 
     return {
       id,
@@ -174,7 +174,7 @@ async function runLocalLiteRt(opts: InternalOpts): Promise<TestResult> {
     }
 
     model.delete?.();
-    const metrics = computeMetrics(inferenceTimes, compilationMs, firstInferenceMs);
+    const metrics = computeMetrics(inferenceTimes, null, compilationMs, firstInferenceMs);
 
     return {
       id,

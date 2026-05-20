@@ -4,8 +4,6 @@
   import { auth, isAuthenticated } from '$lib/stores/auth';
   import { createRecipe, updateRecipe, listRecipes, type Recipe } from '$lib/recipes/crud';
   import type { RecipeModel } from '$lib/supabase/types';
-  import { BACKENDS } from '$lib/engine/backends';
-  import type { Backend } from '$lib/engine/types';
   import type { SelectedHFModel } from './HFSearch.svelte';
   import type { ModelRow } from '../../routes/model/+page';
 
@@ -28,50 +26,6 @@
     ondeselect,
     ondeselecthf,
   }: Props = $props();
-
-  // --- Backend selection (persisted) ---
-  const STORAGE_BACKENDS = 'action_panel_backends';
-  const STORAGE_ITERATIONS = 'action_panel_iterations';
-  const ITERATION_OPTIONS = [1, 10, 20, 50, 100, 500, 1000, 10000];
-
-  function loadStoredBackends(): Backend[] {
-    try {
-      const raw = sessionStorage.getItem(STORAGE_BACKENDS);
-      if (raw) return JSON.parse(raw);
-    } catch {}
-    return ['webgpu'];
-  }
-
-  function loadStoredIterations(): number {
-    try {
-      const raw = sessionStorage.getItem(STORAGE_ITERATIONS);
-      if (raw) return JSON.parse(raw);
-    } catch {}
-    return 50;
-  }
-
-  let selectedBackends = $state<Backend[]>(loadStoredBackends());
-  let selectedIterations = $state<number>(loadStoredIterations());
-
-  $effect(() => {
-    try {
-      sessionStorage.setItem(STORAGE_BACKENDS, JSON.stringify(selectedBackends));
-    } catch {}
-  });
-
-  $effect(() => {
-    try {
-      sessionStorage.setItem(STORAGE_ITERATIONS, JSON.stringify(selectedIterations));
-    } catch {}
-  });
-
-  function toggleBackend(id: Backend) {
-    if (selectedBackends.includes(id)) {
-      if (selectedBackends.length > 1) selectedBackends = selectedBackends.filter((b) => b !== id);
-    } else {
-      selectedBackends = [...selectedBackends, id];
-    }
-  }
 
   // --- Recipe section ---
   const RECIPE_MODE_KEY = 'action_panel_recipe_mode';
@@ -120,14 +74,8 @@
         file_path: m.file_path,
         data_type: m.data_type,
         runtime: m.runtime,
-        backends: selectedBackends,
-        iterations: selectedIterations,
       })),
-      ...selectedHFModels.map((m) => ({
-        ...m,
-        backends: selectedBackends,
-        iterations: selectedIterations,
-      })),
+      ...selectedHFModels.map((m) => ({ ...m })),
     ];
 
     try {
@@ -135,8 +83,7 @@
       sessionStorage.removeItem('model_selection');
     } catch {}
 
-    const ids = selectedLocalModels.map((m) => m.id).join(',');
-    window.location.href = `/run?models=${ids}`;
+    window.location.href = '/run';
   }
 
   // --- Save as Recipe ---
@@ -150,13 +97,11 @@
         hf_model_id: m.hf_model_id,
         file_path: m.file_path,
         data_type: m.data_type,
-        backends: selectedBackends,
       })),
       ...selectedHFModels.map((m) => ({
         hf_model_id: m.hf_model_id,
         file_path: m.file_path,
         data_type: m.data_type,
-        backends: selectedBackends,
       })),
     ];
 
@@ -254,36 +199,6 @@
           {/each}
         </ul>
       {/if}
-    </section>
-
-    <!-- Backend picker -->
-    <section class="panel-section">
-      <div class="section-label">Backends</div>
-      <div class="backend-grid">
-        {#each BACKENDS as b}
-          <button
-            class="backend-btn"
-            class:active={selectedBackends.includes(b.id)}
-            onclick={() => toggleBackend(b.id)}
-          >
-            {b.label}
-          </button>
-        {/each}
-      </div>
-    </section>
-
-    <!-- Iterations -->
-    <section class="panel-section">
-      <div class="section-label">Iterations</div>
-      <div class="backend-grid">
-        {#each ITERATION_OPTIONS as opt}
-          <button
-            class="backend-btn"
-            class:active={selectedIterations === opt}
-            onclick={() => selectedIterations = opt}
-          >{opt}</button>
-        {/each}
-      </div>
     </section>
 
     <!-- Recipe section (auth-gated) -->
@@ -526,36 +441,6 @@
     color: #fff;
   }
 
-  /* Backend grid */
-  .backend-grid {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-half);
-  }
-
-  .backend-btn {
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    padding: var(--space-half) var(--space-1);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-base);
-    background: var(--color-surface);
-    color: var(--color-text-secondary);
-    cursor: pointer;
-    transition: all var(--transition-base);
-    white-space: nowrap;
-  }
-
-  .backend-btn:hover {
-    border-color: var(--color-border-strong);
-  }
-
-  .backend-btn.active {
-    background: var(--color-primary);
-    color: #fff;
-    border-color: var(--color-primary);
-  }
-
   /* Recipe */
   .recipe-mode-tabs {
     display: flex;
@@ -568,7 +453,7 @@
     flex: 1;
     font-family: var(--font-ui);
     font-size: var(--text-sm);
-    padding: var(--space-half) var(--space-1);
+    padding: var(--space-1) var(--space-1);
     border: none;
     background: var(--color-surface-sunken);
     color: var(--color-text-secondary);
@@ -590,8 +475,8 @@
   .recipe-select {
     width: 100%;
     font-family: var(--font-ui);
-    font-size: var(--text-sm);
-    padding: var(--space-1) var(--space-2);
+    font-size: var(--text-base);
+    padding: var(--space-2) var(--space-2);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-base);
     background: var(--color-surface);

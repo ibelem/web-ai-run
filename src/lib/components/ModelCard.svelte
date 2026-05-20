@@ -39,14 +39,6 @@
   }
 
   const hasSelection = $derived(variants.some((v) => selectedIds.has(v.id)));
-
-  const sizeRange = $derived.by(() => {
-    if (variants.length === 0) return '';
-    const sizes = variants.map((v) => v.sizeBytes);
-    const min = Math.min(...sizes);
-    const max = Math.max(...sizes);
-    return min === max ? formatSize(min) : `${formatSize(min)}...${formatSize(max)}`;
-  });
 </script>
 
 <div class="model-card" class:has-selection={hasSelection}>
@@ -93,8 +85,8 @@
   }
 
   .model-card.has-selection {
-    border-color: rgba(99, 102, 241, 0.5);
-    background: color-mix(in srgb, #6366f1 4%, var(--color-surface-raised));
+     border-color: var(--color-primary-light);
+    background: color-mix(in srgb, var(--color-primary) 4%, var(--color-surface-raised));
   }
 
   .card-left {
@@ -153,13 +145,6 @@
     min-width: 0;
   }
 
-  .size-range {
-    font-family: var(--font-mono);
-    color: var(--color-text-muted);
-    border-color: var(--color-border);
-    white-space: nowrap;
-    flex-shrink: 0;
-  }
 
   .tag-task {
     background: var(--color-surface-sunken);

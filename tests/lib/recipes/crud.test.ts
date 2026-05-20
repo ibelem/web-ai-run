@@ -62,7 +62,7 @@ describe('recipes/crud', () => {
 
     const { createRecipe } = await import('$lib/recipes/crud');
     const result = await createRecipe('user-1', 'My Recipe', [
-      { hf_model_id: 'webnn/model', file_path: 'model.onnx', data_type: 'fp32', backends: ['wasm_1'] },
+      { hf_model_id: 'webnn/model', file_path: 'model.onnx', data_type: 'fp32' },
     ]);
 
     expect(mockInsert).toHaveBeenCalled();

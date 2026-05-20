@@ -81,7 +81,7 @@ export async function runLiteRtInference(options: LiteRtRunOptions): Promise<Tes
 
     model.delete?.();
 
-    const metrics = computeMetrics(inferenceTimes, compilationMs, firstInferenceMs);
+    const metrics = computeMetrics(inferenceTimes, null, compilationMs, firstInferenceMs);
 
     return {
       id,

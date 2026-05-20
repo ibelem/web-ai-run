@@ -9,7 +9,7 @@ export function getOrtCdnUrl(version: string, variant: 'all' | 'webgpu' = 'all')
 }
 
 export function getLiteRtCdnUrl(version: string): string {
-  return `https://cdn.jsdelivr.net/npm/@anthropic-ai/litert@${version}/dist/litert.mjs`;
+  return `https://cdn.jsdelivr.net/npm/@litertjs/core@${version}/dist/litert.mjs`;
 }
 
 export async function loadOrt(version: string, backend: Backend): Promise<any> {

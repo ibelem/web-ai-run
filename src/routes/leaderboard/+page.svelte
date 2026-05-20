@@ -37,24 +37,32 @@
 
       switch (sortColumn) {
         case 'average_ms':
-          aVal = a.metrics?.average_ms ?? null;
-          bVal = b.metrics?.average_ms ?? null;
+          aVal = a.average_ms ?? null;
+          bVal = b.average_ms ?? null;
           break;
         case 'median_ms':
-          aVal = a.metrics?.median_ms ?? null;
-          bVal = b.metrics?.median_ms ?? null;
+          aVal = a.median_ms ?? null;
+          bVal = b.median_ms ?? null;
           break;
         case 'best_ms':
-          aVal = a.metrics?.best_ms ?? null;
-          bVal = b.metrics?.best_ms ?? null;
+          aVal = a.best_ms ?? null;
+          bVal = b.best_ms ?? null;
           break;
         case 'p90_ms':
-          aVal = a.metrics?.p90_ms ?? null;
-          bVal = b.metrics?.p90_ms ?? null;
+          aVal = a.p90_ms ?? null;
+          bVal = b.p90_ms ?? null;
           break;
         case 'throughput_fps':
-          aVal = a.metrics?.throughput_fps ?? null;
-          bVal = b.metrics?.throughput_fps ?? null;
+          aVal = a.throughput_fps ?? null;
+          bVal = b.throughput_fps ?? null;
+          break;
+        case 'compilation_ms':
+          aVal = a.compilation_ms ?? null;
+          bVal = b.compilation_ms ?? null;
+          break;
+        case 'load_and_compile_ms':
+          aVal = a.load_and_compile_ms ?? null;
+          bVal = b.load_and_compile_ms ?? null;
           break;
       }
 
@@ -131,6 +139,12 @@
               <th>Model</th>
               <th>Backend</th>
               <th>Data Type</th>
+              <th class="sortable" onclick={() => toggleSort('compilation_ms')}>
+                Compile (ms){sortIndicator('compilation_ms')}
+              </th>
+              <th class="sortable" onclick={() => toggleSort('load_and_compile_ms')}>
+                Load+Compile (ms){sortIndicator('load_and_compile_ms')}
+              </th>
               <th class="sortable" onclick={() => toggleSort('average_ms')}>
                 Avg (ms){sortIndicator('average_ms')}
               </th>
@@ -158,21 +172,13 @@
                 </td>
                 <td><span class="badge">{result.backend}</span></td>
                 <td><span class="badge">{result.data_type}</span></td>
-                <td class="cell-metric">
-                  {result.metrics?.average_ms?.toFixed(1) ?? '—'}
-                </td>
-                <td class="cell-metric">
-                  {result.metrics?.median_ms?.toFixed(1) ?? '—'}
-                </td>
-                <td class="cell-metric">
-                  {result.metrics?.best_ms?.toFixed(1) ?? '—'}
-                </td>
-                <td class="cell-metric">
-                  {result.metrics?.p90_ms?.toFixed(1) ?? '—'}
-                </td>
-                <td class="cell-metric">
-                  {result.metrics?.throughput_fps?.toFixed(1) ?? '—'}
-                </td>
+                <td class="cell-metric">{result.compilation_ms?.toFixed(1) ?? '—'}</td>
+                <td class="cell-metric">{result.load_and_compile_ms?.toFixed(1) ?? '—'}</td>
+                <td class="cell-metric">{result.average_ms?.toFixed(1) ?? '—'}</td>
+                <td class="cell-metric">{result.median_ms?.toFixed(1) ?? '—'}</td>
+                <td class="cell-metric">{result.best_ms?.toFixed(1) ?? '—'}</td>
+                <td class="cell-metric">{result.p90_ms?.toFixed(1) ?? '—'}</td>
+                <td class="cell-metric">{result.throughput_fps?.toFixed(1) ?? '—'}</td>
                 <td class="cell-info">{result.gpu || '—'}</td>
                 <td class="cell-info">{result.browser || '—'}</td>
               </tr>

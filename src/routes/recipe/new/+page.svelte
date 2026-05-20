@@ -4,7 +4,6 @@
   import ModelGrid from '$lib/components/ModelGrid.svelte';
   import { createRecipe } from '$lib/recipes/crud';
   import type { RecipeModel } from '$lib/supabase/types';
-  import type { Backend } from '$lib/engine/types';
   import { inferFormat } from '$lib/huggingface/parser';
 
   let { data } = $props();
@@ -12,7 +11,6 @@
   let recipeName = $state('');
   let visibility = $state<'personal' | 'public'>('personal');
   let selectedIds = $state<Set<string>>(new Set());
-  let selectedBackends = $state<Backend[]>(['wasm_1']);
   let saving = $state(false);
   let errorMessage = $state('');
 
@@ -60,16 +58,6 @@
     selectedSizes = filters.sizes;
   }
 
-  const ALL_BACKENDS: Backend[] = ['wasm_1', 'wasm_n', 'webgpu', 'webnn_cpu', 'webnn_gpu', 'webnn_npu'];
-
-  function toggleBackend(b: Backend) {
-    if (selectedBackends.includes(b)) {
-      selectedBackends = selectedBackends.filter((x) => x !== b);
-    } else {
-      selectedBackends = [...selectedBackends, b];
-    }
-  }
-
   async function handleSave() {
     if (!recipeName.trim()) {
       errorMessage = 'Recipe name is required.';
@@ -79,11 +67,6 @@
       errorMessage = 'Select at least one model.';
       return;
     }
-    if (selectedBackends.length === 0) {
-      errorMessage = 'Select at least one backend.';
-      return;
-    }
-
     saving = true;
     errorMessage = '';
 
@@ -93,7 +76,6 @@
         hf_model_id: m.hf_model_id,
         file_path: m.file_path,
         data_type: m.data_type,
-        backends: [...selectedBackends],
       }));
 
     try {
@@ -128,20 +110,6 @@
       </label>
     </div>
 
-    <div class="backends-section">
-      <span class="field-label">Backends</span>
-      <div class="backend-chips">
-        {#each ALL_BACKENDS as b}
-          <button
-            class="chip"
-            class:chip-active={selectedBackends.includes(b)}
-            onclick={() => toggleBackend(b)}
-          >
-            {b}
-          </button>
-        {/each}
-      </div>
-    </div>
   </section>
 
   <section class="models-section">
@@ -231,17 +199,7 @@
     border-color: var(--color-focus-ring);
   }
 
-  .backends-section {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-half);
-  }
 
-  .backend-chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-half);
-  }
 
   .chip {
     font-family: var(--font-mono);

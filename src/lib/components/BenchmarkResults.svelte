@@ -11,8 +11,8 @@
     [...results]
       .filter((r) => r.metrics)
       .sort((a, b) => {
-        const aVal = (a.metrics as any)?.[sortBy] ?? 0;
-        const bVal = (b.metrics as any)?.[sortBy] ?? 0;
+        const aVal = (a.metrics as any)?.[sortBy] ?? (a as any)[sortBy] ?? 0;
+        const bVal = (b.metrics as any)?.[sortBy] ?? (b as any)[sortBy] ?? 0;
         return sortAsc ? aVal - bVal : bVal - aVal;
       })
   );
@@ -37,12 +37,13 @@
           <tr>
             <th>Model</th>
             <th>Backend</th>
-            <th class="sortable" onclick={() => toggleSort('compilation_ms')}>Load+Compile</th>
-            <th class="sortable" onclick={() => toggleSort('first_inference_ms')}>1st Inference</th>
-            <th class="sortable" onclick={() => toggleSort('median_ms')}>Median</th>
-            <th class="sortable" onclick={() => toggleSort('average_ms')}>Average</th>
-            <th class="sortable" onclick={() => toggleSort('best_ms')}>Best</th>
-            <th class="sortable" onclick={() => toggleSort('p90_ms')}>P90</th>
+            <th class="sortable" onclick={() => toggleSort('compilation_ms')}>Compile (ms)</th>
+            <th class="sortable" onclick={() => toggleSort('load_and_compile_ms')}>Load+Compile (ms)</th>
+            <th class="sortable" onclick={() => toggleSort('first_inference_ms')}>1st Inf (ms)</th>
+            <th class="sortable" onclick={() => toggleSort('median_ms')}>Median (ms)</th>
+            <th class="sortable" onclick={() => toggleSort('average_ms')}>Avg (ms)</th>
+            <th class="sortable" onclick={() => toggleSort('best_ms')}>Best (ms)</th>
+            <th class="sortable" onclick={() => toggleSort('p90_ms')}>P90 (ms)</th>
             <th class="sortable" onclick={() => toggleSort('throughput_fps')}>FPS</th>
           </tr>
         </thead>
@@ -51,7 +52,8 @@
             <tr>
               <td class="model-col">{result.test_item.hf_model_id.split('/')[1]}</td>
               <td>{getBackendLabel(result.test_item.backend)}</td>
-              <td class="metric">{fmt(result.metrics!.compilation_ms)}</td>
+              <td class="metric">{result.metrics!.compilation_ms != null ? fmt(result.metrics!.compilation_ms) : '—'}</td>
+              <td class="metric">{result.metrics!.load_and_compile_ms != null ? fmt(result.metrics!.load_and_compile_ms) : '—'}</td>
               <td class="metric">{fmt(result.metrics!.first_inference_ms)}</td>
               <td class="metric highlight">{fmt(result.metrics!.median_ms)}</td>
               <td class="metric">{fmt(result.metrics!.average_ms)}</td>

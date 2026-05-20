@@ -5,19 +5,19 @@ export interface ResultRow {
   id: string;
   run_id: string | null;
   model_id: string;
+  file_path: string;
   backend: string;
   data_type: string;
   status: string;
-  metrics: {
-    compilation_ms: number;
-    first_inference_ms: number;
-    time_to_first_ms: number;
-    average_ms: number;
-    median_ms: number;
-    best_ms: number;
-    p90_ms: number;
-    throughput_fps: number;
-  } | null;
+  compilation_ms: number | null;
+  load_and_compile_ms: number | null;
+  first_inference_ms: number | null;
+  time_to_first_ms: number | null;
+  average_ms: number | null;
+  median_ms: number | null;
+  best_ms: number | null;
+  p90_ms: number | null;
+  throughput_fps: number | null;
   iterations: number;
   iterations_completed: number;
   started_at: string;
@@ -33,7 +33,7 @@ export const load: PageLoad = async () => {
 
   const { data, error } = await (supabase
     .from('results') as any)
-    .select('id, run_id, model_id, backend, data_type, status, metrics, iterations, iterations_completed, started_at, completed_at, cpu, gpu, os, browser')
+    .select('id, run_id, model_id, file_path, backend, data_type, status, compilation_ms, load_and_compile_ms, first_inference_ms, time_to_first_ms, average_ms, median_ms, best_ms, p90_ms, throughput_fps, iterations, iterations_completed, started_at, completed_at, cpu, gpu, os, browser')
     .order('created_at', { ascending: false })
     .limit(100);
 

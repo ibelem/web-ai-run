@@ -50,14 +50,6 @@
     return dt === 'quantized' ? 'quant' : dt;
   }
 
-  function groupSizeRange(files: ImportedFile[]): string {
-    if (files.length === 0) return '';
-    const sizes = files.map((f) => f.size);
-    const min = Math.min(...sizes);
-    const max = Math.max(...sizes);
-    return min === max ? formatSize(min) : `${formatSize(min)}...${formatSize(max)}`;
-  }
-
   interface ImportedRepo {
     id: string;          // org/repo
     task: string;
@@ -525,8 +517,8 @@
   }
 
   .file-card.has-selection {
-    border-color: rgba(99, 102, 241, 0.5);
-    background: color-mix(in srgb, #6366f1 4%, var(--color-surface-raised));
+    border-color: var(--color-primary-light);
+    background: color-mix(in srgb, var(--color-primary) 4%, var(--color-surface-raised));
   }
 
   .file-card.in-library {
@@ -581,13 +573,7 @@
     min-width: 0;
   }
 
-  .size-range {
-    font-family: var(--font-mono);
-    color: var(--color-text-muted);
-    border-color: var(--color-border);
-    white-space: nowrap;
-    flex-shrink: 0;
-  }
+
 
   .chip {
     font-family: var(--font-mono);

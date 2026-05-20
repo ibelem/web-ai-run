@@ -1,5 +1,5 @@
 <script lang="ts">
-  let { iterations = $bindable(50), save_results = $bindable(false) }: { iterations: number; save_results: boolean } = $props();
+  let { iterations = $bindable(50) }: { iterations: number } = $props();
 
   const iterationOptions = [1, 10, 20, 50, 100, 500, 1000, 10000];
 </script>
@@ -18,10 +18,6 @@
     </div>
   </div>
 
-  <label class="config-field checkbox">
-    <input type="checkbox" bind:checked={save_results} />
-    <span class="config-label">Save results</span>
-  </label>
 </div>
 
 <style>
@@ -36,12 +32,14 @@
     display: flex;
     align-items: center;
     gap: var(--space-1);
+    flex-wrap: wrap;
   }
 
   .config-label {
     font-size: var(--text-sm);
     color: var(--color-text-secondary);
     white-space: nowrap;
+    min-width: 103px;
   }
 
   .iter-group {
@@ -73,14 +71,4 @@
     border-color: var(--color-primary);
   }
 
-  .config-field.checkbox {
-    display: flex;
-    align-items: center;
-    gap: var(--space-half);
-    cursor: pointer;
-  }
-
-  input[type="checkbox"] {
-    cursor: pointer;
-  }
 </style>

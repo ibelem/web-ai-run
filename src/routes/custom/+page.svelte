@@ -321,10 +321,7 @@
     flex-direction: column;
     gap: var(--space-2);
     margin-bottom: var(--space-3);
-    padding: var(--space-4);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-lg);
-    background: var(--color-surface);
+    padding: var(--space-4) 0;
   }
 
   .iterations-field {
@@ -357,6 +354,7 @@
   .actions {
     display: flex;
     gap: var(--space-1);
+    margin-top: var(--space-6);
   }
 
 

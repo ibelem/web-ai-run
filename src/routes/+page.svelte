@@ -59,7 +59,7 @@
     if (authState.session) {
       try {
         const { data } = await (supabase.from('results') as any)
-          .select('id, model_id, backend, status, metrics, started_at')
+          .select('id, model_id, backend, status, median_ms, started_at')
           .order('created_at', { ascending: false })
           .limit(5);
         if (data) recentResults = data;
@@ -274,7 +274,7 @@
                     {result.status}
                   </span>
                 </td>
-                <td class="mono">{result.metrics?.median_ms ? `${result.metrics.median_ms.toFixed(1)} ms` : '—'}</td>
+                <td class="mono">{result.median_ms ? `${result.median_ms.toFixed(1)} ms` : '—'}</td>
                 <td>{result.started_at ? formatDate(result.started_at) : '—'}</td>
               </tr>
             {/each}
@@ -854,7 +854,7 @@
   }
 
   .model-row:hover {
-    background: var(--color-accent-light);
+    background: color-mix(in srgb, var(--color-primary) 4%, var(--color-surface-raised));
   }
 
   .model-info {

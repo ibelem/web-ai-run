@@ -24,7 +24,7 @@ function getOrtCdnUrl(version: string, backend: Backend): string {
 }
 
 function getLiteRtCdnUrl(version: string): string {
-  return `https://cdn.jsdelivr.net/npm/@anthropic-ai/litert@${version}/dist/litert.mjs`;
+  return `https://cdn.jsdelivr.net/npm/@litertjs/core@${version}/dist/litert.mjs`;
 }
 
 function getOrtExecutionProvider(backend: Backend): any {
@@ -38,7 +38,7 @@ function getOrtExecutionProvider(backend: Backend): any {
   }
 }
 
-function computeMetrics(times: number[], compilationMs: number, firstInferenceMs: number): BenchmarkMetrics {
+function computeMetrics(times: number[], compilationMs: number | null, loadAndCompileMs: number | null, firstInferenceMs: number): BenchmarkMetrics {
   const sorted = [...times].sort((a, b) => a - b);
   const sum = sorted.reduce((a, b) => a + b, 0);
   const avg = sum / sorted.length;
@@ -49,8 +49,9 @@ function computeMetrics(times: number[], compilationMs: number, firstInferenceMs
 
   return {
     compilation_ms: compilationMs,
+    load_and_compile_ms: loadAndCompileMs,
     first_inference_ms: firstInferenceMs,
-    time_to_first_ms: compilationMs + firstInferenceMs,
+    time_to_first_ms: (compilationMs ?? loadAndCompileMs ?? 0) + firstInferenceMs,
     average_ms: avg,
     median_ms: median,
     best_ms: sorted[0],
@@ -120,25 +121,25 @@ async function runOrt(req: WorkerRequest, modelBuffer: ArrayBuffer): Promise<Tes
     feeds[name] = new ort.Tensor(type, data, dims);
   }
 
+  let firstInferenceMs = 0;
   post({ type: 'status', id, status: 'Warming up...' });
   for (let i = 0; i < warmupRuns; i++) {
+    const t0 = performance.now();
     await session.run(feeds);
+    if (i === 0) firstInferenceMs = performance.now() - t0;
   }
 
   const inferenceTimes: number[] = [];
-  let firstInferenceMs = 0;
 
   for (let i = 0; i < iterations; i++) {
     post({ type: 'status', id, status: `Running inference ${i + 1}/${iterations}...` });
     const t0 = performance.now();
     await session.run(feeds);
-    const elapsed = performance.now() - t0;
-    inferenceTimes.push(elapsed);
-    if (i === 0) firstInferenceMs = elapsed;
+    inferenceTimes.push(performance.now() - t0);
   }
 
   await session.release();
-  const metrics = computeMetrics(inferenceTimes, compilationMs, firstInferenceMs);
+  const metrics = computeMetrics(inferenceTimes, compilationMs, null, firstInferenceMs);
   const dataType = fileName.includes('fp16') ? 'fp16' : 'fp32';
 
   return {
@@ -146,7 +147,7 @@ async function runOrt(req: WorkerRequest, modelBuffer: ArrayBuffer): Promise<Tes
     test_item: { id, hf_model_id: hfModelId, file_path: fileName, data_type: dataType, runtime: 'onnx', backend, status: 'completed', progress: 100 },
     metrics,
     inference_times: inferenceTimes,
-    warmup_ms: warmupRuns > 0 ? inferenceTimes[0] ?? 0 : 0,
+    warmup_ms: firstInferenceMs,
     iterations,
     iterations_completed: iterations,
     started_at: startedAt,
@@ -193,30 +194,31 @@ async function runLiteRt(req: WorkerRequest, modelBuffer: ArrayBuffer): Promise<
     return tensors;
   };
 
+  let firstInferenceMs = 0;
   post({ type: 'status', id, status: 'Warming up...' });
   for (let i = 0; i < warmupRuns; i++) {
     const inputs = createTensors();
-    await model.run(inputs);
+    const t0 = performance.now();
+    const outputs = await model.run(inputs);
+    if (i === 0) firstInferenceMs = performance.now() - t0;
     inputs.forEach((t: any) => t.delete?.());
+    if (Array.isArray(outputs)) outputs.forEach((t: any) => t.delete?.());
   }
 
   const inferenceTimes: number[] = [];
-  let firstInferenceMs = 0;
 
   for (let i = 0; i < iterations; i++) {
     post({ type: 'status', id, status: `Running inference ${i + 1}/${iterations}...` });
     const inputs = createTensors();
     const t0 = performance.now();
     const outputs = await model.run(inputs);
-    const elapsed = performance.now() - t0;
-    inferenceTimes.push(elapsed);
-    if (i === 0) firstInferenceMs = elapsed;
+    inferenceTimes.push(performance.now() - t0);
     inputs.forEach((t: any) => t.delete?.());
     if (Array.isArray(outputs)) outputs.forEach((t: any) => t.delete?.());
   }
 
   model.delete?.();
-  const metrics = computeMetrics(inferenceTimes, compilationMs, firstInferenceMs);
+  const metrics = computeMetrics(inferenceTimes, null, compilationMs, firstInferenceMs);
   const dataType = fileName.includes('fp16') ? 'fp16' : 'fp32';
 
   return {
@@ -224,7 +226,7 @@ async function runLiteRt(req: WorkerRequest, modelBuffer: ArrayBuffer): Promise<
     test_item: { id, hf_model_id: hfModelId, file_path: fileName, data_type: dataType, runtime: 'litert', backend, status: 'completed', progress: 100 },
     metrics,
     inference_times: inferenceTimes,
-    warmup_ms: warmupRuns > 0 ? inferenceTimes[0] ?? 0 : 0,
+    warmup_ms: firstInferenceMs,
     iterations,
     iterations_completed: iterations,
     started_at: startedAt,

@@ -74,13 +74,13 @@
               <td><span class="badge badge-dtype">{result.data_type}</span></td>
               <td><span class="status-dot {statusClass(result.status)}"></span> {result.status}</td>
               <td class="cell-metric">
-                {result.metrics?.average_ms?.toFixed(1) ?? '—'}
+                {result.average_ms?.toFixed(1) ?? '—'}
               </td>
               <td class="cell-metric">
-                {result.metrics?.p90_ms?.toFixed(1) ?? '—'}
+                {result.p90_ms?.toFixed(1) ?? '—'}
               </td>
               <td class="cell-metric">
-                {result.metrics?.throughput_fps ? `${result.metrics.throughput_fps.toFixed(1)} fps` : '—'}
+                {result.throughput_fps ? `${result.throughput_fps.toFixed(1)} fps` : '—'}
               </td>
               <td class="cell-duration">{formatDuration(result.started_at, result.completed_at)}</td>
               <td class="cell-date">{formatDate(result.started_at)}</td>

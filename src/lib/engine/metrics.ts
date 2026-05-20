@@ -18,17 +18,20 @@ export function average(arr: number[]): number {
 
 export function computeMetrics(
   inferenceTimes: number[],
-  compilationMs: number,
+  compilationMs: number | null,
+  loadAndCompileMs: number | null,
   firstInferenceMs: number
 ): BenchmarkMetrics {
+  const avg = average(inferenceTimes);
   return {
     compilation_ms: compilationMs,
+    load_and_compile_ms: loadAndCompileMs,
     first_inference_ms: firstInferenceMs,
-    time_to_first_ms: compilationMs + firstInferenceMs,
-    average_ms: average(inferenceTimes),
+    time_to_first_ms: (compilationMs ?? loadAndCompileMs ?? 0) + firstInferenceMs,
+    average_ms: avg,
     median_ms: median(inferenceTimes),
     best_ms: Math.min(...inferenceTimes),
     p90_ms: percentile(90, inferenceTimes),
-    throughput_fps: 1000 / average(inferenceTimes),
+    throughput_fps: 1000 / avg,
   };
 }

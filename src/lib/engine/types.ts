@@ -15,7 +15,8 @@ export interface TestItem {
 }
 
 export interface BenchmarkMetrics {
-  compilation_ms: number;
+  compilation_ms: number | null;
+  load_and_compile_ms: number | null;
   first_inference_ms: number;
   time_to_first_ms: number;
   average_ms: number;

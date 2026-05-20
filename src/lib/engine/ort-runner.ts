@@ -63,7 +63,7 @@ export async function runOrtInference(options: OrtRunOptions): Promise<TestResul
 
     await session.release();
 
-    const metrics = computeMetrics(inferenceTimes, compilationMs, firstInferenceMs);
+    const metrics = computeMetrics(inferenceTimes, compilationMs, null, firstInferenceMs);
 
     return {
       id,

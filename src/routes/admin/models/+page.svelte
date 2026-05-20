@@ -182,8 +182,8 @@
     flex: 1;
     max-width: 400px;
     font-family: var(--font-ui);
-    font-size: var(--text-sm);
-    padding: var(--space-1) var(--space-2);
+    font-size: var(--text-base);
+    padding: var(--space-2) var(--space-2);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-base);
     background: var(--color-surface);
@@ -197,7 +197,7 @@
   }
 
   .result-count {
-    font-size: var(--text-sm);
+    font-size: var(--text-xs);
     color: var(--color-text-muted);
   }
 
