@@ -469,7 +469,7 @@ The dtype filter in `model/+page.svelte` already pre-filters rows before they re
 
   .page-btn:hover:not(:disabled) {
     border-color: var(--color-primary);
-    background: var(--color-accent-light);
+    background:var(--color-accent-light);
   }
 
   .page-btn:disabled {
@@ -679,7 +679,7 @@ Replace the entire `.file-card` layout section (keep `.file-grid`, repo styles, 
   }
 
   .file-card.in-library {
-    background: color-mix(in srgb, #10b981 5%, var(--color-surface-raised));
+    background: color-mix(in srgb, #10b981 3%, var(--color-surface-raised));
   }
 
   .card-left {

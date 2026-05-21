@@ -1,14 +1,15 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { goto } from '$app/navigation';
   import ModelFilters from '$lib/components/ModelFilters.svelte';
   import ModelGrid from '$lib/components/ModelGrid.svelte';
   import HFSearch, { type SelectedHFModel } from '$lib/components/HFSearch.svelte';
   import HFUrlImport from '$lib/components/HFUrlImport.svelte';
   import { isAuthenticated } from '$lib/stores/auth';
+  import { cart } from '$lib/stores/cart';
   import type { ModelRow } from './+page.ts';
   import { loadModels, invalidateModelCache, type FetchMode } from '$lib/model-cache';
   import { createClient } from '$lib/supabase/client';
-  import ActionPanel from '$lib/components/ActionPanel.svelte';
   import { inferFormat } from '$lib/huggingface/parser';
 
   let { data } = $props<{ data: { initialSearch: string } }>();
@@ -19,23 +20,37 @@
   let selectedDataTypes = $state<Set<string>>(new Set());
   let selectedCategories = $state<Set<string>>(new Set());
   let selectedSizes = $state<Set<string>>(new Set());
-  function loadStoredSelection(): { ids: string[]; hfModels: SelectedHFModel[] } {
-    try {
-      const raw = sessionStorage.getItem('model_selection');
-      if (raw) return JSON.parse(raw);
-    } catch {}
-    return { ids: [], hfModels: [] };
-  }
-  const _stored = loadStoredSelection();
-  let selectedIds = $state<Set<string>>(new Set(_stored.ids));
-  let selectedHFModels = $state<SelectedHFModel[]>(_stored.hfModels);
   let showFilters = $state(false);
-  let showActionPanel = $state(false);
   let showHFSearch = $state(false);
   let refreshing = $state(false);
   let models = $state<ModelRow[]>([]);
   let loadError = $state<string | null>(null);
   let loadingModels = $state(true);
+
+  // Cart-derived selection state (drives ModelGrid highlight)
+  const selectedIds = $derived(
+    new Set($cart.filter((m) => m.id).map((m) => m.id!))
+  );
+
+  // Writable mirror of HF models in the cart — needed for two-way bind with HFSearch/HFUrlImport
+  let hfModels = $state<SelectedHFModel[]>([]);
+
+  $effect(() => {
+    hfModels = $cart.filter((m) => !m.id) as SelectedHFModel[];
+  });
+
+  $effect(() => {
+    // Sync hfModels changes back to cart
+    const cartHF = $cart.filter((m) => !m.id);
+    const added = hfModels.filter(
+      (m) => !cartHF.some((c) => c.hf_model_id === m.hf_model_id && c.file_path === m.file_path)
+    );
+    const removed = cartHF.filter(
+      (c) => !hfModels.some((m) => m.hf_model_id === c.hf_model_id && m.file_path === c.file_path)
+    );
+    for (const m of added) cart.add(m);
+    for (const m of removed) cart.remove(m.hf_model_id, m.file_path);
+  });
 
   async function fetchModels() {
     const supabase = createClient();
@@ -94,23 +109,27 @@
     { key: 'gt4gb', test: (b: number) => b >= 4_000_000_000 },
   ];
 
-  function toggleSelect(id: string) {
-    const next = new Set(selectedIds);
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
-    selectedIds = next;
+  function runSingle() {
+    const m = $cart[0];
+    if (!m) return;
+    const seg = `${m.hf_model_id}|${m.file_path}`;
+    goto(`/run#models=${encodeURIComponent(seg)}&backend=webgpu&n=50`);
   }
 
-  $effect(() => {
-    try {
-      sessionStorage.setItem('model_selection', JSON.stringify({
-        ids: [...selectedIds],
-        hfModels: selectedHFModels,
-      }));
-    } catch {}
-  });
+  function toggleSelect(id: string) {
+    const model = models.find((m) => m.id === id);
+    if (!model) return;
+    cart.toggle({
+      id: model.id,
+      hf_model_id: model.hf_model_id,
+      file_path: model.file_path,
+      data_type: model.data_type,
+      runtime: model.runtime,
+      task: model.task,
+    });
+  }
 
-  const totalSelected = $derived(selectedIds.size + selectedHFModels.length);
+  const totalSelected = $derived($cart.length);
 
   const allModels: ModelRow[] = $derived(models);
 
@@ -165,17 +184,10 @@
         <h1>Model Browser</h1>
         <p>Select models to benchmark.</p>
       </div>
-      {#if totalSelected > 0}
-        <div class="header-actions">
-          {#if $isAuthenticated}
-            <button class="btn-save" onclick={() => showActionPanel = true}>
-              Save as Recipe
-            </button>
-          {/if}
-          <button class="btn-run" onclick={() => showActionPanel = true}>
-            Run {totalSelected} Selected
-          </button>
-        </div>
+      {#if totalSelected === 1}
+        <button class="btn-run-one" onclick={runSingle}>
+          Run model
+        </button>
       {/if}
     </div>
   </header>
@@ -236,10 +248,10 @@
           <span class="result-count">{filteredModels.length} models</span>
         </div>
         {#if isHFUrl}
-          <HFUrlImport url={searchQuery.trim()} localModels={allModels} bind:selectedHFModels />
+          <HFUrlImport url={searchQuery.trim()} localModels={allModels} bind:selectedHFModels={hfModels} />
         {:else}
           {#if showHFSearch}
-            <HFSearch {searchQuery} localModels={allModels} bind:selectedHFModels />
+            <HFSearch {searchQuery} localModels={allModels} bind:selectedHFModels={hfModels} />
           {/if}
           {#if loadingModels}
             <div class="loading-models">Loading models...</div>
@@ -251,20 +263,6 @@
     </div>
   {/if}
 </div>
-
-<ActionPanel
-  bind:open={showActionPanel}
-  localModels={allModels}
-  {selectedIds}
-  bind:selectedHFModels
-  onclose={() => showActionPanel = false}
-  ondeselect={(id) => toggleSelect(id)}
-  ondeselecthf={(hf_model_id, file_path) => {
-    selectedHFModels = selectedHFModels.filter(
-      (m) => !(m.hf_model_id === hf_model_id && m.file_path === file_path)
-    );
-  }}
-/>
 
 <style>
   .model-page {
@@ -332,8 +330,8 @@
   .search-input {
     flex: 1;
     font-family: var(--font-ui);
-    font-size: var(--text-base);
-    padding: var(--space-2) var(--space-2);
+    font-size: var(--text-sm);
+    padding: var(--space-1) var(--space-2);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-base);
     background: var(--color-surface);
@@ -358,9 +356,9 @@
     align-items: center;
     gap: 5px;
     font-family: var(--font-ui);
-    font-size: var(--text-base);
+    font-size: var(--text-sm);
     font-weight: 500;
-    padding: var(--space-2) var(--space-2);
+    padding: var(--space-1) var(--space-2);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-base);
     background: var(--color-surface);
@@ -379,7 +377,7 @@
   .hf-toggle.active {
     border-color: var(--color-primary);
     color: var(--color-primary);
-    background: var(--color-accent-light);
+    background:var(--color-accent-light);
   }
 
   .header-row {
@@ -389,13 +387,7 @@
     gap: var(--space-2);
   }
 
-  .header-actions {
-    display: flex;
-    gap: var(--space-1);
-    align-items: center;
-  }
-
-  .btn-run {
+  .btn-run-one {
     font-family: var(--font-ui);
     font-size: var(--text-base);
     font-weight: 500;
@@ -403,29 +395,13 @@
     border: none;
     border-radius: var(--radius-sm);
     background: var(--color-primary);
-    color: #FFFFFF;
+    color: #fff;
     cursor: pointer;
     white-space: nowrap;
     transition: background var(--transition-base);
   }
 
-  .btn-run:hover { background: var(--color-primary-hover); }
-
-  .btn-save {
-    font-family: var(--font-ui);
-    font-size: var(--text-base);
-    font-weight: 500;
-    padding: 10px 20px;
-    border: 1px solid var(--color-primary);
-    border-radius: var(--radius-sm);
-    background: none;
-    color: var(--color-primary);
-    cursor: pointer;
-    white-space: nowrap;
-    transition: background var(--transition-base);
-  }
-
-  .btn-save:hover { background: var(--color-accent-light); }
+  .btn-run-one:hover { background: var(--color-primary-hover); }
 
   .error-banner {
     padding: var(--space-2);
@@ -450,13 +426,7 @@
       font-size: var(--text-sm);
     }
 
-    .header-actions {
-      width: 100%;
-    }
-
-    .btn-run,
-    .btn-save {
-      flex: 1;
+    .btn-run-one {
       font-size: var(--text-sm);
       padding: 8px 14px;
       text-align: center;

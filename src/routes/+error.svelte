@@ -7,7 +7,7 @@
   <h1 class="error-message">{$page.error?.message ?? 'Something went wrong'}</h1>
   <nav class="error-nav">
     <a href="/" class="error-link">Home</a>
-    <a href="/model" class="error-link">Model Browser</a>
+    <a href="/browse" class="error-link">Browse Models</a>
     <a href="/run" class="error-link">Run Benchmark</a>
     <a href="/custom" class="error-link">Upload Custom Model</a>
   </nav>

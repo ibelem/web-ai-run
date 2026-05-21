@@ -2,16 +2,12 @@
   import { get } from 'svelte/store';
   import { goto } from '$app/navigation';
   import { auth, isAuthenticated } from '$lib/stores/auth';
+  import { cart } from '$lib/stores/cart';
   import { createRecipe, updateRecipe, listRecipes, type Recipe } from '$lib/recipes/crud';
   import type { RecipeModel } from '$lib/supabase/types';
-  import type { SelectedHFModel } from './HFSearch.svelte';
-  import type { ModelRow } from '../../routes/model/+page';
 
   interface Props {
     open?: boolean;
-    localModels: ModelRow[];
-    selectedIds: Set<string>;
-    selectedHFModels: SelectedHFModel[];
     onclose?: () => void;
     ondeselect?: (id: string) => void;
     ondeselecthf?: (hf_model_id: string, file_path: string) => void;
@@ -19,17 +15,12 @@
 
   let {
     open = false,
-    localModels,
-    selectedIds,
-    selectedHFModels = $bindable([]),
     onclose,
     ondeselect,
     ondeselecthf,
   }: Props = $props();
 
   // --- Recipe section ---
-  const RECIPE_MODE_KEY = 'action_panel_recipe_mode';
-
   type RecipeMode = 'new' | 'append';
   let recipeMode = $state<RecipeMode>('new');
   let recipeName = $state('');
@@ -57,60 +48,42 @@
     }
   }
 
-  // --- Derived selected models ---
-  const selectedLocalModels = $derived(
-    localModels.filter((m) => selectedIds.has(m.id))
-  );
-
-  const totalSelected = $derived(selectedLocalModels.length + selectedHFModels.length);
+  const cartModels = $derived($cart);
+  const totalSelected = $derived(cartModels.length);
 
   // --- Run ---
   function runSelected() {
     if (totalSelected === 0) return;
-
-    const allModels = [
-      ...selectedLocalModels.map((m) => ({
-        hf_model_id: m.hf_model_id,
-        file_path: m.file_path,
-        data_type: m.data_type,
-        runtime: m.runtime,
-      })),
-      ...selectedHFModels.map((m) => ({ ...m })),
-    ];
-
     try {
-      sessionStorage.setItem('hf_ext_models', JSON.stringify(allModels));
-      sessionStorage.removeItem('model_selection');
+      sessionStorage.setItem('hf_ext_models', JSON.stringify(
+        cartModels.map((m) => ({
+          hf_model_id: m.hf_model_id,
+          file_path: m.file_path,
+          data_type: m.data_type,
+          runtime: m.runtime,
+        }))
+      ));
     } catch {}
-
     window.location.href = '/run';
   }
 
-  // --- Save as Recipe ---
+  // --- Save as Recipe (auth-gated) ---
   async function saveRecipe() {
     saveError = '';
     const authState = get(auth);
     if (!authState.user) return;
 
-    const recipeModels: RecipeModel[] = [
-      ...selectedLocalModels.map((m) => ({
-        hf_model_id: m.hf_model_id,
-        file_path: m.file_path,
-        data_type: m.data_type,
-      })),
-      ...selectedHFModels.map((m) => ({
-        hf_model_id: m.hf_model_id,
-        file_path: m.file_path,
-        data_type: m.data_type,
-      })),
-    ];
+    const recipeModels: RecipeModel[] = cartModels.map((m) => ({
+      hf_model_id: m.hf_model_id,
+      file_path: m.file_path,
+      data_type: m.data_type,
+    }));
 
     saving = true;
     try {
       if (recipeMode === 'new') {
         if (!recipeName.trim()) return;
         await createRecipe(authState.user.id, recipeName.trim(), recipeModels);
-        sessionStorage.removeItem('model_selection');
         goto('/recipe');
       } else {
         if (!selectedRecipeId) return;
@@ -118,8 +91,7 @@
         if (!target) return;
         const merged = [...target.models, ...recipeModels];
         await updateRecipe(selectedRecipeId, { models: merged });
-        sessionStorage.removeItem('model_selection');
-        goto(`/recipe`);
+        goto('/recipe');
       }
     } catch (e: any) {
       saveError = e.message ?? 'Failed to save recipe';
@@ -159,7 +131,7 @@
         <p class="empty-hint">No models selected.</p>
       {:else}
         <ul class="model-list">
-          {#each selectedLocalModels as m (m.id)}
+          {#each cartModels as m (`${m.hf_model_id}::${m.file_path}`)}
             <li class="model-row">
               <div class="model-info">
                 <span class="model-name" title={m.file_path}>{basename(m.file_path)}</span>
@@ -170,26 +142,14 @@
                   <span class="tag tag-dtype" data-dtype={m.data_type}>{m.data_type}</span>
                 {/if}
               </div>
-              <button class="deselect-btn" onclick={() => ondeselect?.(m.id)} aria-label="Remove {m.hf_model_id}">
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round">
-                  <line x1="18" y1="6" x2="6" y2="18"/>
-                  <line x1="6" y1="6" x2="18" y2="18"/>
-                </svg>
-              </button>
-            </li>
-          {/each}
-          {#each selectedHFModels as m (`${m.hf_model_id}::${m.file_path}`)}
-            <li class="model-row hf-row">
-              <div class="model-info">
-                <span class="model-name" title={m.file_path}>{basename(m.file_path)}</span>
-                <span class="model-meta">{m.hf_model_id}</span>
-              </div>
-              <div class="model-tags">
-                {#if m.data_type}
-                  <span class="tag tag-dtype" data-dtype={m.data_type}>{m.data_type}</span>
-                {/if}
-              </div>
-              <button class="deselect-btn" onclick={() => ondeselecthf?.(m.hf_model_id, m.file_path)} aria-label="Remove {m.hf_model_id}">
+              <button
+                class="deselect-btn"
+                onclick={() => {
+                  if (m.id) ondeselect?.(m.id);
+                  else ondeselecthf?.(m.hf_model_id, m.file_path);
+                }}
+                aria-label="Remove {m.hf_model_id}"
+              >
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round">
                   <line x1="18" y1="6" x2="6" y2="18"/>
                   <line x1="6" y1="6" x2="18" y2="18"/>
@@ -252,6 +212,10 @@
         >
           {saving ? 'Saving...' : recipeMode === 'new' ? 'Save Recipe' : 'Append to Recipe'}
         </button>
+      </section>
+    {:else}
+      <section class="panel-section">
+        <p class="hint"><a href="/login" class="sign-in-link">Sign in</a> to save models as a recipe.</p>
       </section>
     {/if}
   </div>
@@ -389,7 +353,12 @@
     min-width: 0;
   }
 
-.model-info {
+  .model-row:hover {
+    border: var(--color-primary) 1px solid;
+    background:var(--color-accent-light);
+  }
+
+  .model-info {
     flex: 1;
     min-width: 0;
     display: flex;
@@ -414,14 +383,14 @@
     text-overflow: ellipsis;
   }
 
-.model-tags {
+  .model-tags {
     display: flex;
     align-items: center;
     gap: 3px;
     flex-shrink: 0;
   }
 
-.deselect-btn {
+  .deselect-btn {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -495,6 +464,15 @@
     color: var(--color-text-muted);
   }
 
+  .sign-in-link {
+    color: var(--color-primary);
+    text-decoration: none;
+  }
+
+  .sign-in-link:hover {
+    text-decoration: underline;
+  }
+
   .save-error {
     font-size: var(--text-sm);
     color: var(--color-error);
@@ -515,7 +493,7 @@
   }
 
   .btn-save-recipe:hover:not(:disabled) {
-    background: var(--color-accent-light);
+    background:var(--color-accent-light);
   }
 
   .btn-save-recipe:disabled {
@@ -554,7 +532,7 @@
     cursor: not-allowed;
   }
 
-  /* dtype colors (same as HFSearch/HFUrlImport) */
+  /* dtype colors */
   .tag-dtype[data-dtype="fp32"]      { color: var(--color-primary); border-color: var(--color-primary); }
   .tag-dtype[data-dtype="fp16"]      { color: #8b5cf6; border-color: #8b5cf6; }
   .tag-dtype[data-dtype="bf16"]      { color: #7c3aed; border-color: #7c3aed; }

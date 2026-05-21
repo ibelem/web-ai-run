@@ -186,7 +186,7 @@
 
   .page-btn:hover:not(:disabled) {
     border-color: var(--color-primary);
-    background: var(--color-accent-light);
+    background:var(--color-accent-light);
   }
 
   .page-btn:disabled {

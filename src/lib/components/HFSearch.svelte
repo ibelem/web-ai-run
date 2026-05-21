@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { fly } from 'svelte/transition';
   import { inferFormat, inferDataType, inferRuntime, stripExt } from '$lib/huggingface/parser';
 
   interface Props {
@@ -40,6 +41,11 @@
     files: HFFile[];
   }
 
+  interface ResolvedRepo {
+    repo: HFRepo;
+    files: HFFile[];
+  }
+
   function groupFiles(files: HFFile[]): GroupedHFFile[] {
     const map = new Map<string, GroupedHFFile>();
     for (const f of files) {
@@ -59,18 +65,22 @@
 
   const HF_API = 'https://huggingface.co/api';
   const PAGE_SIZE = 20;
+  const TREE_CONCURRENCY = 4;
 
-  let hfResults = $state<HFRepo[]>([]);
   let loading = $state(false);
   let loadingMore = $state(false);
   let hasMore = $state(false);
   let skip = $state(0);
   let searchError = $state('');
-  let autoFetchCount = $state(0);
-  const MAX_AUTO_FETCH = 3;
-  let dismissingRepos = $state(new Set<string>());
-  let dismissedRepos = $state(new Set<string>());
-  let repoFiles = $state<Record<string, HFFile[] | null>>({});
+
+  // Scanning ticker state
+  let scanning = $state(false);
+  let scanningName = $state('');
+  let scannedCount = $state(0);
+  let totalToScan = $state(0);
+
+  // Only repos with supported files, in order found
+  let resolvedRepos = $state<ResolvedRepo[]>([]);
 
   const localSet = $derived(
     new Set(localModels.map((m) => `${m.hf_model_id}::${m.file_path}`))
@@ -81,14 +91,6 @@
     if (bytes >= 1_000_000) return `${(bytes / 1_000_000).toFixed(1)} MB`;
     if (bytes >= 1_000) return `${(bytes / 1_000).toFixed(1)} KB`;
     return `${bytes} B`;
-  }
-
-  function repoName(id: string): string {
-    return id.includes('/') ? id.split('/')[1] : id;
-  }
-
-  function orgName(id: string): string {
-    return id.includes('/') ? id.split('/')[0] : '';
   }
 
   async function fetchTree(repoId: string): Promise<HFFile[]> {
@@ -105,7 +107,7 @@
         const path = item.path ?? '';
         return {
           path,
-          size: item.size ?? 0,
+          size: item.lfs?.size ?? item.size ?? 0,
           format: inferFormat(path),
           dataType: inferDataType(path),
           runtime: inferRuntime(path) as 'onnx' | 'litert',
@@ -114,15 +116,37 @@
       .filter((f) => f.runtime !== null);
   }
 
+  async function scanRepos(repos: HFRepo[]) {
+    scanning = true;
+    totalToScan += repos.length;
+
+    let idx = 0;
+    async function worker() {
+      while (idx < repos.length) {
+        const repo = repos[idx++];
+        scanningName = repo.id;
+        const files = await fetchTree(repo.id);
+        scannedCount += 1;
+        if (files.length > 0) {
+          resolvedRepos = [...resolvedRepos, { repo, files }];
+        }
+      }
+    }
+
+    await Promise.all(Array.from({ length: Math.min(TREE_CONCURRENCY, repos.length) }, worker));
+    scanning = false;
+  }
+
   async function doSearch(q: string) {
     loading = true;
     searchError = '';
-    hfResults = [];
-    repoFiles = {};
+    resolvedRepos = [];
     hasMore = false;
     skip = 0;
-    dismissingRepos = new Set();
-    dismissedRepos = new Set();
+    scanning = false;
+    scanningName = '';
+    scannedCount = 0;
+    totalToScan = 0;
 
     try {
       const res = await fetch(
@@ -131,33 +155,13 @@
       if (!res.ok) throw new Error(`HF API error: ${res.status}`);
       const data: HFRepo[] = await res.json();
       const filtered = data.filter((r: any) => !r.private && !r.disabled);
-      hfResults = filtered;
       hasMore = data.length === PAGE_SIZE;
       skip = PAGE_SIZE;
-      autoFetchCount = 0;
-      fetchTrees(filtered);
+      scanRepos(filtered);
     } catch (e: any) {
       searchError = e.message ?? 'Failed to search HuggingFace';
     } finally {
       loading = false;
-    }
-  }
-
-  function fetchTrees(repos: HFRepo[]) {
-    for (const repo of repos) {
-      if (repoFiles[repo.id] !== undefined) continue;
-      repoFiles = { ...repoFiles, [repo.id]: null };
-      fetchTree(repo.id).then((files) => {
-        repoFiles = { ...repoFiles, [repo.id]: files };
-        if (files.length === 0) {
-          setTimeout(() => {
-            dismissingRepos = new Set([...dismissingRepos, repo.id]);
-            setTimeout(() => {
-              dismissedRepos = new Set([...dismissedRepos, repo.id]);
-            }, 450);
-          }, 300); // brief pause so user sees the repo before it fades
-        }
-      });
     }
   }
 
@@ -170,33 +174,15 @@
       if (!res.ok) throw new Error(`HF API error: ${res.status}`);
       const data: HFRepo[] = await res.json();
       const filtered = data.filter((r: any) => !r.private && !r.disabled);
-      hfResults = [...hfResults, ...filtered];
       hasMore = data.length === PAGE_SIZE;
       skip = skip + PAGE_SIZE;
-      autoFetchCount += 1;
-      fetchTrees(filtered);
+      scanRepos(filtered);
     } catch (e: any) {
       searchError = e.message ?? 'Failed to load more';
     } finally {
       loadingMore = false;
     }
   }
-
-  // Hide only fully dismissed repos (animation complete)
-  const visibleRepos = $derived(
-    hfResults.filter((repo) => !dismissedRepos.has(repo.id))
-  );
-
-  // When all current repos are resolved and hasMore, auto-fetch up to MAX_AUTO_FETCH times
-  const allResolved = $derived(
-    hfResults.length > 0 && hfResults.every((r) => repoFiles[r.id] !== null && repoFiles[r.id] !== undefined)
-  );
-
-  $effect(() => {
-    if (allResolved && hasMore && !loadingMore && autoFetchCount < MAX_AUTO_FETCH) {
-      loadMore();
-    }
-  });
 
   function formatCounts(files: HFFile[]): { format: string; count: number }[] {
     const counts: Record<string, number> = {};
@@ -237,60 +223,78 @@
 <div class="hf-search">
   {#if !searchQuery.trim()}
     <div class="hf-status">Type a search query above to search HuggingFace.</div>
-  {:else}
-  <div class="hf-section-header">
-    <span class="hf-label">HuggingFace</span>
-    <h3>Live results for "{searchQuery}"</h3>
-    <span class="hf-hint">"In library" means already in the local database.</span>
-  </div>
-
-  {#if loading}
+  {:else if loading}
     <div class="hf-status">
       <span class="spinner"></span>
       Searching HuggingFace...
     </div>
   {:else if searchError}
     <div class="hf-error">{searchError}</div>
-  {:else if hfResults.length === 0}
-    <div class="hf-status">No results found on HuggingFace for "{searchQuery}".</div>
   {:else}
-    <div class="repo-list">
-      {#each visibleRepos as repo (repo.id)}
-        {@const files = repoFiles[repo.id]}
-        {@const isLoading = files === null}
-        {@const counts = files ? formatCounts(files) : []}
 
-        <div class="repo-group" class:dismissing={dismissingRepos.has(repo.id)}>
-          <!-- Repo header: full width -->
-          <div class="repo-header">
-            <div class="repo-header-left">
-              {#if repo.pipeline_tag}
-                <span class="tag tag-task" title={repo.pipeline_tag}>{repo.pipeline_tag}</span>
-              {/if}
-              <a class="repo-name" href="https://huggingface.co/{repo.id}" target="_blank" rel="noopener noreferrer" title={repo.id}>{repo.id}</a>
-              {#if isLoading}
-                <span class="spinner spinner-sm"></span>
-              {:else if files !== null && files !== undefined && files.length === 0}
-                <span class="no-formats-label">No supported formats (onnx / tflite / litertlm)</span>
-              {:else}
+    {#if scanning || resolvedRepos.length > 0 || scannedCount > 0}
+      <div class="scan-row">
+        {#if scanning}
+          <span class="spinner spinner-sm"></span>
+          <span class="scan-label">Checking</span>
+          <div class="scan-ticker">
+            {#key scanningName}
+              <span
+                class="scan-name"
+                in:fly={{ y: 8, duration: 140 }}
+                out:fly={{ y: -8, duration: 140 }}
+              >{scanningName}</span>
+            {/key}
+          </div>
+          <span class="scan-progress">{scannedCount}/{totalToScan}</span>
+        {:else if resolvedRepos.length === 0}
+          <span class="scan-empty">No repos with supported formats (.onnx, .tflite, .litertlm) found</span>
+        {:else}
+          <span class="scan-done">
+            {resolvedRepos.length} repo{resolvedRepos.length !== 1 ? 's' : ''} with supported models
+            <span class="scan-hint"> · "In library" = already in local database</span>
+          </span>
+        {/if}
+        {#if !scanning}
+          <div class="scan-row-actions">
+            {#if loadingMore}
+              <span class="spinner spinner-sm"></span>
+            {:else if hasMore}
+              <button class="btn-load-more-inline" onclick={loadMore}>Load more</button>
+            {/if}
+          </div>
+        {/if}
+      </div>
+    {/if}
+
+    {#if resolvedRepos.length > 0}
+      <div class="repo-list">
+        {#each resolvedRepos as { repo, files } (repo.id)}
+          {@const counts = formatCounts(files)}
+          {@const grouped = groupFiles(files)}
+          <div class="repo-group">
+            <div class="repo-header">
+              <div class="repo-header-left">
+                {#if repo.pipeline_tag}
+                  <span class="tag tag-task" title={repo.pipeline_tag}>{repo.pipeline_tag}</span>
+                {/if}
+                <a class="repo-name" href="https://huggingface.co/{repo.id}" target="_blank" rel="noopener noreferrer" title={repo.id}>{repo.id}</a>
                 {#each counts as c (c.format)}
                   <span class="tag tag-format fmt-count" data-format={c.format}>{c.format} ×{c.count}</span>
                 {/each}
-              {/if}
+              </div>
+              <div class="repo-header-right">
+                {#if repo.likes > 0}
+                  <span class="stars">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                      <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                    </svg>
+                    {repo.likes}
+                  </span>
+                {/if}
+              </div>
             </div>
-            <div class="repo-header-right">
-              {#if repo.likes > 0}
-                <span class="stars">
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                    <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-                  </svg>
-                  {repo.likes}
-                </span>
-              {/if}
-            </div>
-          </div>
-          {#if files && files.length > 0}
-            {@const grouped = groupFiles(files)}
+
             <div class="file-grid">
               {#each grouped as group (group.key)}
                 {@const task = repo.pipeline_tag ?? ''}
@@ -304,16 +308,10 @@
                 >
                   <div class="card-left">
                     <div class="card-top">
-                      {#if task && task !== 'uncategorized'}
-                        <span class="info-task">{task}</span>
-                      {/if}
                       {#if inLibrary}
                         <span class="tag tag-inlib">In library</span>
                       {/if}
-                      <span class="info-file" title={group.strippedPath}>{group.strippedPath}</span>
-                    </div>
-                    <div class="card-bottom">
-                      <span class="tag tag-format" data-format={group.format}>{group.format}</span>
+                      <span class="info-file" title="{group.strippedPath}.{group.format}">{group.strippedPath}.{group.format}</span>
                     </div>
                   </div>
                   <div class="card-chips">
@@ -330,22 +328,12 @@
                 </div>
               {/each}
             </div>
-          {/if}
-        </div>
-      {/each}
-    </div>
-
-    {#if loadingMore}
-      <div class="load-more-wrap">
-        <span class="spinner spinner-sm"></span>
-        <span class="load-more-hint">Fetching more repos...</span>
-      </div>
-    {:else if hasMore && autoFetchCount >= MAX_AUTO_FETCH}
-      <div class="load-more-wrap">
-        <button class="btn-load-more" onclick={loadMore}>Load more</button>
+          </div>
+        {/each}
       </div>
     {/if}
-  {/if}
+
+
   {/if}
 </div>
 
@@ -353,39 +341,6 @@
   .hf-search {
     margin-top: var(--space-3);
     margin-bottom: var(--space-3);
-  }
-
-  .hf-section-header {
-    display: flex;
-    align-items: baseline;
-    flex-wrap: wrap;
-    gap: var(--space-1);
-    margin-bottom: var(--space-2);
-  }
-
-  .hf-label {
-    font-family: var(--font-ui);
-    font-size: var(--text-xs);
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--color-primary);
-    background: var(--color-accent-light);
-    padding: 2px 7px;
-    border-radius: var(--radius-sm);
-  }
-
-  .hf-section-header h3 {
-    font-family: var(--font-ui);
-    font-size: var(--text-base);
-    font-weight: 600;
-    color: var(--color-text-primary);
-    margin: 0;
-  }
-
-  .hf-hint {
-    font-size: var(--text-xs);
-    color: var(--color-text-muted);
   }
 
   .hf-status {
@@ -403,6 +358,98 @@
     padding: var(--space-2) 0;
   }
 
+  /* Scan ticker */
+  .scan-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    margin: 0 auto var(--space-3);
+    max-width: 600px;
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+    min-height: 32px;
+    overflow: hidden;
+  }
+
+  .scan-label {
+    font-weight: 600;
+    color: var(--color-text-secondary);
+    flex-shrink: 0;
+  }
+
+  .scan-ticker {
+    flex: 1;
+    position: relative;
+    height: 18px;
+    overflow: hidden;
+    min-width: 0;
+  }
+
+  .scan-name {
+    position: absolute;
+    inset: 0;
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--color-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 18px;
+  }
+
+  .scan-progress {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+    flex-shrink: 0;
+  }
+
+  .scan-done {
+    font-size: var(--text-xs);
+    color: var(--color-text-secondary);
+    flex: 1;
+  }
+
+  .scan-row-actions {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+  }
+
+  .btn-load-more-inline {
+    font-family: var(--font-ui);
+    font-size: var(--text-xs);
+    font-weight: 500;
+    padding: 3px 10px;
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-base);
+    background: var(--color-surface);
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background var(--transition-base), border-color var(--transition-base), color var(--transition-base);
+  }
+
+  .btn-load-more-inline:hover {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+    background:var(--color-accent-light);
+  }
+
+
+  .scan-hint {
+    color: var(--color-text-muted);
+  }
+
+  .scan-empty {
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+    font-style: italic;
+    flex: 1;
+  }
+
+  /* Repo cards */
   .repo-list {
     display: flex;
     flex-direction: column;
@@ -414,18 +461,6 @@
     border-radius: var(--radius-base);
     background: var(--color-surface-raised);
     overflow: hidden;
-    transform-origin: top;
-  }
-
-  .repo-group.dismissing {
-    animation: repo-dismiss 400ms ease-out forwards;
-    pointer-events: none;
-  }
-
-  @keyframes repo-dismiss {
-    0%   { opacity: 1; transform: scaleY(1);   max-height: 400px; margin-bottom: var(--space-2); }
-    60%  { opacity: 0; transform: scaleY(0.85); }
-    100% { opacity: 0; transform: scaleY(0);    max-height: 0;    margin-bottom: 0; padding: 0; }
   }
 
   .repo-header {
@@ -465,9 +500,7 @@
     text-overflow: ellipsis;
   }
 
-  .repo-name:hover {
-    text-decoration: underline;
-  }
+  .repo-name:hover { text-decoration: underline; }
 
   .fmt-count {
     flex-shrink: 0;
@@ -483,12 +516,6 @@
     color: var(--color-text-muted);
   }
 
-  .no-formats-label {
-    font-size: var(--text-xs);
-    color: var(--color-text-muted);
-    font-style: italic;
-  }
-
   .file-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
@@ -498,24 +525,23 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 7px 10px;
-    border-bottom: 1px solid var(--color-border);
+    padding: 2px 10px;
     min-width: 0;
     pointer-events: none;
     transition: background var(--transition-base);
   }
 
-  .file-card:nth-child(odd) {
-    border-right: 1px solid var(--color-border);
+  .file-card {
+    border-bottom: 0px solid var(--color-border);
   }
 
   .file-card.has-selection {
-    border-color: var(--color-primary-light);
-    background: color-mix(in srgb, var(--color-primary) 4%, var(--color-surface-raised));
+    border-color: var(--color-primary);
+    background:var(--color-accent-light);
   }
 
   .file-card.in-library {
-    background: color-mix(in srgb, #10b981 5%, var(--color-surface-raised));
+    background: color-mix(in srgb, #10b981 3%, var(--color-surface-raised));
   }
 
   .card-left {
@@ -527,8 +553,7 @@
     min-width: 0;
   }
 
-  .card-top,
-  .card-bottom {
+  .card-top {
     display: flex;
     align-items: center;
     gap: 5px;
@@ -547,15 +572,6 @@
     pointer-events: auto;
   }
 
-  .info-task {
-    font-family: var(--font-ui);
-    font-size: 10px;
-    color: var(--color-text-muted);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
   .info-file {
     font-family: var(--font-mono);
     font-size: var(--text-xs);
@@ -565,8 +581,6 @@
     white-space: nowrap;
     min-width: 0;
   }
-
-
 
   .chip {
     font-family: var(--font-mono);
@@ -612,65 +626,14 @@
   .chip.chip-selected[data-dtype="quantized"] { background: #ea580c; border-color: #ea580c; }
 
   @media (max-width: 700px) {
-    .file-grid {
-      grid-template-columns: 1fr;
-    }
-
-    .file-card:nth-child(odd) {
-      border-right: none;
-    }
+    .file-grid { grid-template-columns: 1fr; }
+    .file-card:nth-child(odd) { border-right: none; }
   }
 
-  .tag-task {
-    background: var(--color-surface-sunken);
-  }
+  .tag-task { background: var(--color-surface-sunken); }
 
   .tag-format[data-format="onnx"]     { color: #3b82f6; border-color: #3b82f6; }
   .tag-format[data-format="tflite"]   { color: #10b981; border-color: #10b981; }
   .tag-format[data-format="litertlm"] { color: #f97316; border-color: #f97316; }
-
-  .tag-inlib {
-    background: color-mix(in srgb, var(--color-success, #10b981) 12%, transparent);
-    color: var(--color-success, #10b981);
-    border-color: color-mix(in srgb, var(--color-success, #10b981) 30%, transparent);
-  }
-
-
-  .load-more-wrap {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: var(--space-1);
-    margin-top: var(--space-2);
-  }
-
-  .load-more-hint {
-    font-size: var(--text-sm);
-    color: var(--color-text-muted);
-  }
-
-  .btn-load-more {
-    font-family: var(--font-ui);
-    font-size: var(--text-sm);
-    font-weight: 500;
-    padding: var(--space-1) var(--space-3);
-    border: 1px solid var(--color-border-strong);
-    border-radius: var(--radius-base);
-    background: var(--color-surface);
-    color: var(--color-text-secondary);
-    cursor: pointer;
-    transition: background var(--transition-base), border-color var(--transition-base);
-  }
-
-  .btn-load-more:hover {
-    border-color: var(--color-primary);
-    color: var(--color-primary);
-    background: var(--color-accent-light);
-  }
-
-  .btn-load-more:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-  }
 
 </style>

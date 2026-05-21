@@ -342,9 +342,9 @@
   }
 
   .tag:hover:not(.selected) {
-    background: var(--tag-hover-bg, var(--color-accent-light));
+    background:var(--color-accent-light);
     color: var(--tag-hover-color, var(--color-primary));
-    border-color: var(--tag-hover-border, var(--color-primary));
+    border-color: var(--color-primary);
   }
 
   .tag.selected {

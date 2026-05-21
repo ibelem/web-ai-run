@@ -370,7 +370,7 @@
   }
 
   .btn-magic:hover {
-    background: var(--color-accent-light);
+    background:var(--color-accent-light);
   }
 
   .btn-magic:disabled { opacity: 0.5; cursor: not-allowed; }

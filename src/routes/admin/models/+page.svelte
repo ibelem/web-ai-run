@@ -182,8 +182,8 @@
     flex: 1;
     max-width: 400px;
     font-family: var(--font-ui);
-    font-size: var(--text-base);
-    padding: var(--space-2) var(--space-2);
+    font-size: var(--text-sm);
+    padding: var(--space-1) var(--space-2);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-base);
     background: var(--color-surface);
@@ -272,7 +272,7 @@
   }
 
   .models-table tr:hover td {
-    background: var(--color-accent-light);
+    background:var(--color-accent-light);
   }
 
   .mono {
@@ -321,7 +321,7 @@
 
   .page-btn:hover:not(:disabled) {
     border-color: var(--color-primary);
-    background: var(--color-accent-light);
+    background:var(--color-accent-light);
   }
 
   .page-btn:disabled {

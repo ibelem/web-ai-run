@@ -1,7 +1,5 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
-  import { isAuthenticated } from '$lib/stores/auth';
-  import { createClient } from '$lib/supabase/client';
   import { detectAvailableBackends } from '$lib/engine/backends';
   import { detectEnvironment } from '$lib/engine/environment';
   import { runInWorker, terminateWorker } from '$lib/engine/worker/pool';
@@ -11,7 +9,6 @@
   import BenchmarkResults from '$lib/components/BenchmarkResults.svelte';
   import type { Backend, TestResult, EnvironmentInfo } from '$lib/engine/types';
 
-  let showSignInModal = $state(false);
   let availableBackends = $state<Backend[]>(['wasm_1']);
   let selectedBackends = $state<Backend[]>(['wasm_1']);
   let iterations = $state(10);
@@ -65,10 +62,6 @@
   }
 
   async function startBenchmark() {
-    if (!$isAuthenticated) {
-      showSignInModal = true;
-      return;
-    }
     if (!file) return;
 
     const runtime = inferRuntime(file.name);
@@ -107,13 +100,7 @@
     errorMessage = '';
   }
 
-  async function signIn(provider: 'github' | 'google') {
-    const supabase = createClient();
-    await supabase.auth.signInWithOAuth({
-      provider,
-      options: { redirectTo: `${window.location.origin}/auth/callback` }
-    });
-  }
+
 </script>
 
 <div class="custom-page">
@@ -212,25 +199,6 @@
   {/if}
 </div>
 
-{#if showSignInModal}
-  <div class="dialog-backdrop" role="presentation" onclick={() => showSignInModal = false}>
-    <div
-      class="dialog-panel"
-      role="alertdialog"
-      aria-modal="true"
-      aria-labelledby="signin-title"
-      onclick={(e) => e.stopPropagation()}
-    >
-      <h2 id="signin-title">Sign in to continue</h2>
-      <p class="dialog-body">Running custom benchmarks requires a free account.</p>
-      <div class="dialog-actions">
-        <button class="btn-secondary" onclick={() => signIn('github')}>Sign in with GitHub</button>
-        <button class="btn-secondary" onclick={() => signIn('google')}>Sign in with Google</button>
-        <button class="btn-ghost" onclick={() => showSignInModal = false}>Cancel</button>
-      </div>
-    </div>
-  </div>
-{/if}
 
 <style>
   .custom-page {
@@ -248,7 +216,7 @@
 
   .dropzone:hover, .dropzone.drag-over {
     border-color: var(--color-primary);
-    background: var(--color-accent-light);
+    background:var(--color-accent-light);
   }
 
   .drop-icon {
@@ -441,7 +409,7 @@
     transition: background var(--transition-base);
   }
 
-  .btn-secondary:hover { background: var(--color-accent-light); }
+  .btn-secondary:hover { background:var(--color-accent-light); }
 
   .btn-ghost {
     font-family: var(--font-ui);

@@ -4,6 +4,9 @@
   import { page } from '$app/stores';
   import { initTheme, toggleTheme, theme } from '$lib/stores/theme';
   import { auth, isAuthenticated } from '$lib/stores/auth';
+  import { cart, cartCount } from '$lib/stores/cart';
+  import { actionPanelOpen } from '$lib/stores/action-panel';
+  import ActionPanel from '$lib/components/ActionPanel.svelte';
   import { createClient } from '$lib/supabase/client';
   import type { Role } from '$lib/types/roles';
 
@@ -13,6 +16,7 @@
 
   onMount(() => {
     initTheme();
+    cart.init();
 
     const role: Role = data.session?.user?.app_metadata?.role ?? 'anonymous';
     auth.set({
@@ -54,10 +58,10 @@
   }
 
   const navItems = $derived([
-    { href: '/model',       label: 'Model',       show: true },
-    { href: '/recipe',      label: 'Recipe',      show: $isAuthenticated },
-    { href: '/custom',      label: 'Custom',      show: $isAuthenticated },
-    { href: '/run',         label: 'Run',         show: true },
+    { href: '/browse',      label: 'Browse',      show: true },
+    { href: '/recipe',      label: 'Recipe',      show: true },
+    { href: '/custom',      label: 'Custom',      show: true },
+    { href: '/run',         label: 'Run',         show: false },
     { href: '/results',     label: 'Results',     show: $isAuthenticated },
     { href: '/leaderboard', label: 'Leaderboard', show: data.role === 'intel' || data.role === 'admin' },
   ]);
@@ -131,6 +135,15 @@
           </a>
         {/if}
       {/each}
+      {#if $cartCount > 0}
+        <button
+          class="nav-item nav-cart"
+          onclick={() => actionPanelOpen.set(true)}
+        >
+          Cart
+          <span class="nav-cart-badge">{$cartCount}</span>
+        </button>
+      {/if}
       {#if data.role === 'admin'}
         <a
           href="/admin/users"
@@ -230,6 +243,13 @@
   {@render children()}
 </main>
 
+<ActionPanel
+  open={$actionPanelOpen}
+  onclose={() => actionPanelOpen.set(false)}
+  ondeselect={(id) => cart.removeById(id)}
+  ondeselecthf={(hf_model_id, file_path) => cart.remove(hf_model_id, file_path)}
+/>
+
 <footer class="site-footer">
   <span>&copy; {new Date().getFullYear()} Web AI Benchmark</span>
 </footer>
@@ -315,6 +335,27 @@
     opacity: 1;
     color: var(--color-text-primary);
     border-bottom-color: var(--color-nav-active-border);
+  }
+
+  .nav-cart {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .nav-cart-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 9px;
+    background: var(--color-primary);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1;
   }
 
   .user-menu-wrapper {

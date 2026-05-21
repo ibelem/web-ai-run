@@ -334,16 +334,10 @@
                 >
                   <div class="card-left">
                     <div class="card-top">
-                      {#if repo.task && repo.task !== 'uncategorized'}
-                        <span class="info-task">{repo.task}</span>
-                      {/if}
                       {#if inLibrary}
                         <span class="tag tag-inlib">In library</span>
                       {/if}
-                      <span class="info-file" title={group.strippedPath}>{group.strippedPath}</span>
-                    </div>
-                    <div class="card-bottom">
-                      <span class="tag tag-format" data-format={group.format}>{group.format}</span>
+                      <span class="info-file" title="{group.strippedPath}.{group.format}">{group.strippedPath}.{group.format}</span>
                     </div>
                   </div>
                   <div class="card-chips">
@@ -388,7 +382,7 @@
     text-transform: uppercase;
     letter-spacing: 0.08em;
     color: var(--color-primary);
-    background: var(--color-accent-light);
+    background:var(--color-accent-light);
     padding: 2px 7px;
     border-radius: var(--radius-sm);
     flex-shrink: 0;
@@ -505,24 +499,22 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 7px 10px;
-    border-bottom: 1px solid var(--color-border);
+    padding: 2px 10px;
     min-width: 0;
     pointer-events: none;
     transition: background var(--transition-base);
   }
 
-  .file-card:nth-child(odd) {
-    border-right: 1px solid var(--color-border);
+  .file-card {
+    border-right: 0px solid var(--color-border);
   }
 
   .file-card.has-selection {
-    border-color: var(--color-primary-light);
-    background: color-mix(in srgb, var(--color-primary) 4%, var(--color-surface-raised));
+    background:var(--color-accent-light);
   }
 
   .file-card.in-library {
-    background: color-mix(in srgb, #10b981 5%, var(--color-surface-raised));
+    background: color-mix(in srgb, #10b981 3%, var(--color-surface-raised));
   }
 
   .card-left {
@@ -619,9 +611,6 @@
   .chip.chip-selected[data-dtype="quantized"] { background: #ea580c; border-color: #ea580c; }
 
   .tag-inlib {
-    background: color-mix(in srgb, var(--color-success, #10b981) 12%, transparent);
-    color: var(--color-success, #10b981);
-    border-color: color-mix(in srgb, var(--color-success, #10b981) 30%, transparent);
     flex-shrink: 0;
   }
 

@@ -51,6 +51,6 @@
 
   .subnav-item.active {
     color: var(--color-primary);
-    background: var(--color-accent-light);
+    background:var(--color-accent-light);
   }
 </style>

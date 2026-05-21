@@ -7,8 +7,9 @@
   import { detectEnvironment } from '$lib/engine/environment';
   import { ResultsWriter } from '$lib/engine/results-writer';
   import { runInWorker, isWorkerSupported, terminateWorker } from '$lib/engine/worker/pool';
-  import { auth } from '$lib/stores/auth';
+  import { auth, isAuthenticated } from '$lib/stores/auth';
   import { CPU_MODELS } from '$lib/data/cpu-models';
+  import { OS_MODELS } from '$lib/data/os-models';
   import { fetchRuntimeVersions } from '$lib/engine/runtime-versions';
   import { inferDataType } from '$lib/huggingface/parser';
   import BackendSelector from '$lib/components/BackendSelector.svelte';
@@ -54,7 +55,6 @@
       upload: hash.get('upload') === '1',
       cpu: hash.get('cpu') ?? '',
       os: hash.get('os') ?? '',
-      osVersion: hash.get('osv') ?? '',
       ort: hash.get('ort') ?? '',
       litert: hash.get('litert') ?? '',
     };
@@ -71,7 +71,7 @@
     if (saveResults) params.set('upload', '1');
     if (cpuModel.trim()) params.set('cpu', cpuModel.trim());
     if (osModel.trim()) params.set('os', osModel.trim());
-    if (osVersion.trim()) params.set('osv', osVersion.trim());
+
     if (usesOnnx && ortVersion) params.set('ort', ortVersion);
     if (usesLitert && litertVersion) params.set('litert', litertVersion);
     history.replaceState(null, '', `#${params}`);
@@ -91,7 +91,7 @@
   let hashModels = $state<ModelEntry[]>([]);
   let cpuModel = $state('');
   let osModel = $state('');
-  let osVersion = $state('');
+
   let ortVersion = $state('');
   let ortDevVersions = $state<string[]>([]);
   let ortStableVersions = $state<string[]>([]);
@@ -120,7 +120,7 @@
     void saveResults;
     void cpuModel;
     void osModel;
-    void osVersion;
+
     void hashModels;
     void ortVersion;
     void litertVersion;
@@ -150,7 +150,7 @@
     saveResults = parsed.upload;
     cpuModel = parsed.cpu;
     osModel = parsed.os;
-    osVersion = parsed.osVersion;
+
 
     availableBackends = await detectAvailableBackends();
     environment = await detectEnvironment();
@@ -200,7 +200,7 @@
           ...environment,
           cpu: cpuModel.trim() || environment.cpu,
           os: osModel.trim() || environment.os,
-          os_version: osVersion.trim() || environment.os_version,
+          os_version: environment.os_version,
         },
         ortVersion,
         litertVersion,
@@ -298,30 +298,31 @@
               {/each}
             </datalist>
           </div>
-          <div class="env-row">
-            <span class="env-label">OS</span>
-            <input
-              class="cpu-input"
-              type="text"
-              placeholder="e.g. Windows 11, macOS 15, Android 15..."
-              bind:value={osModel}
-            />
-          </div>
-          <div class="env-row">
-            <span class="env-label">OS Version</span>
-            <input
-              class="cpu-input"
-              type="text"
-              placeholder="e.g. 24H2, 15.4.1, 15..."
-              bind:value={osVersion}
-            />
-          </div>
         {/if}
         {#if environment}
           <div class="env-row">
             <span class="env-label">GPU</span>
             <span class="env-value">{environment.gpu}</span>
           </div>
+        {/if}
+        {#if saveResults}
+          <div class="env-row">
+            <span class="env-label">OS</span>
+            <input
+              class="cpu-input"
+              type="text"
+              list="os-model-list"
+              placeholder="Type your OS..."
+              bind:value={osModel}
+            />
+            <datalist id="os-model-list">
+              {#each OS_MODELS as os}
+                <option value={os}></option>
+              {/each}
+            </datalist>
+          </div>
+        {/if}
+        {#if environment}
           <div class="env-row">
             <span class="env-label">Browser</span>
             <span class="env-value">{environment.browser} {environment.browser_version}</span>
@@ -375,11 +376,19 @@
     {#if hashModels.length > 0}
       <ul class="model-list">
         {#each hashModels as m}
+          {@const ext = m.file_path.endsWith('.litertlm') ? 'litertlm' : m.file_path.endsWith('.tflite') ? 'tflite' : 'onnx'}
           <li class="model-item">
-            <span class="model-item-repo">{m.hf_model_id}</span>
-            <span class="model-item-name">{m.file_path.split('/').pop()}</span>
+            <div class="model-item-left">
+              <div class="model-item-top">
+                <span class="model-item-repo">{m.hf_model_id}</span>
+              </div>
+              <div class="model-item-bottom">
+                <span class="model-item-format" data-format={ext}>{ext}</span>
+                <span class="model-item-name">{m.file_path.split('/').pop()}</span>
+              </div>
+            </div>
             {#if m.data_type}
-              <span class="model-item-dtype" data-dtype={m.data_type}>{m.data_type}</span>
+              <span class="model-item-dtype" data-dtype={m.data_type}>{m.data_type === 'quantized' ? 'quant' : m.data_type}</span>
             {/if}
           </li>
         {/each}
@@ -399,11 +408,22 @@
           <input type="checkbox" bind:checked={saveResults} />
           Upload results
         </label>
-        <button class="btn-primary" onclick={startBenchmark} disabled={totalModels === 0 || (saveResults && (!cpuModel.trim() || !osModel.trim() || !osVersion.trim()))}>
+        {#if saveResults}
+          {#if $isAuthenticated}
+            <p class="upload-disclosure">
+              Your CPU model, GPU, OS, and browser will be saved alongside the benchmark scores — this hardware context is what makes the results meaningful.
+            </p>
+          {:else}
+            <p class="upload-disclosure upload-disclosure-warn">
+              <a href="/login">Sign in</a> to upload results — we need an account to attribute the data.
+            </p>
+          {/if}
+        {/if}
+        <button class="btn-primary" onclick={startBenchmark} disabled={totalModels === 0 || (saveResults && (!$isAuthenticated || !cpuModel.trim() || !osModel.trim()))}>
           Run Benchmark
         </button>
         {#if totalModels === 0}
-          <p class="action-hint">No models selected. <a href="/model">Browse models</a> to pick one, or <a href="/custom">upload your own</a>.</p>
+          <p class="action-hint">No models selected. <a href="/browse">Browse models</a> to pick one, or <a href="/custom">upload your own</a>.</p>
         {/if}
       {:else}
         <button class="btn-stop" onclick={stopBenchmark}>Stop</button>
@@ -454,6 +474,23 @@
     margin-top: var(--space-6);
   }
 
+
+  .upload-disclosure {
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+    margin: 0;
+    line-height: 1.5;
+  }
+
+  .upload-disclosure-warn {
+    color: var(--color-error);
+  }
+
+  .upload-disclosure-warn a {
+    color: var(--color-error);
+    font-weight: 600;
+    text-decoration: underline;
+  }
 
   .action-hint {
     font-size: var(--text-sm);
@@ -590,8 +627,14 @@
   .model-list {
     list-style: none;
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(3, 1fr);
     gap: 3px;
+  }
+
+  @media (max-width: 900px) {
+    .model-list {
+      grid-template-columns: repeat(2, 1fr);
+    }
   }
 
   @media (max-width: 600px) {
@@ -602,55 +645,98 @@
 
   .model-item {
     display: flex;
-    align-items: baseline;
-    gap: var(--space-1);
-    padding: 5px 8px;
-    background: var(--color-surface-sunken);
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    background: var(--color-surface-raised);
+    border: 1px solid var(--color-border);
     border-radius: var(--radius-base);
+    min-width: 0;
+    transition: border-color var(--transition-base), background var(--transition-base);
+  }
+
+  .model-item:hover {
+    border-color: var(--color-primary);
+    background:var(--color-accent-light);
+  }
+
+  .model-item-left {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    overflow: hidden;
+    min-width: 0;
+  }
+
+  .model-item-top,
+  .model-item-bottom {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    overflow: hidden;
+    white-space: nowrap;
     min-width: 0;
   }
 
   .model-item-repo {
+    font-family: var(--font-mono);
     font-size: var(--text-xs);
-    color: var(--color-text-secondary);
-    white-space: nowrap;
+    color: var(--color-text-primary);
     overflow: hidden;
     text-overflow: ellipsis;
-    flex-shrink: 0;
-    max-width: 55%;
+    white-space: nowrap;
+    min-width: 0;
   }
 
   .model-item-name {
     font-family: var(--font-mono);
     font-size: var(--text-xs);
     color: var(--color-text-muted);
-    white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    white-space: nowrap;
     min-width: 0;
-    flex: 1;
   }
+
+  .model-item-format {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 1px 5px;
+    border-radius: var(--radius-sm);
+    border: 1px solid;
+    flex-shrink: 0;
+    line-height: 1.4;
+  }
+
+  .model-item-format[data-format="onnx"]     { color: #3b82f6; border-color: #3b82f6; }
+  .model-item-format[data-format="tflite"]   { color: #10b981; border-color: #10b981; }
+  .model-item-format[data-format="litertlm"] { color: #f97316; border-color: #f97316; }
 
   .model-item-dtype {
     font-family: var(--font-mono);
-    font-size: 10px;
-    padding: 1px 5px;
-    border-radius: var(--radius-base);
-    border: 1px solid currentColor;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: var(--radius-sm);
+    border: 1px solid;
     white-space: nowrap;
     flex-shrink: 0;
-    color: var(--color-text-muted);
+    line-height: 1.4;
   }
 
   .model-item-dtype[data-dtype="fp32"]      { color: var(--color-primary); border-color: var(--color-primary); }
   .model-item-dtype[data-dtype="fp16"]      { color: #8b5cf6; border-color: #8b5cf6; }
   .model-item-dtype[data-dtype="bf16"]      { color: #7c3aed; border-color: #7c3aed; }
+  .model-item-dtype[data-dtype="fp8"]       { color: #a855f7; border-color: #a855f7; }
   .model-item-dtype[data-dtype="int8"]      { color: #06b6d4; border-color: #06b6d4; }
   .model-item-dtype[data-dtype="uint8"]     { color: #0891b2; border-color: #0891b2; }
   .model-item-dtype[data-dtype="int4"]      { color: #10b981; border-color: #10b981; }
   .model-item-dtype[data-dtype="uint4"]     { color: #059669; border-color: #059669; }
   .model-item-dtype[data-dtype="q4"]        { color: #16a34a; border-color: #16a34a; }
   .model-item-dtype[data-dtype="q4f16"]     { color: #6366f1; border-color: #6366f1; }
+  .model-item-dtype[data-dtype="bnb4"]      { color: #f59e0b; border-color: #f59e0b; }
   .model-item-dtype[data-dtype="quantized"] { color: #ea580c; border-color: #ea580c; }
 
   .version-select {

@@ -1,27 +1,11 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
-  import { isAuthenticated } from '$lib/stores/auth';
-  import { createClient } from '$lib/supabase/client';
   import { deleteRecipe } from '$lib/recipes/crud';
   import type { Recipe } from '$lib/recipes/crud';
 
   let { data } = $props();
 
-  let showSignInModal = $state(false);
-
-  async function signIn(provider: 'github' | 'google') {
-    const supabase = createClient();
-    await supabase.auth.signInWithOAuth({
-      provider,
-      options: { redirectTo: `${window.location.origin}/auth/callback` }
-    });
-  }
-
   function runRecipe(recipe: Recipe) {
-    if (!$isAuthenticated) {
-      showSignInModal = true;
-      return;
-    }
     const modelIds = recipe.models.map((m) => m.hf_model_id).join(',');
     goto(`/run?models=${modelIds}&recipe=${recipe.slug}`);
   }
@@ -44,9 +28,7 @@
         <h1>Recipes</h1>
         <p>Saved model+backend combinations for quick re-runs.</p>
       </div>
-      {#if $isAuthenticated}
-        <a href="/recipe/new" class="btn-primary">New Recipe</a>
-      {/if}
+      <a href="/recipe/new" class="btn-primary">New Recipe</a>
     </div>
   </header>
 
@@ -56,12 +38,7 @@
     </div>
   {:else if data.recipes.length === 0}
     <div class="empty">
-      {#if $isAuthenticated}
-        <p>No recipes yet. Create one from the Model page or click "New Recipe" above.</p>
-      {:else}
-        <p>Sign in to create and save benchmark recipes.</p>
-        <button class="btn-secondary" onclick={() => showSignInModal = true}>Sign in</button>
-      {/if}
+      <p>No recipes yet. Create one from the Model page or click "New Recipe" above.</p>
     </div>
   {:else}
     <div class="recipe-grid">
@@ -98,25 +75,6 @@
   {/if}
 </div>
 
-{#if showSignInModal}
-  <div class="dialog-backdrop" role="presentation" onclick={() => showSignInModal = false}>
-    <div
-      class="dialog-panel"
-      role="alertdialog"
-      aria-modal="true"
-      aria-labelledby="signin-title"
-      onclick={(e) => e.stopPropagation()}
-    >
-      <h2 id="signin-title">Sign in to continue</h2>
-      <p class="dialog-body">Running recipe benchmarks requires a free account.</p>
-      <div class="dialog-actions">
-        <button class="btn-secondary" onclick={() => signIn('github')}>Sign in with GitHub</button>
-        <button class="btn-secondary" onclick={() => signIn('google')}>Sign in with Google</button>
-        <button class="btn-ghost" onclick={() => showSignInModal = false}>Cancel</button>
-      </div>
-    </div>
-  </div>
-{/if}
 
 <style>
   .recipe-page {

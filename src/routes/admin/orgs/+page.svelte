@@ -162,7 +162,7 @@
     transition: background var(--transition-base);
   }
 
-  .btn-add:hover { background: var(--color-accent-light); }
+  .btn-add:hover { background:var(--color-accent-light); }
 
   .btn-primary {
     font-family: var(--font-ui);
@@ -214,7 +214,7 @@
   }
 
   .orgs-table tr:last-child td { border-bottom: none; }
-  .orgs-table tr:hover td { background: var(--color-accent-light); }
+  .orgs-table tr:hover td { background:var(--color-accent-light); }
 
   .mono { font-family: var(--font-mono); font-size: var(--text-sm); }
 
@@ -272,5 +272,5 @@
     width: 100%;
   }
 
-  .editing-row td { background: var(--color-accent-light); }
+  .editing-row td { background:var(--color-accent-light); }
 </style>

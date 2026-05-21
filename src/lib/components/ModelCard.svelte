@@ -84,9 +84,18 @@
     pointer-events: none;
   }
 
+  .model-card:hover {
+    border-color: var(--color-primary);
+    background:var(--color-accent-light);
+  }
+
   .model-card.has-selection {
-     border-color: var(--color-primary-light);
-    background: color-mix(in srgb, var(--color-primary) 4%, var(--color-surface-raised));
+    border-color: var(--color-primary-light);
+    background:var(--color-accent-light);
+  }
+
+  .model-card.has-selection:hover {
+    border-color: var(--color-primary);
   }
 
   .card-left {
@@ -152,9 +161,6 @@
   }
 
   .tag-inlib {
-    background: color-mix(in srgb, #10b981 12%, transparent);
-    color: #10b981;
-    border-color: color-mix(in srgb, #10b981 30%, transparent);
     flex-shrink: 0;
   }
 
