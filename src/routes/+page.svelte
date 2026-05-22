@@ -323,47 +323,6 @@
     {/if}
   </section>
   {/if}
-
-  <!-- Recent Results -->
-  <section class="card recent-results">
-    <h2 class="card-title">Recent Results</h2>
-    {#if !$isAuthenticated}
-      <p class="muted">Sign in to see your benchmark history.</p>
-    {:else if loadingResults}
-      <p class="muted">Loading results...</p>
-    {:else if recentResults.length === 0}
-      <p class="muted">No benchmark results yet. Run a model to get started.</p>
-    {:else}
-      <div class="results-table-wrap">
-        <table class="results-table">
-          <thead>
-            <tr>
-              <th>Model</th>
-              <th>Backend</th>
-              <th>Status</th>
-              <th>Median</th>
-              <th>Date</th>
-            </tr>
-          </thead>
-          <tbody>
-            {#each recentResults as result}
-              <tr>
-                <td class="mono">{result.model_id}</td>
-                <td>{result.backend}</td>
-                <td>
-                  <span class="status-badge" class:completed={result.status === 'completed'} class:error={result.status === 'error'}>
-                    {result.status}
-                  </span>
-                </td>
-                <td class="mono">{result.median_ms ? `${result.median_ms.toFixed(1)} ms` : '—'}</td>
-                <td>{result.started_at ? formatDate(result.started_at) : '—'}</td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
-      </div>
-    {/if}
-  </section>
 </div>
 
 <style>
@@ -1050,9 +1009,6 @@
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 1px;
-    background: var(--color-border);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-base);
     overflow: hidden;
     margin-bottom: var(--space-2);
   }

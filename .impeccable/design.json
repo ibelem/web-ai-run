@@ -1,0 +1,160 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-05-22T00:00:00Z",
+  "title": "Design System: Web AI Benchmark",
+  "extensions": {
+    "colorMeta": {
+      "primary":           { "role": "primary",   "displayName": "WebNN Blue",        "canonical": "#0953DE", "tonalRamp": ["#00133A","#001F5C","#002E8A","#0742B0","#0953DE","#3B78E8","#6FA0F0","#A3C3F7","#D0E3FC"] },
+      "accent":            { "role": "secondary",  "displayName": "Calibration Cyan",  "canonical": "#00C7FD", "tonalRamp": ["#001A22","#003344","#005D80","#0090C4","#00C7FD","#33D3FE","#66DEFE","#99EAFE","#CCF5FF"] },
+      "accent-light":      { "role": "secondary",  "displayName": "Cyan Whisper",      "canonical": "oklch(97.7% 0.013 236.62)", "tonalRamp": ["#E0F7FF","#EBFAFF","#F0FBFF","#F5FCFF","#FAFFFF"] },
+      "text-primary":      { "role": "neutral",    "displayName": "Ink",               "canonical": "#181818" },
+      "text-secondary":    { "role": "neutral",    "displayName": "Annotation",        "canonical": "#4A5568" },
+      "text-muted":        { "role": "neutral",    "displayName": "Faded",             "canonical": "#8F8F8F" },
+      "surface":           { "role": "neutral",    "displayName": "Lab Paper",         "canonical": "#FFFFFF" },
+      "surface-sunken":    { "role": "neutral",    "displayName": "Ruled Surface",     "canonical": "#F5F7FA" },
+      "border":            { "role": "neutral",    "displayName": "Grid Line",         "canonical": "#E2E8F0" },
+      "dark-page-bg":      { "role": "neutral",    "displayName": "Dark Field",        "canonical": "#0A0F1A" },
+      "dark-surface":      { "role": "neutral",    "displayName": "Dark Surface",      "canonical": "#151F30" },
+      "backend-wasm":      { "role": "data",       "displayName": "Wasm Green",        "canonical": "#38A169" },
+      "backend-webgpu":    { "role": "data",       "displayName": "WebGPU Amber",      "canonical": "#D69E2E" },
+      "backend-webnn-cpu": { "role": "data",       "displayName": "WebNN CPU Cyan",    "canonical": "#00C7FD" },
+      "backend-webnn-gpu": { "role": "data",       "displayName": "WebNN GPU Blue",    "canonical": "#0953DE" },
+      "backend-webnn-npu": { "role": "data",       "displayName": "WebNN NPU Navy",    "canonical": "#002060" },
+      "dtype-float":       { "role": "data",       "displayName": "Float Purple",      "canonical": "#2B017F" },
+      "dtype-int":         { "role": "data",       "displayName": "Int Teal",          "canonical": "#0186B3" },
+      "dtype-quant":       { "role": "data",       "displayName": "Quant Amber",       "canonical": "#D69E2E" },
+      "dtype-mixed":       { "role": "data",       "displayName": "Mixed Green",       "canonical": "#38A169" },
+      "semantic-success":  { "role": "semantic",   "displayName": "Pass Green",        "canonical": "#38A169" },
+      "semantic-error":    { "role": "semantic",   "displayName": "Fail Red",          "canonical": "#E53E3E" },
+      "semantic-warning":  { "role": "semantic",   "displayName": "Caution Amber",     "canonical": "#D69E2E" },
+      "semantic-info":     { "role": "semantic",   "displayName": "Info Cyan",         "canonical": "#00C7FD" }
+    },
+    "typographyMeta": {
+      "title":   { "displayName": "Title",   "purpose": "Page headings. One per page. Not bold — authority through scale, not weight." },
+      "body":    { "displayName": "Body",    "purpose": "Default prose, descriptions, nav labels, table cells." },
+      "label":   { "displayName": "Label",   "purpose": "Button text, column headers, form labels. Weight 500 distinguishes from body." },
+      "caption": { "displayName": "Caption", "purpose": "Tags, timestamps, muted helper text, badge text." },
+      "mono":    { "displayName": "Mono",    "purpose": "All benchmark output: latency values, FPS, model IDs, file paths, byte sizes. tnum always on." }
+    },
+    "shadows": [
+      { "name": "dropdown", "value": "0 1px 3px rgba(0,0,0,0.08)", "darkValue": "0 1px 3px rgba(0,0,0,0.30)", "purpose": "Floating menus and user dropdowns only." },
+      { "name": "overlay",  "value": "0 4px 24px rgba(0,0,0,0.15)", "darkValue": "0 4px 24px rgba(0,0,0,0.50)", "purpose": "Dialogs and modal panels only." }
+    ],
+    "motion": [
+      { "name": "base",     "value": "150ms ease", "purpose": "Default state-change transitions: background, border-color, opacity, color." },
+      { "name": "slow",     "value": "250ms ease", "purpose": "Heavier transitions: panel open, dialog entrance." },
+      { "name": "scan-fly", "value": "fly y:8 duration:140", "purpose": "Scan ticker marquee — repo names entering/leaving the ticker row." }
+    ],
+    "breakpoints": [
+      { "name": "mobile", "value": "640px", "purpose": "Nav collapses to hamburger. File grids go single column." },
+      { "name": "scan-row", "value": "600px max-width centered", "purpose": "Scan ticker and HF search box share this width constraint." }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The one action per screen. WebNN Blue fill, square-cornered.",
+      "html": "<button class=\"ds-btn-primary\">Run Benchmark</button>",
+      "css": ".ds-btn-primary { font-family: 'Satoshi', system-ui, sans-serif; font-size: 14px; font-weight: 500; padding: 10px 20px; border: none; border-radius: 3px; background: #0953DE; color: #FFFFFF; cursor: pointer; transition: background 150ms ease; } .ds-btn-primary:hover { background: #0742B0; } .ds-btn-primary:active { background: #063594; } .ds-btn-primary:disabled { background: #ECECEC; color: #8F8F8F; cursor: not-allowed; } .ds-btn-primary:focus-visible { outline: 2px solid #0742B0; outline-offset: 2px; }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Secondary action. Transparent at rest, tinted on hover.",
+      "html": "<button class=\"ds-btn-ghost\">Browse local</button>",
+      "css": ".ds-btn-ghost { font-family: 'Satoshi', system-ui, sans-serif; font-size: 13px; font-weight: 400; padding: 6px 9px; border: none; border-radius: 3px; background: transparent; color: #4A5568; cursor: pointer; text-decoration: none; transition: background 150ms ease; } .ds-btn-ghost:hover { background: #F5F7FA; } .ds-btn-ghost:focus-visible { outline: 2px solid #0742B0; outline-offset: 2px; }"
+    },
+    {
+      "name": "Dtype Chip — Unselected",
+      "kind": "chip",
+      "refersTo": "chip-unselected",
+      "description": "Model data type selector. Colored border matches dtype identity. Selects the file variant to benchmark.",
+      "html": "<button class=\"ds-chip\" data-dtype=\"fp16\">fp16</button>",
+      "css": ".ds-chip { font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 600; padding: 2px 7px; border-radius: 3px; border: 1px solid #8b5cf6; background: transparent; color: #8b5cf6; cursor: pointer; transition: opacity 120ms, transform 120ms; user-select: none; line-height: 1.4; } .ds-chip:hover { opacity: 0.8; transform: translateY(-1px); } .ds-chip:focus-visible { outline: 2px solid #0742B0; outline-offset: 2px; }"
+    },
+    {
+      "name": "Dtype Chip — Selected",
+      "kind": "chip",
+      "refersTo": "chip-selected",
+      "description": "Selected state: solid fill, white text.",
+      "html": "<button class=\"ds-chip ds-chip-selected\" data-dtype=\"fp16\">fp16</button>",
+      "css": ".ds-chip.ds-chip-selected { color: #fff; background: #8b5cf6; border-color: #8b5cf6; }"
+    },
+    {
+      "name": "Tag",
+      "kind": "chip",
+      "refersTo": "tag",
+      "description": "Non-interactive label: model format, task type, 'In library' indicator.",
+      "html": "<span class=\"ds-tag\">onnx</span>",
+      "css": ".ds-tag { font-family: 'Satoshi', system-ui, sans-serif; font-size: 10px; padding: 1px 5px; border-radius: 3px; border: 1px solid #E2E8F0; color: #4A5568; white-space: nowrap; display: inline-block; line-height: 1.6; } .ds-tag[data-format='onnx'] { color: #3b82f6; border-color: #3b82f6; } .ds-tag[data-format='tflite'] { color: #10b981; border-color: #10b981; } .ds-tag[data-format='litertlm'] { color: #f97316; border-color: #f97316; }"
+    },
+    {
+      "name": "Navigation Bar",
+      "kind": "nav",
+      "refersTo": null,
+      "description": "Sticky top bar, 56px. Nav items fade to full opacity on hover and active.",
+      "html": "<nav class=\"ds-nav\"><a href=\"/\" class=\"ds-nav-item\">Browse</a><a href=\"/run\" class=\"ds-nav-item ds-nav-item--active\">Run</a><a href=\"/results\" class=\"ds-nav-item\">Results</a></nav>",
+      "css": ".ds-nav { display: flex; align-items: center; height: 56px; padding: 0 15px; border-bottom: 1px solid #E2E8F0; background: #FFFFFF; position: sticky; top: 0; z-index: 10; gap: 4px; } .ds-nav-item { font-family: 'Satoshi', system-ui, sans-serif; font-size: 14px; font-weight: 500; text-decoration: none; color: #4A5568; opacity: 0.7; padding: 6px 12px; border-radius: 3px; border-bottom: 2px solid transparent; transition: opacity 150ms, color 150ms; } .ds-nav-item:hover { opacity: 1; color: #181818; } .ds-nav-item--active { opacity: 1; color: #181818; border-bottom-color: #0742B0; }"
+    },
+    {
+      "name": "Repo Group Card",
+      "kind": "card",
+      "refersTo": null,
+      "description": "HF model search result. Header shows repo name + format counts + likes. Body is a 2-col file grid.",
+      "html": "<div class=\"ds-repo-group\"><div class=\"ds-repo-header\"><span class=\"ds-tag\" data-format=\"onnx\">onnx ×3</span><a class=\"ds-repo-name\" href=\"#\">onnx-community/mobilenet_v2</a><span class=\"ds-likes\">♥ 42</span></div><div class=\"ds-file-grid\"><div class=\"ds-file-card\"><span class=\"ds-filename\">model.onnx</span><button class=\"ds-chip\" data-dtype=\"fp32\">fp32</button><button class=\"ds-chip ds-chip-selected\" data-dtype=\"fp16\">fp16</button></div></div></div>",
+      "css": ".ds-repo-group { border: 1px solid #E2E8F0; border-radius: 3px; background: #FFFFFF; overflow: hidden; } .ds-repo-header { display: flex; align-items: center; gap: 6px; padding: 7px 12px; background: #F5F7FA; border-bottom: 1px solid #E2E8F0; flex-wrap: wrap; } .ds-repo-name { font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 600; color: #0953DE; text-decoration: none; } .ds-repo-name:hover { text-decoration: underline; } .ds-likes { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #8F8F8F; margin-left: auto; } .ds-file-grid { display: grid; grid-template-columns: repeat(2, 1fr); } .ds-file-card { display: flex; align-items: center; gap: 8px; padding: 2px 10px; transition: background 150ms; } .ds-file-card:has(.ds-chip-selected) { background: oklch(97.7% 0.013 236.62); } .ds-filename { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #181818; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }"
+    },
+    {
+      "name": "Scan Ticker Row",
+      "kind": "custom",
+      "refersTo": null,
+      "description": "Live scanning status row during HF search. Shows currently-checked repo with vertical fly animation.",
+      "html": "<div class=\"ds-scan-row\"><span class=\"ds-spinner\"></span><span class=\"ds-scan-label\">Checking</span><div class=\"ds-scan-ticker\"><span class=\"ds-scan-name\">onnx-community/mobilenet_v2</span></div><span class=\"ds-scan-progress\">4/20</span></div>",
+      "css": ".ds-scan-row { display: flex; align-items: center; gap: 8px; max-width: 600px; margin: 0 auto 15px; padding: 6px 12px; border: 1px solid #E2E8F0; border-radius: 3px; background: #F5F7FA; font-size: 12px; color: #8F8F8F; min-height: 32px; overflow: hidden; } .ds-scan-label { font-weight: 600; color: #4A5568; flex-shrink: 0; } .ds-scan-ticker { flex: 1; position: relative; height: 18px; overflow: hidden; } .ds-scan-name { position: absolute; inset: 0; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #0953DE; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 18px; } .ds-scan-progress { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #8F8F8F; flex-shrink: 0; } .ds-spinner { display: inline-block; width: 10px; height: 10px; border: 1.5px solid #E2E8F0; border-top-color: #0953DE; border-radius: 50%; animation: ds-spin 0.7s linear infinite; flex-shrink: 0; } @keyframes ds-spin { to { transform: rotate(360deg); } }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Lab Notebook",
+    "overview": "This is a measurement instrument. Every screen is a readout: precise, dense, trusted. The Lab Notebook carries decades of legitimacy because it never performs — it records. This system applies the same discipline. Typography does the work; color signals state, not mood. White space is a breathing gap between data, not a decorative gesture.\n\nThe system runs two themes with equal conviction. Light mode: clean lab paper, high-contrast ink, zero warmth-washing. Dark mode: a deep navy field — not 'dark mode for aesthetics' but the natural context for a developer staring at latency numbers at 2am on a monitor in a dim room.\n\nThis system explicitly rejects: generic SaaS dashboard aesthetics, AI-demo aesthetics (glassmorphism, neon on black, gradient text), and the Inter + card-heavy combinations that read as 'AI-generated UI.'",
+    "keyCharacteristics": [
+      "Flat, almost-square corners (3px) — precision over softness",
+      "Satoshi replaces Inter — same legibility, less ubiquity, more character",
+      "JetBrains Mono for every metric, latency value, and model path",
+      "A single blue primary accent (#0953DE) reserved for actions and active state only",
+      "Semantic backend colors form a consistent legend across every chart and badge",
+      "3px base spacing unit — rhythm from multiples, not from 8px defaults"
+    ],
+    "rules": [
+      { "name": "The One-Blue Rule", "body": "#0953DE appears on ≤10% of any screen surface. It marks exactly one thing: the action, or WebNN GPU. Using it in two semantic contexts simultaneously collapses the signal.", "section": "colors" },
+      { "name": "The No-Decoration Rule", "body": "Backend and dtype colors exist to encode data identity, not to make the page feel colorful. Adding these colors to non-data UI elements is prohibited.", "section": "colors" },
+      { "name": "The No-Display Rule", "body": "There is no display size larger than 22px. No hero typography. Heading hierarchy is through weight contrast and spacing, not font-size escalation.", "section": "typography" },
+      { "name": "The Mono-for-Numbers Rule", "body": "Every numeric value produced by the benchmark engine renders in JetBrains Mono with tabular figures. Satoshi does not render benchmark output.", "section": "typography" },
+      { "name": "The Flat-By-Default Rule", "body": "Cards, panels, table rows: no box-shadow at rest. State change can add a background tint; it cannot add a shadow. Shadows are for floating layers only.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do use JetBrains Mono for every benchmark output value.",
+      "Do use #0953DE for exactly one semantic role per screen.",
+      "Do use 3px border-radius on every interactive element except the home search pill.",
+      "Do use tonal background layering to express depth — no shadows on static surfaces.",
+      "Do include both color AND label on every backend and dtype badge.",
+      "Do keep the scan-ticker row at max-width 600px centered.",
+      "Do respect prefers-reduced-motion: disable scan ticker fly animation, disable hover transforms."
+    ],
+    "donts": [
+      "Don't use Inter — it reads as AI-generated UI.",
+      "Don't use gradient text (background-clip: text).",
+      "Don't use glassmorphism (backdrop-filter blur on card surfaces).",
+      "Don't use #00C7FD as a decorative accent — it is a data-identity color for WebNN CPU.",
+      "Don't build cards with shadow at rest — use background tints.",
+      "Don't use border-left greater than 1px as a colored stripe.",
+      "Don't use font sizes larger than 22px.",
+      "Don't use pill-shaped buttons anywhere except the home search input.",
+      "Don't repeat the generic SaaS hero-metric template.",
+      "Don't render benchmark numbers in Satoshi.",
+      "Don't add decorative motion to page load — state-change transitions only."
+    ]
+  }
+}

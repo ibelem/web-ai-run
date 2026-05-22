@@ -1,5 +1,10 @@
 /* Fonts */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@font-face {
+  font-family: 'Satoshi';
+  src: url('/fonts/satoshi/satoshi-variable.woff2') format('woff2');
+  font-weight: 300 900;
+  font-display: swap;
+}
 
 @font-face {
   font-family: 'JetBrains Mono';
@@ -20,7 +25,7 @@
 
 :root {
   /* Typography */
-  --font-ui: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-ui: 'Satoshi', system-ui, -apple-system, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, monospace;
   --text-xs: 12px;
   --text-sm: 13px;
