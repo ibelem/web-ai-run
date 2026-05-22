@@ -8,6 +8,7 @@ export interface CartModel {
   data_type: string;
   runtime: 'onnx' | 'litert';
   task?: string;
+  size_bytes?: number;
 }
 
 const STORAGE_KEY = 'cart_models';

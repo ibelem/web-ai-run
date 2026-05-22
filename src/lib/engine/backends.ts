@@ -17,7 +17,7 @@ export const BACKENDS: BackendDef[] = [
   { id: 'webnn_npu',  label: 'WebNN NPU',      description: 'Neural network inference on a dedicated NPU via WebNN. Requires a Copilot+ PC and Chrome/Edge flag.', runtime: 'both', requiresFlag: true  },
 ];
 
-export function getBackendLabel(id: Backend): string {
+export function getBackendLabel(id: string): string {
   return BACKENDS.find((b) => b.id === id)?.label ?? id;
 }
 

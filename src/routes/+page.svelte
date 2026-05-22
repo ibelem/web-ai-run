@@ -131,7 +131,7 @@
         <input
           class="hf-home-input"
           type="search"
-          placeholder="HuggingFace org name, model ID, repo or model URL..."
+          placeholder="onnx-community/yolov10x"
           bind:value={hfSearchQuery}
           autocomplete="off"
           spellcheck="false"
@@ -462,13 +462,16 @@
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    padding: 12px 24px;
-    border-radius: var(--radius-sm);
-    font-size: 15px;
-    font-weight: 600;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 100px;
+    font-family: var(--font-ui);
+    font-size: var(--text-base);
+    font-weight: 500;
     text-decoration: none;
-    color: #FFFFFF;
+    color: #fff;
     background: var(--color-primary);
+    cursor: pointer;
     transition: background var(--transition-base);
   }
 
@@ -477,18 +480,19 @@
   .hero-btn-secondary {
     display: inline-flex;
     align-items: center;
-    padding: 12px 24px;
-    border-radius: var(--radius-sm);
-    font-size: 15px;
+    padding: 10px 20px;
+    border: 1px solid var(--color-border);
+    border-radius: 100px;
+    font-family: var(--font-ui);
+    font-size: var(--text-base);
     font-weight: 500;
     text-decoration: none;
     color: var(--color-text-primary);
-    border: 1px solid var(--color-border);
     background: transparent;
-    transition: background var(--transition-base);
+    transition: background var(--transition-base), border-color var(--transition-base);
   }
 
-  .hero-btn-secondary:hover { background: var(--color-surface-sunken); }
+  .hero-btn-secondary:hover { background: var(--color-surface-sunken); border-color: var(--color-border-strong); }
 
   .hero-tags {
     display: flex;
@@ -817,9 +821,9 @@
     display: inline-flex;
     align-items: center;
     font-family: var(--font-ui);
-    font-size: var(--text-sm);
+    font-size: var(--text-base);
     font-weight: 500;
-    padding: 8px 16px;
+    padding: 10px 20px;
     border-radius: 100px;
     white-space: nowrap;
     text-decoration: none;
@@ -876,8 +880,8 @@
     }
 
     .hf-home-btn {
-      font-size: var(--text-xs);
-      padding: 7px 12px;
+      font-size: var(--text-sm);
+      padding: 8px 14px;
     }
 
     .hf-home-hint {

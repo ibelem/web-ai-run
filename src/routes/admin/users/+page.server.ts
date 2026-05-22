@@ -15,12 +15,12 @@ export interface UserRow {
 export const load: PageServerLoad = async ({ locals }) => {
   const session = await locals.getSession();
   if (!session) {
-    redirect(303, '/');
+    throw redirect(303, '/');
   }
 
   const role = session.user.app_metadata?.role;
   if (role !== 'admin') {
-    error(403, 'Admin access required');
+    throw error(403, 'Admin access required');
   }
 
   const { data: users } = await locals.supabase
@@ -35,12 +35,12 @@ export const actions: Actions = {
   setRole: async ({ request, locals }) => {
     const session = await locals.getSession();
     if (!session) {
-      redirect(303, '/');
+      throw redirect(303, '/');
     }
 
     const adminRole = session.user.app_metadata?.role;
     if (adminRole !== 'admin') {
-      error(403, 'Admin access required');
+      throw error(403, 'Admin access required');
     }
 
     const formData = await request.formData();

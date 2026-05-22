@@ -51,11 +51,13 @@
       <tbody>
         {#each pagedUsers as user}
           <tr>
-            <td class="user-cell">
-              {#if user.avatar_url}
-                <img src={user.avatar_url} alt="" class="table-avatar" loading="lazy" crossorigin="anonymous" />
-              {/if}
-              <span>{user.display_name ?? '—'}</span>
+            <td>
+              <div class="user-cell">
+                {#if user.avatar_url}
+                  <img src={user.avatar_url} alt="" class="table-avatar" loading="lazy" crossorigin="anonymous" />
+                {/if}
+                <span>{user.display_name ?? '—'}</span>
+              </div>
             </td>
             <td class="mono">{user.email}</td>
             <td>{user.organization ?? '—'}</td>
@@ -125,9 +127,9 @@
   }
 
   .users-table th {
-    text-align: left;
-    padding: 12px var(--space-2);
-    font-size: var(--text-sm);
+    text-align: center;
+    padding: var(--space-1) var(--space-2);
+    font-size: var(--text-xs);
     font-weight: 500;
     color: var(--color-text-secondary);
     text-transform: uppercase;
@@ -138,7 +140,8 @@
   }
 
   .users-table td {
-    padding: 10px var(--space-2);
+    text-align: center;
+    padding: var(--space-1) var(--space-2);
     border-bottom: 1px solid var(--color-border);
     vertical-align: middle;
   }
@@ -153,6 +156,7 @@
 
   .user-cell {
     display: flex;
+    justify-content: center;
     align-items: center;
     gap: var(--space-1);
   }

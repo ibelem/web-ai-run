@@ -254,6 +254,7 @@
         data_type: file.dataType,
         runtime: file.runtime,
         task: repo.task,
+        size_bytes: file.size,
       }];
     }
   }

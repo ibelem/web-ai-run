@@ -23,6 +23,15 @@
     file_path: string;
     data_type: string;
     runtime: 'onnx' | 'litert';
+    size_bytes?: number;
+  }
+
+  function formatSize(bytes?: number): string {
+    if (!bytes) return '';
+    if (bytes >= 1_073_741_824) return `${(bytes / 1_073_741_824).toFixed(1)}G`;
+    if (bytes >= 1_048_576) return `${(bytes / 1_048_576).toFixed(0)}M`;
+    if (bytes >= 1024) return `${(bytes / 1024).toFixed(0)}K`;
+    return `${bytes}B`;
   }
 
   const VALID_BACKENDS: Backend[] = ['wasm_1', 'wasm_n', 'webgpu', 'webnn_cpu', 'webnn_gpu', 'webnn_npu'];
@@ -138,7 +147,7 @@
     // Parse hash first (may come from a shared URL or sessionStorage redirect)
     const parsed = parseHash();
 
-    // Priority order: hf_ext_models (from ActionPanel) > hash models > persisted run_models
+    // Priority order: hf_ext_models (from CartPanel) > hash models > persisted run_models
     try {
       const extRaw = sessionStorage.getItem('hf_ext_models');
       if (extRaw) {
@@ -463,6 +472,9 @@
             </div>
             {#if m.data_type}
               <span class="model-item-dtype" data-dtype={m.data_type}>{m.data_type === 'quantized' ? 'quant' : m.data_type}</span>
+            {/if}
+            {#if m.size_bytes}
+              <span class="model-item-size">{formatSize(m.size_bytes)}</span>
             {/if}
           </li>
         {/each}
@@ -803,6 +815,19 @@
     padding: 1px 7px;
     border-radius: var(--radius-sm);
     border: 1px solid;
+    white-space: nowrap;
+    flex-shrink: 0;
+    line-height: 1.4;
+  }
+
+  .model-item-size {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 1px 7px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--color-border);
+    color: var(--color-text-muted);
     white-space: nowrap;
     flex-shrink: 0;
     line-height: 1.4;

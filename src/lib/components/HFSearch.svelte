@@ -14,6 +14,7 @@
     data_type: string;
     runtime: 'onnx' | 'litert';
     task: string;
+    size_bytes?: number;
   }
 
   let { searchQuery, localModels = [], selectedHFModels = $bindable([]) }: Props = $props();
@@ -206,6 +207,7 @@
         data_type: file.dataType,
         runtime: file.runtime,
         task,
+        size_bytes: file.size,
       }];
     }
   }

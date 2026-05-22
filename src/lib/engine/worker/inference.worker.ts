@@ -16,7 +16,7 @@ export type WorkerResponse =
   | { type: 'status'; id: string; status: string }
   | { type: 'result'; id: string; result: TestResult };
 
-const HF_CDN_BASE = 'https://huggingface.co';
+const HF_DOWNLOAD_BASE = 'https://hf-mirror.com';
 
 function getOrtCdnUrl(version: string, backend: Backend): string {
   const file = backend === 'webgpu' ? 'ort.webgpu.min.mjs' : 'ort.all.min.mjs';
@@ -65,7 +65,7 @@ function post(msg: WorkerResponse) {
 }
 
 async function downloadModel(hfModelId: string, filePath: string, id: string): Promise<ArrayBuffer> {
-  const url = `${HF_CDN_BASE}/${hfModelId}/resolve/main/${filePath}`;
+  const url = `${HF_DOWNLOAD_BASE}/${hfModelId}/resolve/main/${filePath}`;
   const response = await fetch(url);
   if (!response.ok) throw new Error(`Download failed: ${response.status}`);
 

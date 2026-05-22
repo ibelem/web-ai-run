@@ -1,19 +1,36 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
-  import { deleteRecipe } from '$lib/recipes/crud';
+  import { deleteRecipe, updateRecipe } from '$lib/recipes/crud';
   import type { Recipe } from '$lib/recipes/crud';
 
   let { data } = $props();
 
   function runRecipe(recipe: Recipe) {
-    const modelIds = recipe.models.map((m) => m.hf_model_id).join(',');
-    goto(`/run?models=${modelIds}&recipe=${recipe.slug}`);
+    try {
+      sessionStorage.setItem('hf_ext_models', JSON.stringify(
+        recipe.models.map((m) => ({
+          hf_model_id: m.hf_model_id,
+          file_path: m.file_path,
+          data_type: m.data_type,
+          runtime: (m.file_path.endsWith('.tflite') || m.file_path.endsWith('.litertlm')) ? 'litert' : 'onnx',
+        }))
+      ));
+    } catch {}
+    window.location.href = '/run';
   }
 
   async function handleDelete(recipe: Recipe) {
     if (!confirm(`Delete "${recipe.name}"?`)) return;
     await deleteRecipe(recipe.id);
     data.recipes = data.recipes.filter((r) => r.id !== recipe.id);
+  }
+
+  async function toggleVisibility(recipe: Recipe) {
+    const next = recipe.visibility === 'public' ? 'personal' : 'public';
+    await updateRecipe(recipe.id, { visibility: next });
+    data.recipes = data.recipes.map((r) =>
+      r.id === recipe.id ? { ...r, visibility: next } : r
+    );
   }
 
   function formatDate(iso: string): string {
@@ -23,13 +40,11 @@
 
 <div class="recipe-page">
   <header class="page-header">
-    <div class="header-row">
-      <div>
-        <h1>Recipes</h1>
-        <p>Saved model+backend combinations for quick re-runs.</p>
-      </div>
-      <a href="/recipe/new" class="btn-primary">New Recipe</a>
+    <div class="page-header-text">
+      <h1>Recipes</h1>
+      <p>Saved model combinations for quick re-runs.</p>
     </div>
+    <a href="/recipe/new" class="btn-new-recipe">New Recipe</a>
   </header>
 
   {#if data.error}
@@ -38,7 +53,7 @@
     </div>
   {:else if data.recipes.length === 0}
     <div class="empty">
-      <p>No recipes yet. Create one from the Model page or click "New Recipe" above.</p>
+      <p>No recipes yet. Browse models and save them as a recipe from the Cart panel.</p>
     </div>
   {:else}
     <div class="recipe-grid">
@@ -46,7 +61,16 @@
         <div class="recipe-card">
           <div class="recipe-header">
             <h2 class="recipe-name">{recipe.name}</h2>
-            {#if recipe.visibility === 'public'}
+            {#if data.userId === recipe.owner_id}
+              <button
+                class="visibility-toggle"
+                class:is-public={recipe.visibility === 'public'}
+                onclick={() => toggleVisibility(recipe)}
+                title="Click to toggle visibility"
+              >
+                {recipe.visibility === 'public' ? 'public' : 'personal'}
+              </button>
+            {:else if recipe.visibility === 'public'}
               <span class="visibility-badge">public</span>
             {/if}
           </div>
@@ -81,37 +105,54 @@
     max-width: 100%;
   }
 
-  .header-row {
+  .page-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: var(--space-2);
+    margin-bottom: var(--space-3);
   }
-  
-  .btn-primary {
-    font-family: var(--font-ui);
+
+  .page-header-text h1 {
+    font-size: var(--text-xl);
+    font-weight: 600;
+    color: var(--color-text-primary);
+    margin: 0;
+  }
+
+  .page-header-text p {
     font-size: var(--text-sm);
+    color: var(--color-text-muted);
+    margin: 2px 0 0;
+  }
+
+  .btn-new-recipe {
+    font-family: var(--font-ui);
+    font-size: var(--text-base);
     font-weight: 500;
-    padding: var(--space-1) var(--space-2);
-    border: none;
-    border-radius: var(--radius-base);
-    background: var(--color-primary);
-    color: #fff;
-    cursor: pointer;
+    padding: 10px 20px;
+    border: 1px solid var(--color-primary);
+    border-radius: 100px;
+    background: none;
+    color: var(--color-primary);
     text-decoration: none;
     white-space: nowrap;
+    flex-shrink: 0;
     transition: background var(--transition-base);
   }
 
-  .btn-primary:hover { background: var(--color-primary-hover); }
+  .btn-new-recipe:hover {
+    background: var(--color-accent-light);
+  }
 
   .error-banner {
     padding: var(--space-2);
     border-radius: var(--radius-base);
   }
 
-  .empty .btn-secondary {
-    margin-top: var(--space-2);
+  .empty p {
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
   }
 
   .recipe-grid {
@@ -122,14 +163,17 @@
 
   .recipe-card {
     border: 1px solid var(--color-border);
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius-base);
     padding: var(--space-2);
     background: var(--color-surface-raised);
-    transition: border-color var(--transition-base);
+    display: flex;
+    flex-direction: column;
+    transition: border-color var(--transition-base), background var(--transition-base);
   }
 
   .recipe-card:hover {
-    border-color: var(--color-border-strong);
+    border-color: var(--color-primary);
+    background: var(--color-accent-light);
   }
 
   .recipe-header {
@@ -140,6 +184,7 @@
   }
 
   .recipe-name {
+    flex: 1;
     font-size: var(--text-base);
     font-weight: 500;
     color: var(--color-text-primary);
@@ -150,10 +195,47 @@
 
   .visibility-badge {
     font-size: var(--text-xs);
-    padding: 1px 7px;
+    padding: 2px 8px;
     border-radius: var(--radius-sm);
-    border: 1px solid var(--color-border);
-    color: var(--color-text-muted);
+    border: 1px solid var(--color-dt-int8);
+    background: none;
+    color: var(--color-dt-int8);
+    flex-shrink: 0;
+    transition: background var(--transition-base), color var(--transition-base);
+  }
+
+  .recipe-card:hover .visibility-badge {
+    background: var(--color-dt-int8);
+    color: #fff;
+  }
+
+  .visibility-toggle {
+    font-family: var(--font-ui);
+    font-size: var(--text-xs);
+    padding: 2px 8px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--color-dt-fp16);
+    background: none;
+    color: var(--color-dt-fp16);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background var(--transition-base), color var(--transition-base), border-color var(--transition-base);
+  }
+
+  .recipe-card:hover .visibility-toggle {
+    background: var(--color-dt-fp16);
+    color: #fff;
+  }
+
+  .visibility-toggle.is-public {
+    border-color: var(--color-dt-int8);
+    color: var(--color-dt-int8);
+  }
+
+  .recipe-card:hover .visibility-toggle.is-public {
+    background: var(--color-dt-int8);
+    border-color: var(--color-dt-int8);
+    color: #fff;
   }
 
   .recipe-meta {
@@ -167,6 +249,9 @@
     flex-wrap: wrap;
     gap: var(--space-half);
     margin-bottom: var(--space-2);
+    flex: 1;
+    align-content: flex-start;
+    min-height: 52px;
   }
 
   .model-tag {
@@ -187,13 +272,18 @@
     gap: var(--space-1);
   }
 
+  .recipe-actions > * {
+    flex: 1;
+    text-align: center;
+  }
+
   .btn-run-sm {
     font-family: var(--font-ui);
     font-size: var(--text-xs);
     font-weight: 500;
     padding: 4px 10px;
     border: none;
-    border-radius: var(--radius-sm);
+    border-radius: 100px;
     background: var(--color-primary);
     color: #fff;
     cursor: pointer;
@@ -207,7 +297,7 @@
     font-size: var(--text-xs);
     padding: 4px 10px;
     border: 1px solid var(--color-border);
-    border-radius: var(--radius-sm);
+    border-radius: 100px;
     background: none;
     color: var(--color-text-secondary);
     cursor: pointer;
@@ -221,41 +311,11 @@
     font-size: var(--text-xs);
     padding: 4px 10px;
     border: 1px solid var(--color-border);
-    border-radius: var(--radius-sm);
+    border-radius: 100px;
     background: none;
-    color: var(--color-error);
+    color: var(--color-text-secondary);
     cursor: pointer;
   }
 
   .btn-delete-sm:hover { background: var(--color-nav-item-hover); }
-
-  .btn-secondary {
-    font-family: var(--font-ui);
-    font-size: var(--text-sm);
-    padding: var(--space-1) var(--space-2);
-    border: 1px solid var(--color-border-strong);
-    border-radius: var(--radius-base);
-    background: none;
-    color: var(--color-text-primary);
-    cursor: pointer;
-  }
-
-  .btn-secondary:hover { background: var(--color-nav-item-hover); }
-
-
-  .dialog-panel h2 {
-    font-size: var(--text-lg);
-    font-weight: 300;
-    margin-bottom: var(--space-1);
-  }
-
-  .dialog-body {
-    margin-bottom: var(--space-2);
-    color: var(--color-text-secondary);
-    font-size: var(--text-sm);
-  }
-
-  .dialog-actions {
-    flex-direction: column;
-  }
 </style>

@@ -7,6 +7,7 @@
   import HFUrlImport from '$lib/components/HFUrlImport.svelte';
   import { isAuthenticated } from '$lib/stores/auth';
   import { cart } from '$lib/stores/cart';
+  import { cartPanelOpen } from '$lib/stores/cart-panel';
   import type { ModelRow } from './+page.ts';
   import { loadModels, invalidateModelCache, type FetchMode } from '$lib/model-cache';
   import { createClient } from '$lib/supabase/client';
@@ -126,6 +127,7 @@
       data_type: model.data_type,
       runtime: model.runtime,
       task: model.task,
+      size_bytes: model.size_bytes,
     });
   }
 
@@ -184,10 +186,17 @@
         <h1>Model Browser</h1>
         <p>Select models to benchmark.</p>
       </div>
-      {#if totalSelected === 1}
-        <button class="btn-run-one" onclick={runSingle}>
-          Run model
-        </button>
+      {#if totalSelected > 0}
+        <div class="header-actions">
+          <button class="btn-save-recipe" onclick={() => cartPanelOpen.set(true)}>
+            Save {totalSelected} to Recipe
+          </button>
+          {#if totalSelected === 1}
+            <button class="btn-run-one" onclick={runSingle}>
+              Run model
+            </button>
+          {/if}
+        </div>
       {/if}
     </div>
   </header>
@@ -386,13 +395,37 @@
     gap: var(--space-2);
   }
 
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+  }
+
+  .btn-save-recipe {
+    font-family: var(--font-ui);
+    font-size: var(--text-base);
+    font-weight: 500;
+    padding: 10px 20px;
+    border: 1px solid var(--color-primary);
+    border-radius: 100px;
+    background: none;
+    color: var(--color-primary);
+    cursor: pointer;
+    transition: background var(--transition-base);
+    white-space: nowrap;
+  }
+
+  .btn-save-recipe:hover {
+    background: var(--color-accent-light);
+  }
+
   .btn-run-one {
     font-family: var(--font-ui);
     font-size: var(--text-base);
     font-weight: 500;
     padding: 10px 20px;
     border: none;
-    border-radius: var(--radius-sm);
+    border-radius: 100px;
     background: var(--color-primary);
     color: #fff;
     cursor: pointer;

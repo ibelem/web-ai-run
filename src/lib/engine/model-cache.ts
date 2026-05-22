@@ -1,9 +1,9 @@
 import type { DownloadProgress } from './types';
 
-const HF_CDN_BASE = 'https://huggingface.co';
+const HF_DOWNLOAD_BASE = 'https://hf-mirror.com';
 
 export function buildModelUrl(hfModelId: string, filePath: string): string {
-  return `${HF_CDN_BASE}/${hfModelId}/resolve/main/${filePath}`;
+  return `${HF_DOWNLOAD_BASE}/${hfModelId}/resolve/main/${filePath}`;
 }
 
 export function getModelFileName(hfModelId: string, filePath: string): string {

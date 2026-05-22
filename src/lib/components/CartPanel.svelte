@@ -24,6 +24,7 @@
   type RecipeMode = 'new' | 'append';
   let recipeMode = $state<RecipeMode>('new');
   let recipeName = $state('');
+  let recipeVisibility = $state<'personal' | 'public'>('personal');
   let saving = $state(false);
   let saveError = $state('');
   let existingRecipes = $state<Recipe[]>([]);
@@ -77,21 +78,26 @@
       hf_model_id: m.hf_model_id,
       file_path: m.file_path,
       data_type: m.data_type,
+      ...(m.size_bytes !== undefined && { size_bytes: m.size_bytes }),
     }));
 
     saving = true;
     try {
       if (recipeMode === 'new') {
         if (!recipeName.trim()) return;
-        await createRecipe(authState.user.id, recipeName.trim(), recipeModels);
-        goto('/recipe');
+        await createRecipe(authState.user.id, recipeName.trim(), recipeModels, recipeVisibility);
+        cart.clear();
+        onclose?.();
+        setTimeout(() => goto('/recipe'), 300);
       } else {
         if (!selectedRecipeId) return;
         const target = existingRecipes.find((r) => r.id === selectedRecipeId);
         if (!target) return;
         const merged = [...target.models, ...recipeModels];
         await updateRecipe(selectedRecipeId, { models: merged });
-        goto('/recipe');
+        cart.clear();
+        onclose?.();
+        setTimeout(() => goto('/recipe'), 300);
       }
     } catch (e: any) {
       saveError = e.message ?? 'Failed to save recipe';
@@ -102,6 +108,14 @@
 
   function basename(path: string): string {
     return path.split('/').pop() ?? path;
+  }
+
+  function formatSize(bytes?: number): string {
+    if (!bytes) return '';
+    if (bytes >= 1_073_741_824) return `${(bytes / 1_073_741_824).toFixed(1)}G`;
+    if (bytes >= 1_048_576) return `${(bytes / 1_048_576).toFixed(0)}M`;
+    if (bytes >= 1024) return `${(bytes / 1024).toFixed(0)}K`;
+    return `${bytes}B`;
   }
 </script>
 
@@ -138,6 +152,9 @@
                 <span class="model-meta">{m.hf_model_id}</span>
               </div>
               <div class="model-tags">
+                {#if m.size_bytes}
+                  <span class="tag tag-size">{formatSize(m.size_bytes)}</span>
+                {/if}
                 {#if m.data_type}
                   <span class="tag tag-dtype" data-dtype={m.data_type}>{m.data_type}</span>
                 {/if}
@@ -186,6 +203,18 @@
             bind:value={recipeName}
             onkeydown={(e) => { if (e.key === 'Enter') saveRecipe(); }}
           />
+          <div class="visibility-tabs">
+            <button
+              class="visibility-tab"
+              class:active={recipeVisibility === 'personal'}
+              onclick={() => { recipeVisibility = 'personal'; }}
+            >Personal</button>
+            <button
+              class="visibility-tab"
+              class:active={recipeVisibility === 'public'}
+              onclick={() => { recipeVisibility = 'public'; }}
+            >Public</button>
+          </div>
         {:else}
           {#if loadingRecipes}
             <p class="hint">Loading recipes...</p>
@@ -411,9 +440,37 @@
   }
 
   /* Recipe */
+  .visibility-tabs {
+    display: flex;
+    border-radius: var(--radius-base);
+    overflow: hidden;
+  }
+
+  .visibility-tab {
+    flex: 1;
+    font-family: var(--font-ui);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    padding: var(--space-1);
+    border: 1px solid var(--color-border);
+    background: var(--color-surface-sunken);
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    transition: background var(--transition-base), color var(--transition-base), border-color var(--transition-base);
+  }
+
+  .visibility-tab + .visibility-tab {
+    border-left: none;
+  }
+
+  .visibility-tab.active {
+    background: var(--color-primary);
+    border-color: var(--color-primary);
+    color: #fff;
+  }
+
   .recipe-mode-tabs {
     display: flex;
-    border: 1px solid var(--color-border);
     border-radius: var(--radius-base);
     overflow: hidden;
   }
@@ -422,22 +479,23 @@
     flex: 1;
     font-family: var(--font-ui);
     font-size: var(--text-sm);
+    font-weight: 500;
     padding: var(--space-1) var(--space-1);
-    border: none;
+    border: 1px solid var(--color-border);
     background: var(--color-surface-sunken);
     color: var(--color-text-secondary);
     cursor: pointer;
-    transition: background var(--transition-base), color var(--transition-base);
+    transition: background var(--transition-base), color var(--transition-base), border-color var(--transition-base);
   }
 
   .mode-tab + .mode-tab {
-    border-left: 1px solid var(--color-border);
+    border-left: none;
   }
 
   .mode-tab.active {
-    background: var(--color-surface);
-    color: var(--color-text-primary);
-    font-weight: 500;
+    background: var(--color-primary);
+    border-color: var(--color-primary);
+    color: #fff;
   }
 
   .recipe-input,
@@ -489,7 +547,7 @@
     color: var(--color-primary);
     cursor: pointer;
     transition: background var(--transition-base);
-    margin-top: var(--space-4);
+    margin-top: var(--space-2);
   }
 
   .btn-save-recipe:hover:not(:disabled) {
@@ -530,6 +588,22 @@
     background: var(--color-disabled);
     color: var(--color-text-muted);
     cursor: not-allowed;
+  }
+
+  .tag {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 600;
+    padding: 1px 5px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--color-border);
+    line-height: 1.4;
+    flex-shrink: 0;
+  }
+
+  .tag-size {
+    color: var(--color-text-muted);
+    border-color: var(--color-border);
   }
 
   /* dtype colors */

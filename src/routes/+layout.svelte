@@ -5,8 +5,8 @@
   import { initTheme, toggleTheme, theme } from '$lib/stores/theme';
   import { auth, isAuthenticated } from '$lib/stores/auth';
   import { cart, cartCount } from '$lib/stores/cart';
-  import { actionPanelOpen } from '$lib/stores/action-panel';
-  import ActionPanel from '$lib/components/ActionPanel.svelte';
+  import { cartPanelOpen } from '$lib/stores/cart-panel';
+  import CartPanel from '$lib/components/CartPanel.svelte';
   import { createClient } from '$lib/supabase/client';
   import type { Role } from '$lib/types/roles';
 
@@ -26,7 +26,8 @@
       loading: false
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'INITIAL_SESSION') return;
       const newRole: Role = session?.user?.app_metadata?.role ?? 'anonymous';
       auth.set({
         session,
@@ -138,7 +139,7 @@
       {#if $cartCount > 0}
         <button
           class="nav-item nav-cart"
-          onclick={() => actionPanelOpen.set(true)}
+          onclick={() => cartPanelOpen.set(true)}
         >
           Cart
           <span class="nav-cart-badge">{$cartCount}</span>
@@ -244,12 +245,13 @@
   {@render children()}
 </main>
 
-<ActionPanel
-  open={$actionPanelOpen}
-  onclose={() => actionPanelOpen.set(false)}
+<CartPanel
+  open={$cartPanelOpen}
+  onclose={() => cartPanelOpen.set(false)}
   ondeselect={(id) => cart.removeById(id)}
   ondeselecthf={(hf_model_id, file_path) => cart.remove(hf_model_id, file_path)}
 />
+
 
 <footer class="site-footer">
   <span>&copy; {new Date().getFullYear()} Web AI Benchmark</span>

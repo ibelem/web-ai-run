@@ -1,20 +1,19 @@
 import type { PageLoad } from './$types';
 import { createClient } from '$lib/supabase/client';
 import { redirect } from '@sveltejs/kit';
-import type { ModelRow } from '../../model/+page.ts';
 
 export const load: PageLoad = async () => {
   const supabase = createClient();
   const { data: { session } } = await supabase.auth.getSession();
-  if (!session) throw redirect(302, '/recipe');
+  if (!session) throw redirect(302, '/login');
 
-  const { data, error } = await (supabase.from('models') as any)
-    .select('id, hf_model_id, file_path, data_type, size_bytes, runtime, source_org, task')
-    .order('hf_model_id', { ascending: true });
+  const { data: recipes } = await (supabase.from('recipes') as any)
+    .select('id, name, slug, visibility, updated_at, models')
+    .eq('owner_id', session.user.id)
+    .order('updated_at', { ascending: false });
 
   return {
-    models: (data as ModelRow[]) ?? [],
+    recipes: recipes ?? [],
     userId: session.user.id,
-    error: error?.message ?? null,
   };
 };

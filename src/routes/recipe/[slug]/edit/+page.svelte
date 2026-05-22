@@ -1,10 +1,9 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
-  import ModelFilters from '$lib/components/ModelFilters.svelte';
-  import ModelGrid from '$lib/components/ModelGrid.svelte';
-  import { updateRecipe } from '$lib/recipes/crud';
+  import HFSearch, { type SelectedHFModel } from '$lib/components/HFSearch.svelte';
+  import HFUrlImport from '$lib/components/HFUrlImport.svelte';
+  import { updateRecipe, deleteRecipe } from '$lib/recipes/crud';
   import type { RecipeModel } from '$lib/supabase/types';
-  import { inferFormat } from '$lib/huggingface/parser';
 
   let { data } = $props();
 
@@ -13,270 +12,692 @@
   let saving = $state(false);
   let errorMessage = $state('');
 
-  const initialModelIds = new Set(
-    data.recipe.models.map((m) => {
-      const match = data.models.find((dm) => dm.hf_model_id === m.hf_model_id && dm.file_path === m.file_path);
-      return match?.id;
-    }).filter(Boolean) as string[]
-  );
-  let selectedIds = $state<Set<string>>(initialModelIds);
+  // Current models in the recipe
+  let recipeModels = $state<RecipeModel[]>([...data.recipe.models]);
 
+  // HF search
+  let hfSearchQuery = $state('');
+  let hfModels = $state<SelectedHFModel[]>([]);
 
-  let searchQuery = $state('');
-  let selectedFormats = $state<Set<string>>(new Set());
-  let selectedOrgs = $state<Set<string>>(new Set());
-  let selectedDataTypes = $state<Set<string>>(new Set());
-  let selectedCategories = $state<Set<string>>(new Set());
-  let selectedSizes = $state<Set<string>>(new Set());
+  // Sync state when navigating between recipes in the sidebar
+  $effect(() => {
+    recipeName = data.recipe.name;
+    visibility = data.recipe.visibility;
+    recipeModels = [...data.recipe.models];
+    hfSearchQuery = '';
+    hfModels = [];
+    errorMessage = '';
+  });
 
-  const allModels = $derived(data.models);
-  const formats = $derived([...new Set(allModels.map((m) => inferFormat(m.file_path)))].sort());
-  const orgs = $derived([...new Set(allModels.map((m) => m.source_org))].sort());
-  const dataTypes = $derived([...new Set(allModels.map((m) => m.data_type))].sort());
-  const categories = $derived(
-    [...new Set(allModels.map((m) => m.task))].filter((c) => c !== 'uncategorized').sort()
-  );
+  const isHFUrl = $derived((() => {
+    try { return new URL(hfSearchQuery.trim()).hostname === 'huggingface.co'; }
+    catch { return false; }
+  })());
 
-  const filteredModels = $derived(
-    allModels.filter((m) => {
-      if (selectedFormats.size > 0 && !selectedFormats.has(inferFormat(m.file_path))) return false;
-      if (selectedOrgs.size > 0 && !selectedOrgs.has(m.source_org)) return false;
-      if (selectedDataTypes.size > 0 && !selectedDataTypes.has(m.data_type)) return false;
-      if (selectedCategories.size > 0 && !selectedCategories.has(m.task)) return false;
-      if (searchQuery) {
-        const q = searchQuery.toLowerCase();
-        if (!m.hf_model_id.toLowerCase().includes(q) && !m.file_path.toLowerCase().includes(q)) return false;
+  // When HFSearch/HFUrlImport selects a model, add it to recipeModels and clear
+  $effect(() => {
+    for (const m of hfModels) {
+      const already = recipeModels.some(
+        (r) => r.hf_model_id === m.hf_model_id && r.file_path === m.file_path
+      );
+      if (!already) {
+        recipeModels = [...recipeModels, {
+          hf_model_id: m.hf_model_id,
+          file_path: m.file_path,
+          data_type: m.data_type,
+        }];
       }
-      return true;
-    })
-  );
+    }
+    if (hfModels.length > 0) {
+      hfModels = [];
+    }
+  });
 
-  function toggleSelect(id: string) {
-    const next = new Set(selectedIds);
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
-    selectedIds = next;
+  function removeModel(index: number) {
+    recipeModels = recipeModels.filter((_, i) => i !== index);
   }
 
-  function handleFilter(filters: { formats: Set<string>; orgs: Set<string>; dataTypes: Set<string>; categories: Set<string>; sizes: Set<string> }) {
-    selectedFormats = filters.formats;
-    selectedOrgs = filters.orgs;
-    selectedDataTypes = filters.dataTypes;
-    selectedCategories = filters.categories;
-    selectedSizes = filters.sizes;
+  function basename(path: string) {
+    return path.split('/').pop() ?? path;
   }
+
+  const isEmpty = $derived(recipeModels.length === 0);
 
   async function handleSave() {
     if (!recipeName.trim()) {
       errorMessage = 'Recipe name is required.';
       return;
     }
-    if (selectedIds.size === 0) {
-      errorMessage = 'Select at least one model.';
-      return;
-    }
     saving = true;
     errorMessage = '';
-
-    const models: RecipeModel[] = allModels
-      .filter((m) => selectedIds.has(m.id))
-      .map((m) => ({
-        hf_model_id: m.hf_model_id,
-        file_path: m.file_path,
-        data_type: m.data_type,
-      }));
-
     try {
-      await updateRecipe(data.recipe.id, { name: recipeName.trim(), models, visibility });
+      if (isEmpty) {
+        await deleteRecipe(data.recipe.id);
+      } else {
+        await updateRecipe(data.recipe.id, { name: recipeName.trim(), models: recipeModels, visibility });
+      }
       goto('/recipe');
     } catch (e: any) {
-      errorMessage = e.message ?? 'Failed to update recipe.';
+      errorMessage = e.message ?? 'Failed to save.';
     } finally {
       saving = false;
     }
   }
 </script>
 
-<div class="edit-recipe-page">
+<div class="edit-layout">
+  <!-- Sidebar -->
+  <aside class="recipe-sidebar">
+    <div class="sidebar-header">
+      <span class="sidebar-label">My Recipes</span>
+      <a href="/recipe" class="sidebar-back">All</a>
+    </div>
+    <ul class="sidebar-list">
+      {#each data.recipes as r (r.id)}
+        <li>
+          <a
+            href="/recipe/{r.slug}/edit"
+            class="sidebar-item"
+            class:active={r.id === data.recipe.id}
+          >
+            <span class="sidebar-item-name">{r.name}</span>
+            <span
+              class="sidebar-item-vis"
+              class:is-public={r.visibility === 'public'}
+            >{r.visibility === 'public' ? 'public' : 'personal'}</span>
+          </a>
+        </li>
+      {/each}
+    </ul>
+  </aside>
+
+  <div class="edit-page">
   <header class="page-header">
     <h1>Edit Recipe</h1>
-    <p>Update "{data.recipe.name}"</p>
   </header>
 
-  <section class="form-section">
-    <div class="form-row">
-      <label class="field">
-        <span class="field-label">Recipe name</span>
-        <input type="text" bind:value={recipeName} class="field-input" />
-      </label>
-      <label class="field field-sm">
-        <span class="field-label">Visibility</span>
-        <select bind:value={visibility} class="field-select">
-          <option value="personal">Personal</option>
-          <option value="public">Public</option>
-        </select>
-      </label>
+  <!-- Name + Visibility -->
+  <div class="meta-row">
+    <input
+      class="name-input"
+      type="text"
+      placeholder="Recipe name..."
+      bind:value={recipeName}
+    />
+    <div class="visibility-tabs">
+      <button
+        class="visibility-tab"
+        class:active={visibility === 'personal'}
+        onclick={() => { visibility = 'personal'; }}
+      >Personal</button>
+      <button
+        class="visibility-tab"
+        class:active={visibility === 'public'}
+        onclick={() => { visibility = 'public'; }}
+      >Public</button>
+    </div>
+  </div>
+
+  <!-- Zone 1: current models -->
+  <section class="zone">
+    <div class="zone-label">
+      In this recipe
+      {#if recipeModels.length > 0}
+        <span class="count-badge">{recipeModels.length}</span>
+      {/if}
     </div>
 
+    {#if recipeModels.length === 0}
+      <div class="empty-models">
+        <p>No models. Saving will <strong>delete</strong> this recipe.</p>
+      </div>
+    {:else}
+      <ul class="model-list">
+        {#each recipeModels as m, i (`${m.hf_model_id}::${m.file_path}`)}
+          {@const ext = m.file_path.endsWith('.litertlm') ? 'litertlm' : m.file_path.endsWith('.tflite') ? 'tflite' : 'onnx'}
+          <li class="model-item">
+            <div class="model-item-left">
+              <div class="model-item-top">
+                <span class="model-item-repo">{m.hf_model_id}</span>
+              </div>
+              <div class="model-item-bottom">
+                <span class="model-item-format" data-format={ext}>{ext}</span>
+                <span class="model-item-name">{basename(m.file_path)}</span>
+              </div>
+            </div>
+            {#if m.data_type}
+              <span class="model-item-dtype" data-dtype={m.data_type}>{m.data_type === 'quantized' ? 'quant' : m.data_type}</span>
+            {/if}
+            <button class="remove-btn" onclick={() => removeModel(i)} aria-label="Remove">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+          </li>
+        {/each}
+      </ul>
+    {/if}
   </section>
 
-  <section class="models-section">
-    <h2 class="section-title">
-      Select Models
-      {#if selectedIds.size > 0}
-        <span class="selected-count">{selectedIds.size} selected</span>
+  <!-- Zone 2: add via HF search -->
+  <section class="zone">
+    <div class="zone-label">Add models from Hugging Face</div>
+    <div class="search-wrap">
+      <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+        <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+      </svg>
+      <input
+        class="search-input"
+        type="text"
+        placeholder="Search HF models or paste a URL..."
+        bind:value={hfSearchQuery}
+      />
+      {#if hfSearchQuery}
+        <button class="search-clear" onclick={() => { hfSearchQuery = ''; }} aria-label="Clear">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
       {/if}
-    </h2>
+    </div>
 
-    <ModelFilters
-      {formats}
-      {orgs}
-      {dataTypes}
-      {categories}
-      bind:selectedFormats
-      bind:selectedOrgs
-      bind:selectedDataTypes
-      bind:selectedCategories
-      bind:selectedSizes
-      onfilter={handleFilter}
-    />
-
-    <ModelGrid models={filteredModels} {selectedIds} ontoggle={toggleSelect} />
+    {#if isHFUrl}
+      <HFUrlImport url={hfSearchQuery.trim()} bind:selectedHFModels={hfModels} />
+    {:else if hfSearchQuery.trim()}
+      <HFSearch searchQuery={hfSearchQuery} bind:selectedHFModels={hfModels} />
+    {/if}
   </section>
 
   {#if errorMessage}
     <p class="error-text">{errorMessage}</p>
   {/if}
 
-  <div class="save-bar">
-    <a href="/recipe" class="btn-ghost">Cancel</a>
-    <button class="btn-primary" onclick={handleSave} disabled={saving}>
-      {saving ? 'Saving...' : 'Update Recipe'}
-    </button>
+  <div class="save-bar" id="save-bar">
+    {#if isEmpty}
+      <p class="delete-warning">Saving with no models will delete this recipe.</p>
+    {/if}
+    <div class="save-actions">
+      <a href="/recipe" class="btn-ghost">Cancel</a>
+      <button
+        class="btn-save"
+        class:btn-delete={isEmpty}
+        onclick={handleSave}
+        disabled={saving || !recipeName.trim()}
+      >
+        {#if saving}
+          {isEmpty ? 'Deleting...' : 'Saving...'}
+        {:else}
+          {isEmpty ? 'Delete Recipe' : 'Save Recipe'}
+        {/if}
+      </button>
+    </div>
+  </div>
   </div>
 </div>
 
+
 <style>
-  .edit-recipe-page {
-    max-width: 100%;
-  }
-
-  .form-section {
-    margin-bottom: var(--space-3);
-    padding: var(--space-2);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-lg);
-  }
-
-  .form-row {
+  .edit-layout {
     display: flex;
-    gap: var(--space-2);
-    margin-bottom: var(--space-2);
+    align-items: flex-start;
+    gap: var(--space-3);
   }
 
-  .field {
+  /* Sidebar */
+  .recipe-sidebar {
+    width: 200px;
+    flex-shrink: 0;
+    position: sticky;
+    top: calc(56px + var(--space-3));
     display: flex;
     flex-direction: column;
-    gap: var(--space-half);
-    flex: 1;
+    gap: var(--space-1);
   }
 
-  .field-sm {
-    flex: 0 0 160px;
+  .sidebar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 var(--space-1);
+    margin-bottom: 2px;
   }
 
-  .field-label {
+  .sidebar-label {
+    font-size: var(--text-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--color-text-muted);
+  }
+
+  .sidebar-back {
     font-size: var(--text-xs);
     color: var(--color-text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+    text-decoration: none;
+    transition: color var(--transition-base);
   }
 
-  .field-input, .field-select {
+  .sidebar-back:hover {
+    color: var(--color-text-primary);
+  }
+
+  .sidebar-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+
+  .sidebar-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 6px 8px;
+    border-radius: var(--radius-base);
+    border: 1px solid transparent;
+    text-decoration: none;
+    transition: background var(--transition-base), border-color var(--transition-base);
+  }
+
+  .sidebar-item:hover {
+    background: var(--color-surface-sunken);
+    border-color: var(--color-border);
+  }
+
+  .sidebar-item.active {
+    background: var(--color-accent-light);
+    border-color: var(--color-primary);
+  }
+
+  .sidebar-item-name {
+    font-size: var(--text-sm);
+    font-weight: 500;
+    color: var(--color-text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .sidebar-item-vis {
+    font-size: 10px;
+    color: var(--color-dt-fp16);
+    font-weight: 500;
+  }
+
+  .sidebar-item-vis.is-public {
+    color: var(--color-dt-int8);
+  }
+
+  @media (max-width: 768px) {
+    .edit-layout {
+      flex-direction: column;
+    }
+    .recipe-sidebar {
+      width: 100%;
+      position: static;
+      flex-direction: row;
+      flex-wrap: wrap;
+    }
+    .sidebar-list {
+      flex-direction: row;
+      flex-wrap: wrap;
+    }
+  }
+
+  .edit-page {
+    max-width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+
+  .meta-row {
+    display: flex;
+    gap: var(--space-2);
+    align-items: center;
+  }
+
+  .name-input {
+    flex: 1;
     font-family: var(--font-ui);
     font-size: var(--text-sm);
-    padding: var(--space-2);
+    padding: var(--space-1) var(--space-2);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-base);
     background: var(--color-surface);
     color: var(--color-text-primary);
+    transition: border-color var(--transition-base);
   }
 
-  .field-input:focus-visible, .field-select:focus-visible {
+  .name-input:focus-visible {
     border-color: var(--color-focus-ring);
   }
 
-  .chip {
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    padding: 4px 10px;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-sm);
-    background: none;
-    color: var(--color-text-secondary);
-    cursor: pointer;
-    transition: all var(--transition-base);
-  }
-
-  .chip:hover {
-    border-color: var(--color-border-strong);
-  }
-
-  .chip-active {
-    border-color: var(--color-info);
-    background: color-mix(in srgb, var(--color-info) 10%, transparent);
-    color: var(--color-text-primary);
-  }
-
-  .models-section {
-    margin-bottom: var(--space-3);
-  }
-
-  .section-title {
-    font-size: var(--text-base);
-    font-weight: 500;
-    margin-bottom: var(--space-2);
+  .visibility-tabs {
     display: flex;
-    align-items: center;
-    gap: var(--space-1);
+    border-radius: var(--radius-base);
+    overflow: hidden;
+    flex-shrink: 0;
   }
 
-  .selected-count {
-    font-size: var(--text-xs);
-    font-weight: 400;
-    color: var(--color-text-muted);
-    padding: 2px 8px;
-    background: var(--color-surface-sunken);
-    border-radius: var(--radius-sm);
-  }
-
-  .error-text {
-    color: var(--color-error);
-    font-size: var(--text-sm);
-    margin-bottom: var(--space-2);
-  }
-
-  .save-bar {
-    display: flex;
-    justify-content: flex-end;
-    gap: var(--space-1);
-    padding-top: var(--space-2);
-    border-top: 1px solid var(--color-border);
-  }
-
-  .btn-primary {
+  .visibility-tab {
     font-family: var(--font-ui);
     font-size: var(--text-sm);
     font-weight: 500;
     padding: var(--space-1) var(--space-2);
+    border: 1px solid var(--color-border);
+    background: var(--color-surface-sunken);
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    transition: background var(--transition-base), color var(--transition-base), border-color var(--transition-base);
+  }
+
+  .visibility-tab + .visibility-tab {
+    border-left: none;
+  }
+
+  .visibility-tab.active {
+    background: var(--color-primary);
+    border-color: var(--color-primary);
+    color: #fff;
+  }
+
+  .zone {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+  }
+
+  .zone-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: var(--text-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--color-text-muted);
+  }
+
+  .count-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 9px;
+    background: var(--color-primary);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0;
+    text-transform: none;
+  }
+
+  .model-list {
+    list-style: none;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 3px;
+  }
+
+  @media (max-width: 900px) {
+    .model-list { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  @media (max-width: 600px) {
+    .model-list { grid-template-columns: 1fr; }
+  }
+
+  .model-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    background: var(--color-surface-raised);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-base);
+    min-width: 0;
+    transition: border-color var(--transition-base), background var(--transition-base);
+  }
+
+  .model-item:hover {
+    border-color: var(--color-primary);
+    background: var(--color-accent-light);
+  }
+
+  .model-item-left {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    overflow: hidden;
+    min-width: 0;
+  }
+
+  .model-item-top,
+  .model-item-bottom {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    overflow: hidden;
+    white-space: nowrap;
+    min-width: 0;
+  }
+
+  .model-item-repo {
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    color: var(--color-text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+  }
+
+  .model-item-name {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+  }
+
+  .model-item-format {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 1px 7px;
+    border-radius: var(--radius-sm);
+    border: 1px solid;
+    flex-shrink: 0;
+    line-height: 1.4;
+  }
+
+  .model-item-format[data-format="onnx"]     { color: var(--color-fmt-onnx);     border-color: var(--color-fmt-onnx); }
+  .model-item-format[data-format="tflite"]   { color: var(--color-fmt-tflite);   border-color: var(--color-fmt-tflite); }
+  .model-item-format[data-format="litertlm"] { color: var(--color-fmt-litertlm); border-color: var(--color-fmt-litertlm); }
+
+  .model-item-dtype {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 1px 7px;
+    border-radius: var(--radius-sm);
+    border: 1px solid;
+    white-space: nowrap;
+    flex-shrink: 0;
+    line-height: 1.4;
+  }
+
+  .model-item-dtype[data-dtype="fp32"]      { color: var(--color-dt-fp32);      border-color: var(--color-dt-fp32); }
+  .model-item-dtype[data-dtype="fp16"]      { color: var(--color-dt-fp16);      border-color: var(--color-dt-fp16); }
+  .model-item-dtype[data-dtype="bf16"]      { color: var(--color-dt-bf16);      border-color: var(--color-dt-bf16); }
+  .model-item-dtype[data-dtype="fp8"]       { color: var(--color-dt-fp8);       border-color: var(--color-dt-fp8); }
+  .model-item-dtype[data-dtype="int8"]      { color: var(--color-dt-int8);      border-color: var(--color-dt-int8); }
+  .model-item-dtype[data-dtype="uint8"]     { color: var(--color-dt-uint8);     border-color: var(--color-dt-uint8); }
+  .model-item-dtype[data-dtype="int4"]      { color: var(--color-dt-int4);      border-color: var(--color-dt-int4); }
+  .model-item-dtype[data-dtype="uint4"]     { color: var(--color-dt-uint4);     border-color: var(--color-dt-uint4); }
+  .model-item-dtype[data-dtype="q4"]        { color: var(--color-dt-q4);        border-color: var(--color-dt-q4); }
+  .model-item-dtype[data-dtype="q4f16"]     { color: var(--color-dt-q4f16);     border-color: var(--color-dt-q4f16); }
+  .model-item-dtype[data-dtype="bnb4"]      { color: var(--color-dt-bnb4);      border-color: var(--color-dt-bnb4); }
+  .model-item-dtype[data-dtype="quantized"] { color: var(--color-dt-quantized); border-color: var(--color-dt-quantized); }
+
+  .remove-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
     border: none;
     border-radius: var(--radius-base);
-    background: var(--color-text-primary);
-    color: var(--color-surface);
+    background: none;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    transition: background var(--transition-base), color var(--transition-base);
+  }
+
+  .remove-btn:hover {
+    background: var(--color-surface-sunken);
+    color: var(--color-text-primary);
+  }
+
+  .empty-models {
+    padding: var(--space-2);
+    border-radius: var(--radius-base);
+    border: 1px dashed var(--color-border);
+    color: var(--color-text-muted);
+    font-size: var(--text-sm);
+    text-align: center;
+  }
+
+  .empty-models strong {
+    color: var(--color-text-secondary);
+  }
+
+  .search-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+
+  .search-icon {
+    position: absolute;
+    left: 10px;
+    color: var(--color-text-muted);
+    pointer-events: none;
+  }
+
+  .search-input {
+    width: 100%;
+    font-family: var(--font-ui);
+    font-size: var(--text-sm);
+    padding: var(--space-1) 32px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-base);
+    background: var(--color-surface);
+    color: var(--color-text-primary);
+    transition: border-color var(--transition-base);
+  }
+
+  .search-input:focus-visible {
+    border-color: var(--color-focus-ring);
+  }
+
+  .search-clear {
+    position: absolute;
+    right: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border: none;
+    border-radius: var(--radius-base);
+    background: none;
+    color: var(--color-text-muted);
     cursor: pointer;
   }
 
-  .btn-primary:hover { opacity: 0.85; }
-  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  .search-clear:hover {
+    background: var(--color-surface-sunken);
+    color: var(--color-text-primary);
+  }
 
+  .save-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    padding-top: var(--space-2);
+  }
+
+  .delete-warning {
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+  }
+
+  .save-actions {
+    display: flex;
+    gap: var(--space-1);
+    margin-left: auto;
+  }
+
+  .btn-ghost {
+    font-family: var(--font-ui);
+    font-size: var(--text-base);
+    font-weight: 500;
+    padding: 10px 20px;
+    border: 1px solid var(--color-border);
+    border-radius: 100px;
+    background: none;
+    color: var(--color-text-secondary);
+    text-decoration: none;
+    cursor: pointer;
+    transition: background var(--transition-base);
+  }
+
+  .btn-ghost:hover {
+    background: var(--color-surface-sunken);
+  }
+
+  .btn-save {
+    font-family: var(--font-ui);
+    font-size: var(--text-base);
+    font-weight: 500;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 100px;
+    background: var(--color-primary);
+    color: #fff;
+    cursor: pointer;
+    transition: background var(--transition-base);
+  }
+
+  .btn-save:hover:not(:disabled) {
+    background: var(--color-primary-hover);
+  }
+
+  .btn-save:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .btn-save.btn-delete {
+    background: var(--color-error);
+  }
+
+  .btn-save.btn-delete:hover:not(:disabled) {
+    opacity: 0.85;
+  }
+
+  .error-text {
+    font-size: var(--text-sm);
+    color: var(--color-error);
+  }
 </style>

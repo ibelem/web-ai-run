@@ -1,11 +1,15 @@
 <script lang="ts">
   import type { LeaderboardRow } from './+page.ts';
+  import { getBackendLabel } from '$lib/engine/backends';
 
   let { data } = $props();
 
   let filterModel = $state('');
   let filterBackend = $state('');
   let filterDataType = $state('');
+  let filterDateFrom = $state('');
+  let filterDateTo = $state('');
+  let groupByHardware = $state(false);
   let sortColumn = $state<string>('average_ms');
   let sortAscending = $state(true);
 
@@ -26,12 +30,49 @@
       if (filterModel && r.model_id !== filterModel) return false;
       if (filterBackend && r.backend !== filterBackend) return false;
       if (filterDataType && r.data_type !== filterDataType) return false;
+      if (filterDateFrom && r.started_at < filterDateFrom) return false;
+      if (filterDateTo && r.started_at > filterDateTo + 'T23:59:59') return false;
       return true;
     })
   );
 
+  type GroupedRow = LeaderboardRow & { rowCount: number };
+
+  const groupedResults = $derived((): GroupedRow[] => {
+    if (!groupByHardware) return filteredResults.map((r) => ({ ...r, rowCount: 1 }));
+    const map = new Map<string, { rows: LeaderboardRow[]; count: number }>();
+    for (const r of filteredResults) {
+      const key = `${r.model_id}::${r.file_path}::${r.backend}::${r.data_type}::${r.gpu || ''}::${r.cpu || ''}`;
+      const entry = map.get(key);
+      if (entry) {
+        entry.rows.push(r);
+        entry.count++;
+      } else {
+        map.set(key, { rows: [r], count: 1 });
+      }
+    }
+    return [...map.values()].map(({ rows, count }) => {
+      const nums = (field: keyof LeaderboardRow) =>
+        rows.map((r) => r[field] as number | null).filter((v): v is number => v !== null);
+      const avg = (arr: number[]) => arr.length ? arr.reduce((s, v) => s + v, 0) / arr.length : null;
+      return {
+        ...rows[0],
+        compilation_ms: avg(nums('compilation_ms')),
+        load_and_compile_ms: avg(nums('load_and_compile_ms')),
+        first_inference_ms: avg(nums('first_inference_ms')),
+        time_to_first_ms: avg(nums('time_to_first_ms')),
+        average_ms: avg(nums('average_ms')),
+        median_ms: avg(nums('median_ms')),
+        best_ms: avg(nums('best_ms')),
+        p90_ms: avg(nums('p90_ms')),
+        throughput_fps: avg(nums('throughput_fps')),
+        rowCount: count,
+      };
+    });
+  });
+
   const sortedResults = $derived(
-    [...filteredResults].sort((a: LeaderboardRow, b: LeaderboardRow) => {
+    [...groupedResults()].sort((a: GroupedRow, b: GroupedRow) => {
       let aVal: number | null = null;
       let bVal: number | null = null;
 
@@ -74,6 +115,11 @@
     })
   );
 
+  function clearDateFilters() {
+    filterDateFrom = '';
+    filterDateTo = '';
+  }
+
   function toggleSort(column: string) {
     if (sortColumn === column) {
       sortAscending = !sortAscending;
@@ -115,7 +161,7 @@
       <select class="filter-select" bind:value={filterBackend}>
         <option value="">All backends</option>
         {#each backends as b}
-          <option value={b}>{b}</option>
+          <option value={b}>{getBackendLabel(b)}</option>
         {/each}
       </select>
 
@@ -125,6 +171,20 @@
           <option value={dt}>{dt}</option>
         {/each}
       </select>
+
+      <div class="date-range">
+        <input class="filter-date" type="date" bind:value={filterDateFrom} title="From date" />
+        <span class="date-sep">–</span>
+        <input class="filter-date" type="date" bind:value={filterDateTo} title="To date" />
+        {#if filterDateFrom || filterDateTo}
+          <button class="clear-dates" onclick={clearDateFilters} title="Clear date filter">×</button>
+        {/if}
+      </div>
+
+      <label class="group-toggle">
+        <input type="checkbox" bind:checked={groupByHardware} />
+        Group by hardware
+      </label>
     </div>
 
     {#if sortedResults.length === 0}
@@ -170,7 +230,7 @@
                 <td class="cell-model" title={result.model_id}>
                   {modelName(result.model_id)}
                 </td>
-                <td><span class="badge">{result.backend}</span></td>
+                <td><span class="badge">{getBackendLabel(result.backend)}</span></td>
                 <td><span class="badge">{result.data_type}</span></td>
                 <td class="cell-metric">{result.compilation_ms?.toFixed(1) ?? '—'}</td>
                 <td class="cell-metric">{result.load_and_compile_ms?.toFixed(1) ?? '—'}</td>
@@ -180,7 +240,12 @@
                 <td class="cell-metric">{result.p90_ms?.toFixed(1) ?? '—'}</td>
                 <td class="cell-metric">{result.throughput_fps?.toFixed(1) ?? '—'}</td>
                 <td class="cell-info">{result.gpu || '—'}</td>
-                <td class="cell-info">{result.browser || '—'}</td>
+                <td class="cell-info">
+                  {result.browser || '—'}
+                  {#if groupByHardware && result.rowCount > 1}
+                    <span class="row-count" title="Averaged over {result.rowCount} runs">×{result.rowCount}</span>
+                  {/if}
+                </td>
               </tr>
             {/each}
           </tbody>
@@ -189,6 +254,9 @@
 
       <div class="results-count">
         {sortedResults.length} result{sortedResults.length !== 1 ? 's' : ''}
+        {#if groupByHardware}
+          <span class="results-count-note">(averaged by hardware)</span>
+        {/if}
       </div>
     {/if}
   {/if}
@@ -301,5 +369,83 @@
     font-size: var(--text-xs);
     color: var(--color-text-muted);
     text-align: right;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--space-1);
+  }
+
+  .results-count-note {
+    color: var(--color-text-muted);
+    font-style: italic;
+  }
+
+  .date-range {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .filter-date {
+    font-family: var(--font-ui);
+    font-size: var(--text-sm);
+    padding: var(--space-1) var(--space-1);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-base);
+    background: var(--color-surface);
+    color: var(--color-text-primary);
+    cursor: pointer;
+    width: 130px;
+  }
+
+  .filter-date:focus-visible {
+    border-color: var(--color-focus-ring);
+  }
+
+  .date-sep {
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+  }
+
+  .clear-dates {
+    font-size: var(--text-sm);
+    width: 22px;
+    height: 22px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-base);
+    background: none;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+  }
+
+  .clear-dates:hover {
+    background: var(--color-surface-sunken);
+    color: var(--color-text-primary);
+  }
+
+  .group-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--font-ui);
+    font-size: var(--text-sm);
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+  }
+
+  .group-toggle input[type="checkbox"] {
+    cursor: pointer;
+  }
+
+  .row-count {
+    font-size: 10px;
+    color: var(--color-text-muted);
+    margin-left: 4px;
   }
 </style>

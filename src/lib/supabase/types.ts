@@ -141,6 +141,7 @@ export interface RecipeModel {
   hf_model_id: string;
   file_path: string;
   data_type: string;
+  size_bytes?: number;
 }
 
 export interface BenchmarkMetrics {

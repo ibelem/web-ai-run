@@ -4,6 +4,56 @@
 
   let { data } = $props();
 
+  interface RunGroup {
+    run_id: string | null;
+    rows: ResultRow[];
+    started_at: string;
+    cpu: string;
+    gpu: string;
+    os: string;
+    browser: string;
+  }
+
+  const runGroups = $derived((): RunGroup[] => {
+    const map = new Map<string, RunGroup>();
+    for (const r of data.results) {
+      const key = r.run_id ?? `solo-${r.id}`;
+      const existing = map.get(key);
+      if (existing) {
+        existing.rows.push(r);
+        if (r.started_at < existing.started_at) existing.started_at = r.started_at;
+      } else {
+        map.set(key, {
+          run_id: r.run_id,
+          rows: [r],
+          started_at: r.started_at,
+          cpu: r.cpu,
+          gpu: r.gpu,
+          os: r.os,
+          browser: r.browser,
+        });
+      }
+    }
+    return [...map.values()].sort((a, b) => b.started_at.localeCompare(a.started_at));
+  });
+
+  let expandedRuns = $state<Set<string>>(new Set());
+
+  function toggleRun(key: string) {
+    const next = new Set(expandedRuns);
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
+    expandedRuns = next;
+  }
+
+  function runKey(g: RunGroup): string {
+    return g.run_id ?? `solo-${g.rows[0]?.id}`;
+  }
+
+  function isExpanded(g: RunGroup): boolean {
+    return expandedRuns.has(runKey(g));
+  }
+
   function formatDuration(startedAt: string, completedAt: string | null): string {
     if (!completedAt) return 'running...';
     const ms = new Date(completedAt).getTime() - new Date(startedAt).getTime();
@@ -32,6 +82,22 @@
     params.set('backend', result.backend);
     params.set('n', String(result.iterations));
     return `/run#${params}`;
+  }
+
+  function runGroupHref(g: RunGroup): string {
+    const models = g.rows.map((r) => `${r.model_id}|${r.file_path}`).join(',');
+    const params = new URLSearchParams();
+    params.set('models', models);
+    params.set('backend', g.rows[0]?.backend ?? '');
+    params.set('n', String(g.rows[0]?.iterations ?? 50));
+    return `/run#${params}`;
+  }
+
+  function groupStatusSummary(rows: ResultRow[]): string {
+    const ok = rows.filter((r) => r.status === 'completed').length;
+    const err = rows.filter((r) => r.status === 'error').length;
+    if (err === 0) return `${ok} completed`;
+    return `${ok} ok, ${err} failed`;
   }
 
   function exportCsv() {
@@ -86,49 +152,74 @@
       <p>No benchmark results yet. Run a benchmark with "Save results" enabled.</p>
     </div>
   {:else}
-    <div class="results-table-wrapper">
-      <table class="results-table">
-        <thead>
-          <tr>
-            <th>Model</th>
-            <th>Backend</th>
-            <th>Data Type</th>
-            <th>Status</th>
-            <th>Avg (ms)</th>
-            <th>p90 (ms)</th>
-            <th>Throughput</th>
-            <th>Duration</th>
-            <th>Date</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          {#each data.results as result (result.id)}
-            <tr>
-              <td class="cell-model" title={result.model_id}>
-                {result.model_id.split('/').pop() ?? result.model_id}
-              </td>
-              <td><span class="badge badge-backend">{getBackendLabel(result.backend)}</span></td>
-              <td><span class="badge badge-dtype">{result.data_type}</span></td>
-              <td><span class="status-dot {statusClass(result.status)}"></span> {result.status}</td>
-              <td class="cell-metric">
-                {result.average_ms?.toFixed(1) ?? '—'}
-              </td>
-              <td class="cell-metric">
-                {result.p90_ms?.toFixed(1) ?? '—'}
-              </td>
-              <td class="cell-metric">
-                {result.throughput_fps ? `${result.throughput_fps.toFixed(1)} fps` : '—'}
-              </td>
-              <td class="cell-duration">{formatDuration(result.started_at, result.completed_at)}</td>
-              <td class="cell-date">{formatDate(result.started_at)}</td>
-              <td class="cell-action">
-                <a class="run-again-link" href={runAgainHref(result)} title="Run again with this config">↺</a>
-              </td>
-            </tr>
-          {/each}
-        </tbody>
-      </table>
+    <div class="run-groups">
+      {#each runGroups() as group (runKey(group))}
+        {@const expanded = isExpanded(group)}
+        {@const isSolo = group.rows.length === 1}
+        <div class="run-group" class:expanded>
+          <div class="run-group-header" role="button" tabindex="0"
+            onclick={() => !isSolo && toggleRun(runKey(group))}
+            onkeydown={(e) => { if (!isSolo && (e.key === 'Enter' || e.key === ' ')) toggleRun(runKey(group)); }}
+            style={isSolo ? 'cursor: default;' : ''}
+          >
+            <div class="run-group-summary">
+              {#if !isSolo}
+                <span class="expand-chevron" class:open={expanded}>›</span>
+              {/if}
+              <span class="run-backends">
+                {[...new Set(group.rows.map((r) => getBackendLabel(r.backend)))].join(', ')}
+              </span>
+              <span class="run-model-count">
+                {group.rows.length} model{group.rows.length !== 1 ? 's' : ''}
+              </span>
+              <span class="run-status-summary">{groupStatusSummary(group.rows)}</span>
+            </div>
+            <div class="run-group-meta">
+              <span class="run-hw">{group.gpu || group.cpu || '—'}</span>
+              <span class="run-date">{formatDate(group.started_at)}</span>
+              <a class="run-again-link" href={runGroupHref(group)} title="Re-run this session" onclick={(e) => e.stopPropagation()}>↺</a>
+            </div>
+          </div>
+
+          {#if expanded || isSolo}
+            <div class="run-rows-wrap">
+              <table class="results-table">
+                <thead>
+                  <tr>
+                    <th>Model</th>
+                    <th>Data Type</th>
+                    <th>Status</th>
+                    <th>Avg (ms)</th>
+                    <th>p90 (ms)</th>
+                    <th>Throughput</th>
+                    <th>Duration</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {#each group.rows as result (result.id)}
+                    <tr>
+                      <td class="cell-model" title={result.model_id}>
+                        {result.model_id.split('/').pop() ?? result.model_id}
+                      </td>
+                      <td><span class="badge badge-dtype">{result.data_type}</span></td>
+                      <td><span class="status-dot {statusClass(result.status)}"></span> {result.status}</td>
+                      <td class="cell-metric">{result.average_ms?.toFixed(1) ?? '—'}</td>
+                      <td class="cell-metric">{result.p90_ms?.toFixed(1) ?? '—'}</td>
+                      <td class="cell-metric">{result.throughput_fps ? `${result.throughput_fps.toFixed(1)} fps` : '—'}</td>
+                      <td class="cell-duration">{formatDuration(result.started_at, result.completed_at)}</td>
+                      <td class="cell-action">
+                        <a class="run-again-link" href={runAgainHref(result)} title="Run again">↺</a>
+                        <a class="run-again-link" href={`/results/${result.id}`} title="Shareable result page">↗</a>
+                      </td>
+                    </tr>
+                  {/each}
+                </tbody>
+              </table>
+            </div>
+          {/if}
+        </div>
+      {/each}
     </div>
   {/if}
 </div>
@@ -194,8 +285,99 @@
     border-radius: var(--radius-base);
   }
 
-  .results-table-wrapper {
+  .run-groups {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+  }
+
+  .run-group {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+
+  .run-group-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    padding: var(--space-1) var(--space-2);
+    background: var(--color-surface);
+    cursor: pointer;
+    user-select: none;
+    transition: background var(--transition-base);
+  }
+
+  .run-group-header:hover {
+    background: var(--color-nav-item-hover);
+  }
+
+  .run-group-summary {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+    flex: 1;
+    min-width: 0;
+  }
+
+  .expand-chevron {
+    font-size: var(--text-base);
+    color: var(--color-text-muted);
+    transition: transform var(--transition-base);
+    flex-shrink: 0;
+    line-height: 1;
+  }
+
+  .expand-chevron.open {
+    transform: rotate(90deg);
+  }
+
+  .run-backends {
+    font-family: var(--font-ui);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    color: var(--color-text-primary);
+    white-space: nowrap;
+  }
+
+  .run-model-count {
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+    white-space: nowrap;
+  }
+
+  .run-status-summary {
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+    white-space: nowrap;
+  }
+
+  .run-group-meta {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+    flex-shrink: 0;
+  }
+
+  .run-hw {
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .run-date {
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+    white-space: nowrap;
+  }
+
+  .run-rows-wrap {
     overflow-x: auto;
+    border-top: 1px solid var(--color-border);
   }
 
   .results-table {
@@ -224,6 +406,10 @@
     white-space: nowrap;
   }
 
+  .results-table tbody tr:last-child td {
+    border-bottom: none;
+  }
+
   .results-table tbody tr:hover {
     background: var(--color-nav-item-hover);
   }
@@ -242,7 +428,7 @@
     text-align: right;
   }
 
-  .cell-duration, .cell-date {
+  .cell-duration {
     font-size: var(--text-xs);
     color: var(--color-text-muted);
   }
@@ -252,10 +438,6 @@
     padding: 1px 7px;
     border-radius: var(--radius-sm);
     border: 1px solid var(--color-border);
-  }
-
-  .badge-backend {
-    color: var(--color-text-secondary);
   }
 
   .badge-dtype {

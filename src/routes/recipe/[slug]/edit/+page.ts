@@ -12,14 +12,21 @@ export const load: PageLoad = async ({ params }) => {
   const recipe = await getRecipe(params.slug);
   if (!recipe || recipe.owner_id !== session.user.id) throw redirect(302, '/recipe');
 
-  const { data, error } = await (supabase.from('models') as any)
-    .select('id, hf_model_id, file_path, data_type, size_bytes, runtime, source_org, task')
-    .order('hf_model_id', { ascending: true });
+  const [modelsResult, recipesResult] = await Promise.all([
+    (supabase.from('models') as any)
+      .select('id, hf_model_id, file_path, data_type, size_bytes, runtime, source_org, task')
+      .order('hf_model_id', { ascending: true }),
+    (supabase.from('recipes') as any)
+      .select('id, name, slug, visibility, updated_at, models')
+      .eq('owner_id', session.user.id)
+      .order('updated_at', { ascending: false }),
+  ]);
 
   return {
     recipe,
-    models: (data as ModelRow[]) ?? [],
+    models: (modelsResult.data as ModelRow[]) ?? [],
+    recipes: (recipesResult.data as import('$lib/recipes/crud').Recipe[]) ?? [],
     userId: session.user.id,
-    error: error?.message ?? null,
+    error: modelsResult.error?.message ?? null,
   };
 };
