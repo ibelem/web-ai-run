@@ -165,15 +165,15 @@
   }
 
   .tag-format { flex-shrink: 0; }
-  .tag-format[data-format="onnx"]     { color: #3b82f6; border-color: #3b82f6; }
-  .tag-format[data-format="tflite"]   { color: #10b981; border-color: #10b981; }
-  .tag-format[data-format="litertlm"] { color: #f97316; border-color: #f97316; }
+  .tag-format[data-format="onnx"]     { color: var(--color-fmt-onnx); border-color: var(--color-fmt-onnx); }
+  .tag-format[data-format="tflite"]   { color: var(--color-fmt-tflite); border-color: var(--color-fmt-tflite); }
+  .tag-format[data-format="litertlm"] { color: var(--color-fmt-litertlm); border-color: var(--color-fmt-litertlm); }
 
   .chip {
     font-family: var(--font-mono);
     font-size: 11px;
     font-weight: 600;
-    padding: 2px 7px;
+    padding: 1px 7px;
     border-radius: var(--radius-sm);
     border: 1px solid;
     background: none;
@@ -188,31 +188,31 @@
     transform: translateX(-1px) translateY(-1px);
   }
 
-  .chip[data-dtype="fp32"]      { color: var(--color-primary); border-color: var(--color-primary); }
-  .chip[data-dtype="fp16"]      { color: #8b5cf6; border-color: #8b5cf6; }
-  .chip[data-dtype="bf16"]      { color: #7c3aed; border-color: #7c3aed; }
-  .chip[data-dtype="fp8"]       { color: #a855f7; border-color: #a855f7; }
-  .chip[data-dtype="int8"]      { color: #06b6d4; border-color: #06b6d4; }
-  .chip[data-dtype="uint8"]     { color: #0891b2; border-color: #0891b2; }
-  .chip[data-dtype="int4"]      { color: #10b981; border-color: #10b981; }
-  .chip[data-dtype="uint4"]     { color: #059669; border-color: #059669; }
-  .chip[data-dtype="q4"]        { color: #16a34a; border-color: #16a34a; }
-  .chip[data-dtype="q4f16"]     { color: #6366f1; border-color: #6366f1; }
-  .chip[data-dtype="bnb4"]      { color: #f59e0b; border-color: #f59e0b; }
-  .chip[data-dtype="quantized"] { color: #ea580c; border-color: #ea580c; }
+  .chip[data-dtype="fp32"]      { color: var(--color-dt-fp32); border-color: var(--color-dt-fp32); }
+  .chip[data-dtype="fp16"]      { color: var(--color-dt-fp16); border-color: var(--color-dt-fp16); }
+  .chip[data-dtype="bf16"]      { color: var(--color-dt-bf16); border-color: var(--color-dt-bf16); }
+  .chip[data-dtype="fp8"]       { color: var(--color-dt-fp8); border-color: var(--color-dt-fp8); }
+  .chip[data-dtype="int8"]      { color: var(--color-dt-int8); border-color: var(--color-dt-int8); }
+  .chip[data-dtype="uint8"]     { color: var(--color-dt-uint8); border-color: var(--color-dt-uint8); }
+  .chip[data-dtype="int4"]      { color: var(--color-dt-int4); border-color: var(--color-dt-int4); }
+  .chip[data-dtype="uint4"]     { color: var(--color-dt-uint4); border-color: var(--color-dt-uint4); }
+  .chip[data-dtype="q4"]        { color: var(--color-dt-q4); border-color: var(--color-dt-q4); }
+  .chip[data-dtype="q4f16"]     { color: var(--color-dt-q4f16); border-color: var(--color-dt-q4f16); }
+  .chip[data-dtype="bnb4"]      { color: var(--color-dt-bnb4); border-color: var(--color-dt-bnb4); }
+  .chip[data-dtype="quantized"] { color: var(--color-dt-quantized); border-color: var(--color-dt-quantized); }
 
   .chip.chip-selected { color: #fff; }
-  .chip.chip-selected[data-dtype="fp32"]      { background: var(--color-primary); border-color: var(--color-primary); }
-  .chip.chip-selected[data-dtype="fp16"]      { background: #8b5cf6; border-color: #8b5cf6; }
-  .chip.chip-selected[data-dtype="bf16"]      { background: #7c3aed; border-color: #7c3aed; }
-  .chip.chip-selected[data-dtype="fp8"]       { background: #a855f7; border-color: #a855f7; }
-  .chip.chip-selected[data-dtype="int8"]      { background: #06b6d4; border-color: #06b6d4; }
-  .chip.chip-selected[data-dtype="uint8"]     { background: #0891b2; border-color: #0891b2; }
-  .chip.chip-selected[data-dtype="int4"]      { background: #10b981; border-color: #10b981; }
-  .chip.chip-selected[data-dtype="uint4"]     { background: #059669; border-color: #059669; }
-  .chip.chip-selected[data-dtype="q4"]        { background: #16a34a; border-color: #16a34a; }
-  .chip.chip-selected[data-dtype="q4f16"]     { background: #6366f1; border-color: #6366f1; }
-  .chip.chip-selected[data-dtype="bnb4"]      { background: #f59e0b; border-color: #f59e0b; }
-  .chip.chip-selected[data-dtype="quantized"] { background: #ea580c; border-color: #ea580c; }
+  .chip.chip-selected[data-dtype="fp32"]      { background: var(--color-dt-fp32); border-color: var(--color-dt-fp32); }
+  .chip.chip-selected[data-dtype="fp16"]      { background: var(--color-dt-fp16); border-color: var(--color-dt-fp16); }
+  .chip.chip-selected[data-dtype="bf16"]      { background: var(--color-dt-bf16); border-color: var(--color-dt-bf16); }
+  .chip.chip-selected[data-dtype="fp8"]       { background: var(--color-dt-fp8); border-color: var(--color-dt-fp8); }
+  .chip.chip-selected[data-dtype="int8"]      { background: var(--color-dt-int8); border-color: var(--color-dt-int8); }
+  .chip.chip-selected[data-dtype="uint8"]     { background: var(--color-dt-uint8); border-color: var(--color-dt-uint8); }
+  .chip.chip-selected[data-dtype="int4"]      { background: var(--color-dt-int4); border-color: var(--color-dt-int4); }
+  .chip.chip-selected[data-dtype="uint4"]     { background: var(--color-dt-uint4); border-color: var(--color-dt-uint4); }
+  .chip.chip-selected[data-dtype="q4"]        { background: var(--color-dt-q4); border-color: var(--color-dt-q4); }
+  .chip.chip-selected[data-dtype="q4f16"]     { background: var(--color-dt-q4f16); border-color: var(--color-dt-q4f16); }
+  .chip.chip-selected[data-dtype="bnb4"]      { background: var(--color-dt-bnb4); border-color: var(--color-dt-bnb4); }
+  .chip.chip-selected[data-dtype="quantized"] { background: var(--color-dt-quantized); border-color: var(--color-dt-quantized); }
 
 </style>

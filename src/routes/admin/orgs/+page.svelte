@@ -141,11 +141,10 @@
     border-radius: var(--radius-base);
     background: var(--color-surface);
     color: var(--color-text-primary);
-    outline: none;
     transition: border-color var(--transition-base);
   }
 
-  .input:focus { border-color: var(--color-focus-ring); }
+  .input:focus-visible { border-color: var(--color-focus-ring); }
   .input[name="name"] { flex: 1; min-width: 200px; }
 
   .btn-add {

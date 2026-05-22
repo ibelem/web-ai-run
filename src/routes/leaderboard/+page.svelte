@@ -220,10 +220,9 @@
     background: var(--color-surface);
     color: var(--color-text-primary);
     cursor: pointer;
-    outline: none;
   }
 
-  .filter-select:focus {
+  .filter-select:focus-visible {
     border-color: var(--color-focus-ring);
   }
 
@@ -272,7 +271,7 @@
 
   .cell-model {
     font-family: var(--font-mono);
-    font-size: var(--text-xs);
+    font-size: var(--text-sm);
     max-width: 200px;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -280,7 +279,7 @@
 
   .cell-metric {
     font-family: var(--font-mono);
-    font-size: var(--text-xs);
+    font-size: var(--text-sm);
     text-align: right;
   }
 
@@ -291,7 +290,7 @@
 
   .badge {
     font-size: var(--text-xs);
-    padding: 1px 5px;
+    padding: 1px 7px;
     border-radius: var(--radius-sm);
     border: 1px solid var(--color-border);
     color: var(--color-text-secondary);

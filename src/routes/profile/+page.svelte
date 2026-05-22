@@ -17,7 +17,7 @@
     <div class="profile-card">
       <div class="avatar-section">
         {#if data.profile.avatar_url}
-          <img src={data.profile.avatar_url} alt="Avatar" class="avatar" crossorigin="anonymous" />
+          <img src={data.profile.avatar_url} alt="Avatar" class="avatar" loading="lazy" crossorigin="anonymous" />
         {:else}
           <div class="avatar-placeholder">
             {data.profile.display_name?.[0]?.toUpperCase() ?? '?'}
@@ -178,11 +178,10 @@
     border-radius: var(--radius-base);
     background: var(--color-surface);
     color: var(--color-text-primary);
-    outline: none;
     transition: border-color var(--transition-base);
   }
 
-  .field input:focus {
+  .field input:focus-visible {
     border-color: var(--color-focus-ring);
   }
 

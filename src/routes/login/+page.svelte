@@ -323,12 +323,11 @@
     border-radius: var(--radius-base);
     background: var(--color-surface);
     color: var(--color-text-primary);
-    outline: none;
     margin-bottom: var(--space-2);
     transition: border-color var(--transition-base);
   }
 
-  .field-input:focus {
+  .field-input:focus-visible {
     border-color: var(--color-focus-ring);
   }
 

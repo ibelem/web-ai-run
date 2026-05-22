@@ -113,6 +113,8 @@
   const usesOnnx = $derived(hashModels.some(m => m.runtime === 'onnx'));
   const usesLitert = $derived(hashModels.some(m => m.runtime === 'litert'));
 
+  const RUN_MODELS_KEY = 'run_models';
+
   $effect(() => {
     if (!mounted) return;
     void selectedBackends;
@@ -125,21 +127,29 @@
     void ortVersion;
     void litertVersion;
     writeHash();
+    // Persist current model selection so navigation away doesn't lose it
+    try {
+      if (hashModels.length > 0) sessionStorage.setItem(RUN_MODELS_KEY, JSON.stringify(hashModels));
+      else sessionStorage.removeItem(RUN_MODELS_KEY);
+    } catch {}
   });
 
   onMount(async () => {
     // Parse hash first (may come from a shared URL or sessionStorage redirect)
     const parsed = parseHash();
 
-    // sessionStorage takes priority (set by ActionPanel when navigating from /model)
+    // Priority order: hf_ext_models (from ActionPanel) > hash models > persisted run_models
     try {
-      const raw = sessionStorage.getItem('hf_ext_models');
-      if (raw) {
-        const stored: ModelEntry[] = JSON.parse(raw);
+      const extRaw = sessionStorage.getItem('hf_ext_models');
+      if (extRaw) {
+        const stored: ModelEntry[] = JSON.parse(extRaw);
         sessionStorage.removeItem('hf_ext_models');
         hashModels = stored;
-      } else {
+      } else if (parsed.models.length > 0) {
         hashModels = parsed.models;
+      } else {
+        const persisted = sessionStorage.getItem(RUN_MODELS_KEY);
+        hashModels = persisted ? JSON.parse(persisted) : [];
       }
     } catch {
       hashModels = parsed.models;
@@ -261,6 +271,70 @@
     if (queueFlushTimer) { clearTimeout(queueFlushTimer); queueFlushTimer = null; }
     isRunning = false;
     statusText = 'Stopped.';
+  }
+
+  async function retryItem(item: TestItem) {
+    if (isRunning) return;
+    item.status = 'pending';
+    item.progress = 0;
+    queue = [...queue];
+    isRunning = true;
+    statusText = `Retrying ${item.hf_model_id.split('/')[1]}...`;
+
+    const config: RunConfigType = {
+      iterations,
+      warmup_runs: 3,
+      backends: selectedBackends,
+      save_results: saveResults,
+    };
+
+    const authState = get(auth);
+    let writer: ResultsWriter | null = null;
+    if (saveResults && authState.user && environment) {
+      writer = new ResultsWriter(
+        authState.user.id,
+        { ...environment, cpu: cpuModel.trim() || environment.cpu, os: osModel.trim() || environment.os, os_version: environment.os_version },
+        ortVersion,
+        litertVersion,
+      );
+    }
+
+    item.status = 'downloading';
+    queue = [...queue];
+    if (writer) await writer.createResult(item, config.iterations);
+
+    const runtimeVersion = item.runtime === 'onnx' ? ortVersion : litertVersion;
+    const result = await runInWorker({
+      modelSource: { kind: 'url', hfModelId: item.hf_model_id, filePath: item.file_path },
+      runtime: item.runtime,
+      backend: item.backend,
+      iterations: config.iterations,
+      warmupRuns: config.warmup_runs,
+      runtimeVersion,
+      onProgress: (progress) => {
+        downloadPercent = progress.percent;
+        item.progress = progress.percent;
+        item.status = 'downloading';
+        scheduleQueueFlush();
+      },
+      onStatus: (status) => {
+        statusText = status;
+        if (status.includes('Compil') || status.includes('session')) item.status = 'compiling';
+        else if (status.includes('Running') || status.includes('Warm')) item.status = 'running';
+        queue = [...queue];
+      },
+    });
+
+    if (queueFlushTimer) { clearTimeout(queueFlushTimer); queueFlushTimer = null; }
+    item.status = result.error_message ? 'error' : 'completed';
+    item.progress = 100;
+    results = [...results.filter((r) => !(r.test_item.hf_model_id === item.hf_model_id && r.test_item.file_path === item.file_path && r.test_item.backend === item.backend)), result];
+    queue = [...queue];
+    downloadPercent = 0;
+    if (writer) await writer.completeResult(item, result);
+
+    isRunning = false;
+    statusText = result.error_message ? `Retry failed: ${result.error_message}` : 'Retry complete.';
   }
 </script>
 
@@ -422,6 +496,11 @@
         <button class="btn-primary" onclick={startBenchmark} disabled={totalModels === 0 || (saveResults && (!$isAuthenticated || !cpuModel.trim() || !osModel.trim()))}>
           Run Benchmark
         </button>
+        {#if saveResults && $isAuthenticated && (!cpuModel.trim() || !osModel.trim())}
+          <p class="action-hint action-hint-warn">
+            Fill in your CPU and OS above to enable result upload.
+          </p>
+        {/if}
         {#if totalModels === 0}
           <p class="action-hint">No models selected. <a href="/browse">Browse models</a> to pick one, or <a href="/custom">upload your own</a>.</p>
         {/if}
@@ -442,7 +521,7 @@
 
   {#if queue.length > 0}
     <section class="queue-section">
-      <TestQueue {queue} />
+      <TestQueue {queue} {isRunning} onretry={retryItem} />
     </section>
   {/if}
 
@@ -470,7 +549,7 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: var(--space-1);
+    gap: var(--space-2);
     margin-top: var(--space-6);
   }
 
@@ -505,6 +584,10 @@
 
   .action-hint a:hover {
     text-decoration: underline;
+  }
+
+  .action-hint-warn {
+    color: var(--color-warning, #d97706);
   }
 
   .save-results-label {
@@ -613,14 +696,13 @@
     border-radius: var(--radius-base);
     background: var(--color-surface);
     color: var(--color-text-primary);
-    outline: none;
     transition: border-color var(--transition-base);
     width: 260px;
     max-width: 100%;
     min-width: 0;
   }
 
-  .cpu-input:focus {
+  .cpu-input:focus-visible {
     border-color: var(--color-focus-ring);
   }
 
@@ -681,7 +763,7 @@
 
   .model-item-repo {
     font-family: var(--font-mono);
-    font-size: var(--text-xs);
+    font-size: var(--text-sm);
     color: var(--color-text-primary);
     overflow: hidden;
     text-overflow: ellipsis;
@@ -703,22 +785,22 @@
     font-family: var(--font-mono);
     font-size: 11px;
     font-weight: 600;
-    padding: 1px 5px;
+    padding: 1px 7px;
     border-radius: var(--radius-sm);
     border: 1px solid;
     flex-shrink: 0;
     line-height: 1.4;
   }
 
-  .model-item-format[data-format="onnx"]     { color: #3b82f6; border-color: #3b82f6; }
-  .model-item-format[data-format="tflite"]   { color: #10b981; border-color: #10b981; }
-  .model-item-format[data-format="litertlm"] { color: #f97316; border-color: #f97316; }
+  .model-item-format[data-format="onnx"]     { color: var(--color-fmt-onnx);     border-color: var(--color-fmt-onnx); }
+  .model-item-format[data-format="tflite"]   { color: var(--color-fmt-tflite);   border-color: var(--color-fmt-tflite); }
+  .model-item-format[data-format="litertlm"] { color: var(--color-fmt-litertlm); border-color: var(--color-fmt-litertlm); }
 
   .model-item-dtype {
     font-family: var(--font-mono);
     font-size: 11px;
     font-weight: 600;
-    padding: 2px 7px;
+    padding: 1px 7px;
     border-radius: var(--radius-sm);
     border: 1px solid;
     white-space: nowrap;
@@ -726,18 +808,18 @@
     line-height: 1.4;
   }
 
-  .model-item-dtype[data-dtype="fp32"]      { color: var(--color-primary); border-color: var(--color-primary); }
-  .model-item-dtype[data-dtype="fp16"]      { color: #8b5cf6; border-color: #8b5cf6; }
-  .model-item-dtype[data-dtype="bf16"]      { color: #7c3aed; border-color: #7c3aed; }
-  .model-item-dtype[data-dtype="fp8"]       { color: #a855f7; border-color: #a855f7; }
-  .model-item-dtype[data-dtype="int8"]      { color: #06b6d4; border-color: #06b6d4; }
-  .model-item-dtype[data-dtype="uint8"]     { color: #0891b2; border-color: #0891b2; }
-  .model-item-dtype[data-dtype="int4"]      { color: #10b981; border-color: #10b981; }
-  .model-item-dtype[data-dtype="uint4"]     { color: #059669; border-color: #059669; }
-  .model-item-dtype[data-dtype="q4"]        { color: #16a34a; border-color: #16a34a; }
-  .model-item-dtype[data-dtype="q4f16"]     { color: #6366f1; border-color: #6366f1; }
-  .model-item-dtype[data-dtype="bnb4"]      { color: #f59e0b; border-color: #f59e0b; }
-  .model-item-dtype[data-dtype="quantized"] { color: #ea580c; border-color: #ea580c; }
+  .model-item-dtype[data-dtype="fp32"]      { color: var(--color-dt-fp32);      border-color: var(--color-dt-fp32); }
+  .model-item-dtype[data-dtype="fp16"]      { color: var(--color-dt-fp16);      border-color: var(--color-dt-fp16); }
+  .model-item-dtype[data-dtype="bf16"]      { color: var(--color-dt-bf16);      border-color: var(--color-dt-bf16); }
+  .model-item-dtype[data-dtype="fp8"]       { color: var(--color-dt-fp8);       border-color: var(--color-dt-fp8); }
+  .model-item-dtype[data-dtype="int8"]      { color: var(--color-dt-int8);      border-color: var(--color-dt-int8); }
+  .model-item-dtype[data-dtype="uint8"]     { color: var(--color-dt-uint8);     border-color: var(--color-dt-uint8); }
+  .model-item-dtype[data-dtype="int4"]      { color: var(--color-dt-int4);      border-color: var(--color-dt-int4); }
+  .model-item-dtype[data-dtype="uint4"]     { color: var(--color-dt-uint4);     border-color: var(--color-dt-uint4); }
+  .model-item-dtype[data-dtype="q4"]        { color: var(--color-dt-q4);        border-color: var(--color-dt-q4); }
+  .model-item-dtype[data-dtype="q4f16"]     { color: var(--color-dt-q4f16);     border-color: var(--color-dt-q4f16); }
+  .model-item-dtype[data-dtype="bnb4"]      { color: var(--color-dt-bnb4);      border-color: var(--color-dt-bnb4); }
+  .model-item-dtype[data-dtype="quantized"] { color: var(--color-dt-quantized); border-color: var(--color-dt-quantized); }
 
   .version-select {
     font-family: var(--font-mono);
@@ -747,12 +829,11 @@
     border: 1px solid var(--color-border);
     border-radius: var(--radius-base);
     padding: var(--space-half) var(--space-1);
-    outline: none;
     cursor: pointer;
     transition: border-color var(--transition-base);
   }
 
-  .version-select:focus {
+  .version-select:focus-visible {
     border-color: var(--color-focus-ring);
   }
 </style>

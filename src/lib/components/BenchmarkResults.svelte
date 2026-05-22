@@ -91,7 +91,7 @@
   .results-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: var(--text-xs);
+    font-size: var(--text-sm);
     font-family: var(--font-mono);
   }
 

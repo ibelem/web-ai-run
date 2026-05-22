@@ -95,14 +95,15 @@
     padding: var(--space-1) var(--space-2);
     border: none;
     border-radius: var(--radius-base);
-    background: var(--color-text-primary);
-    color: var(--color-surface);
+    background: var(--color-primary);
+    color: #fff;
     cursor: pointer;
     text-decoration: none;
     white-space: nowrap;
+    transition: background var(--transition-base);
   }
 
-  .btn-primary:hover { opacity: 0.85; }
+  .btn-primary:hover { background: var(--color-primary-hover); }
 
   .error-banner {
     padding: var(--space-2);
@@ -149,7 +150,7 @@
 
   .visibility-badge {
     font-size: var(--text-xs);
-    padding: 1px 5px;
+    padding: 1px 7px;
     border-radius: var(--radius-sm);
     border: 1px solid var(--color-border);
     color: var(--color-text-muted);
@@ -193,12 +194,13 @@
     padding: 4px 10px;
     border: none;
     border-radius: var(--radius-sm);
-    background: var(--color-text-primary);
-    color: var(--color-surface);
+    background: var(--color-primary);
+    color: #fff;
     cursor: pointer;
+    transition: background var(--transition-base);
   }
 
-  .btn-run-sm:hover { opacity: 0.85; }
+  .btn-run-sm:hover { background: var(--color-primary-hover); }
 
   .btn-edit-sm {
     font-family: var(--font-ui);

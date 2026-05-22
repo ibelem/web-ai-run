@@ -111,7 +111,7 @@
 
 <div class="action-panel" class:open>
   <div class="panel-header">
-    <span class="panel-title">Actions</span>
+    <span class="panel-title">Cart</span>
     <button class="panel-close" onclick={onclose} aria-label="Close">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
         <line x1="18" y1="6" x2="6" y2="18"/>
@@ -240,7 +240,7 @@
     top: 0;
     right: 0;
     bottom: 0;
-    width: 360px;
+    width: min(360px, 100vw);
     background: var(--color-surface-raised);
     border-left: 1px solid var(--color-border);
     display: flex;
@@ -368,7 +368,7 @@
 
   .model-name {
     font-family: var(--font-mono);
-    font-size: var(--text-xs);
+    font-size: var(--text-sm);
     color: var(--color-text-primary);
     white-space: nowrap;
     overflow: hidden;
@@ -376,7 +376,7 @@
   }
 
   .model-meta {
-    font-size: 11px;
+    font-size: var(--text-xs);
     color: var(--color-text-muted);
     white-space: nowrap;
     overflow: hidden;
@@ -450,12 +450,11 @@
     border-radius: var(--radius-base);
     background: var(--color-surface);
     color: var(--color-text-primary);
-    outline: none;
     transition: border-color var(--transition-base);
   }
 
-  .recipe-input:focus,
-  .recipe-select:focus {
+  .recipe-input:focus-visible,
+  .recipe-select:focus-visible {
     border-color: var(--color-focus-ring);
   }
 
@@ -533,16 +532,16 @@
   }
 
   /* dtype colors */
-  .tag-dtype[data-dtype="fp32"]      { color: var(--color-primary); border-color: var(--color-primary); }
-  .tag-dtype[data-dtype="fp16"]      { color: #8b5cf6; border-color: #8b5cf6; }
-  .tag-dtype[data-dtype="bf16"]      { color: #7c3aed; border-color: #7c3aed; }
-  .tag-dtype[data-dtype="fp8"]       { color: #a855f7; border-color: #a855f7; }
-  .tag-dtype[data-dtype="int8"]      { color: #06b6d4; border-color: #06b6d4; }
-  .tag-dtype[data-dtype="uint8"]     { color: #0891b2; border-color: #0891b2; }
-  .tag-dtype[data-dtype="int4"]      { color: #10b981; border-color: #10b981; }
-  .tag-dtype[data-dtype="uint4"]     { color: #059669; border-color: #059669; }
-  .tag-dtype[data-dtype="q4"]        { color: #16a34a; border-color: #16a34a; }
-  .tag-dtype[data-dtype="q4f16"]     { color: #6366f1; border-color: #6366f1; }
-  .tag-dtype[data-dtype="bnb4"]      { color: #f59e0b; border-color: #f59e0b; }
-  .tag-dtype[data-dtype="quantized"] { color: #ea580c; border-color: #ea580c; }
+  .tag-dtype[data-dtype="fp32"]      { color: var(--color-dt-fp32); border-color: var(--color-dt-fp32); }
+  .tag-dtype[data-dtype="fp16"]      { color: var(--color-dt-fp16); border-color: var(--color-dt-fp16); }
+  .tag-dtype[data-dtype="bf16"]      { color: var(--color-dt-bf16); border-color: var(--color-dt-bf16); }
+  .tag-dtype[data-dtype="fp8"]       { color: var(--color-dt-fp8); border-color: var(--color-dt-fp8); }
+  .tag-dtype[data-dtype="int8"]      { color: var(--color-dt-int8); border-color: var(--color-dt-int8); }
+  .tag-dtype[data-dtype="uint8"]     { color: var(--color-dt-uint8); border-color: var(--color-dt-uint8); }
+  .tag-dtype[data-dtype="int4"]      { color: var(--color-dt-int4); border-color: var(--color-dt-int4); }
+  .tag-dtype[data-dtype="uint4"]     { color: var(--color-dt-uint4); border-color: var(--color-dt-uint4); }
+  .tag-dtype[data-dtype="q4"]        { color: var(--color-dt-q4); border-color: var(--color-dt-q4); }
+  .tag-dtype[data-dtype="q4f16"]     { color: var(--color-dt-q4f16); border-color: var(--color-dt-q4f16); }
+  .tag-dtype[data-dtype="bnb4"]      { color: var(--color-dt-bnb4); border-color: var(--color-dt-bnb4); }
+  .tag-dtype[data-dtype="quantized"] { color: var(--color-dt-quantized); border-color: var(--color-dt-quantized); }
 </style>

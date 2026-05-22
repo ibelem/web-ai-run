@@ -1,4 +1,7 @@
 <script lang="ts">
+  import type { ResultRow } from './+page';
+  import { getBackendLabel } from '$lib/engine/backends';
+
   let { data } = $props();
 
   function formatDuration(startedAt: string, completedAt: string | null): string {
@@ -23,21 +26,55 @@
     return 'status-error';
   }
 
-  const groupedByRun = $derived(() => {
-    const groups = new Map<string, typeof data.results>();
-    for (const r of data.results) {
-      const key = r.run_id ?? r.id;
-      if (!groups.has(key)) groups.set(key, []);
-      groups.get(key)!.push(r);
-    }
-    return [...groups.entries()];
-  });
+  function runAgainHref(result: ResultRow): string {
+    const params = new URLSearchParams();
+    params.set('models', `${result.model_id}|${result.file_path}`);
+    params.set('backend', result.backend);
+    params.set('n', String(result.iterations));
+    return `/run#${params}`;
+  }
+
+  function exportCsv() {
+    const headers = ['model_id', 'file_path', 'backend', 'data_type', 'status', 'avg_ms', 'p90_ms', 'throughput_fps', 'iterations', 'date', 'cpu', 'gpu', 'os', 'browser'];
+    const rows = data.results.map((r) => [
+      r.model_id,
+      r.file_path,
+      r.backend,
+      r.data_type,
+      r.status,
+      r.average_ms ?? '',
+      r.p90_ms ?? '',
+      r.throughput_fps ?? '',
+      r.iterations,
+      r.started_at,
+      r.cpu,
+      r.gpu,
+      r.os,
+      r.browser,
+    ].map((v) => JSON.stringify(v ?? '')).join(','));
+
+    const csv = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `benchmark-results-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
 </script>
 
 <div class="results-page">
   <header class="page-header">
-    <h1>Results</h1>
-    <p>Your benchmark history.</p>
+    <div class="header-row">
+      <div>
+        <h1>Results</h1>
+        <p>Your benchmark history.</p>
+      </div>
+      {#if data.results.length > 0}
+        <button class="btn-export" onclick={exportCsv}>Export CSV</button>
+      {/if}
+    </div>
   </header>
 
   {#if data.error}
@@ -62,6 +99,7 @@
             <th>Throughput</th>
             <th>Duration</th>
             <th>Date</th>
+            <th></th>
           </tr>
         </thead>
         <tbody>
@@ -70,7 +108,7 @@
               <td class="cell-model" title={result.model_id}>
                 {result.model_id.split('/').pop() ?? result.model_id}
               </td>
-              <td><span class="badge badge-backend">{result.backend}</span></td>
+              <td><span class="badge badge-backend">{getBackendLabel(result.backend)}</span></td>
               <td><span class="badge badge-dtype">{result.data_type}</span></td>
               <td><span class="status-dot {statusClass(result.status)}"></span> {result.status}</td>
               <td class="cell-metric">
@@ -84,6 +122,9 @@
               </td>
               <td class="cell-duration">{formatDuration(result.started_at, result.completed_at)}</td>
               <td class="cell-date">{formatDate(result.started_at)}</td>
+              <td class="cell-action">
+                <a class="run-again-link" href={runAgainHref(result)} title="Run again with this config">↺</a>
+              </td>
             </tr>
           {/each}
         </tbody>
@@ -95,6 +136,57 @@
 <style>
   .results-page {
     max-width: 100%;
+  }
+
+  .header-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+  }
+
+  .btn-export {
+    font-family: var(--font-ui);
+    font-size: var(--text-xs);
+    font-weight: 500;
+    padding: 4px 12px;
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-base);
+    background: var(--color-surface);
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: border-color var(--transition-base), color var(--transition-base), background var(--transition-base);
+    flex-shrink: 0;
+    align-self: center;
+  }
+
+  .btn-export:hover {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+    background: var(--color-accent-light);
+  }
+
+  .cell-action {
+    text-align: center;
+    padding-right: var(--space-1);
+  }
+
+  .run-again-link {
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+    text-decoration: none;
+    padding: 2px 6px;
+    border-radius: var(--radius-sm);
+    transition: color var(--transition-base), background var(--transition-base);
+    display: inline-block;
+  }
+
+  .run-again-link:hover {
+    color: var(--color-primary);
+    background: var(--color-accent-light);
   }
 
   .error-banner {
@@ -138,7 +230,7 @@
 
   .cell-model {
     font-family: var(--font-mono);
-    font-size: var(--text-xs);
+    font-size: var(--text-sm);
     max-width: 200px;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -146,7 +238,7 @@
 
   .cell-metric {
     font-family: var(--font-mono);
-    font-size: var(--text-xs);
+    font-size: var(--text-sm);
     text-align: right;
   }
 
@@ -157,7 +249,7 @@
 
   .badge {
     font-size: var(--text-xs);
-    padding: 1px 5px;
+    padding: 1px 7px;
     border-radius: var(--radius-sm);
     border: 1px solid var(--color-border);
   }

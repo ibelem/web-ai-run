@@ -17,11 +17,13 @@
   <span class="config-label">Backends</span>
   <div class="backend-btns">
     {#each BACKENDS as backend}
+      {@const avail = available.includes(backend.id)}
       <button
         class="backend-btn"
         class:active={selected.includes(backend.id)}
-        class:unavailable={!available.includes(backend.id)}
-        disabled={!available.includes(backend.id)}
+        class:unavailable={!avail}
+        disabled={!avail}
+        title={avail ? backend.description : `${backend.description}${backend.requiresFlag ? ' (needs browser flag)' : ' (not detected on this device)'}`}
         onclick={() => toggle(backend.id)}
       >
         {backend.label}
@@ -55,12 +57,17 @@
     font-family: var(--font-mono);
     font-size: var(--text-xs);
     padding: var(--space-half) var(--space-1);
+    min-height: 32px;
     border: 1px solid var(--color-border);
     border-radius: var(--radius-base);
     background: var(--color-surface);
     color: var(--color-text-secondary);
     cursor: pointer;
     transition: all var(--transition-base);
+  }
+
+  @media (pointer: coarse) {
+    .backend-btn { min-height: 44px; padding: var(--space-1) var(--space-2); }
   }
 
   .backend-btn:hover:not(:disabled) {

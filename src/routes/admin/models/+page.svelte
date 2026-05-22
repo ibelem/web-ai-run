@@ -188,11 +188,10 @@
     border-radius: var(--radius-base);
     background: var(--color-surface);
     color: var(--color-text-primary);
-    outline: none;
     transition: border-color var(--transition-base);
   }
 
-  .search-input:focus {
+  .search-input:focus-visible {
     border-color: var(--color-focus-ring);
   }
 

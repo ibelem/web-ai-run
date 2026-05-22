@@ -91,38 +91,6 @@
     emit();
   }
 
-  const dtColor: Record<string, string> = {
-    fp32:  'var(--color-primary)',
-    fp16:  '#8b5cf6',
-    bf16:  '#7c3aed',
-    fp8:   '#a855f7',
-    int8:  '#06b6d4',
-    uint8: '#0891b2',
-    int4:  '#10b981',
-    uint4: '#059669',
-    q4:    '#16a34a',
-    q4f16: '#6366f1',
-    bnb4:  '#f59e0b',
-    quantized: '#ea580c',
-  };
-
-  function dtStyle(dt: string, selected: boolean): string {
-    const color = dtColor[dt] ?? 'var(--color-primary)';
-    if (selected) return `background:${color};color:#fff;border-color:${color}`;
-    return `--tag-hover-color:${color};--tag-hover-bg:${color}1a;--tag-hover-border:${color}`;
-  }
-
-  const fmtColor: Record<string, string> = {
-    onnx:     '#3b82f6',
-    tflite:   '#10b981',
-    litertlm: '#f97316',
-  };
-
-  function fmtStyle(fmt: string, selected: boolean): string {
-    const color = fmtColor[fmt] ?? 'var(--color-primary)';
-    if (selected) return `background:${color};color:#fff;border-color:${color}`;
-    return `--tag-hover-color:${color};--tag-hover-bg:${color}1a;--tag-hover-border:${color}`;
-  }
 </script>
 
 <aside class="sidebar">
@@ -145,7 +113,7 @@
           <button
             class="tag"
             class:selected={selectedFormats.has(fmt)}
-            style={fmtStyle(fmt, selectedFormats.has(fmt))}
+            data-format={fmt}
             onclick={() => toggleFormat(fmt)}
           >{fmt}</button>
         {/each}
@@ -173,7 +141,7 @@
       <div class="section-label-row">
         <span class="section-label">Organization</span>
         {#if onrefresh}
-          <button class="refresh-btn" onclick={onrefresh} disabled={refreshing} title="Force refresh model library">
+          <button class="refresh-btn" onclick={onrefresh} disabled={refreshing} aria-label="Force refresh model library">
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class:spinning={refreshing}>
               <polyline points="23 4 23 10 17 10"/>
               <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
@@ -201,7 +169,7 @@
           <button
             class="tag"
             class:selected={selectedDataTypes.has(dt)}
-            style={dtStyle(dt, selectedDataTypes.has(dt))}
+            data-dtype={dt}
             onclick={() => toggleDataType(dt)}
           >{dt}</button>
         {/each}
@@ -330,7 +298,7 @@
     font-family: var(--font-ui);
     font-size: var(--text-xs);
     font-weight: 500;
-    padding: 3px 8px;
+    padding: 1px 7px;
     border-radius: var(--radius-base);
     border: 1px solid var(--color-border-strong);
     background: var(--color-surface);
@@ -342,8 +310,8 @@
   }
 
   .tag:hover:not(.selected) {
-    background:var(--color-accent-light);
-    color: var(--tag-hover-color, var(--color-primary));
+    background: var(--color-accent-light);
+    color: var(--color-primary);
     border-color: var(--color-primary);
   }
 
@@ -353,7 +321,41 @@
     border-color: var(--color-primary);
   }
 
-  .tag.selected:hover {
-    opacity: 0.85;
-  }
+  .tag.selected:hover { opacity: 0.85; }
+
+  /* dtype filter colors */
+  .tag[data-dtype="fp32"]:not(.selected) { color: var(--color-dt-fp32); border-color: var(--color-dt-fp32); }
+  .tag[data-dtype="fp16"]:not(.selected) { color: var(--color-dt-fp16); border-color: var(--color-dt-fp16); }
+  .tag[data-dtype="bf16"]:not(.selected) { color: var(--color-dt-bf16); border-color: var(--color-dt-bf16); }
+  .tag[data-dtype="fp8"]:not(.selected)  { color: var(--color-dt-fp8);  border-color: var(--color-dt-fp8); }
+  .tag[data-dtype="int8"]:not(.selected) { color: var(--color-dt-int8); border-color: var(--color-dt-int8); }
+  .tag[data-dtype="uint8"]:not(.selected){ color: var(--color-dt-uint8);border-color: var(--color-dt-uint8); }
+  .tag[data-dtype="int4"]:not(.selected) { color: var(--color-dt-int4); border-color: var(--color-dt-int4); }
+  .tag[data-dtype="uint4"]:not(.selected){ color: var(--color-dt-uint4);border-color: var(--color-dt-uint4); }
+  .tag[data-dtype="q4"]:not(.selected)   { color: var(--color-dt-q4);   border-color: var(--color-dt-q4); }
+  .tag[data-dtype="q4f16"]:not(.selected){ color: var(--color-dt-q4f16);border-color: var(--color-dt-q4f16); }
+  .tag[data-dtype="bnb4"]:not(.selected) { color: var(--color-dt-bnb4); border-color: var(--color-dt-bnb4); }
+  .tag[data-dtype="quantized"]:not(.selected){ color: var(--color-dt-quantized); border-color: var(--color-dt-quantized); }
+
+  .tag.selected[data-dtype="fp32"]      { background: var(--color-dt-fp32); border-color: var(--color-dt-fp32); }
+  .tag.selected[data-dtype="fp16"]      { background: var(--color-dt-fp16); border-color: var(--color-dt-fp16); }
+  .tag.selected[data-dtype="bf16"]      { background: var(--color-dt-bf16); border-color: var(--color-dt-bf16); }
+  .tag.selected[data-dtype="fp8"]       { background: var(--color-dt-fp8);  border-color: var(--color-dt-fp8); }
+  .tag.selected[data-dtype="int8"]      { background: var(--color-dt-int8); border-color: var(--color-dt-int8); }
+  .tag.selected[data-dtype="uint8"]     { background: var(--color-dt-uint8);border-color: var(--color-dt-uint8); }
+  .tag.selected[data-dtype="int4"]      { background: var(--color-dt-int4); border-color: var(--color-dt-int4); }
+  .tag.selected[data-dtype="uint4"]     { background: var(--color-dt-uint4);border-color: var(--color-dt-uint4); }
+  .tag.selected[data-dtype="q4"]        { background: var(--color-dt-q4);   border-color: var(--color-dt-q4); }
+  .tag.selected[data-dtype="q4f16"]     { background: var(--color-dt-q4f16);border-color: var(--color-dt-q4f16); }
+  .tag.selected[data-dtype="bnb4"]      { background: var(--color-dt-bnb4); border-color: var(--color-dt-bnb4); }
+  .tag.selected[data-dtype="quantized"] { background: var(--color-dt-quantized); border-color: var(--color-dt-quantized); }
+
+  /* format filter colors */
+  .tag[data-format="onnx"]:not(.selected)     { color: var(--color-fmt-onnx);     border-color: var(--color-fmt-onnx); }
+  .tag[data-format="tflite"]:not(.selected)   { color: var(--color-fmt-tflite);   border-color: var(--color-fmt-tflite); }
+  .tag[data-format="litertlm"]:not(.selected) { color: var(--color-fmt-litertlm); border-color: var(--color-fmt-litertlm); }
+
+  .tag.selected[data-format="onnx"]     { background: var(--color-fmt-onnx);     border-color: var(--color-fmt-onnx); }
+  .tag.selected[data-format="tflite"]   { background: var(--color-fmt-tflite);   border-color: var(--color-fmt-tflite); }
+  .tag.selected[data-format="litertlm"] { background: var(--color-fmt-litertlm); border-color: var(--color-fmt-litertlm); }
 </style>

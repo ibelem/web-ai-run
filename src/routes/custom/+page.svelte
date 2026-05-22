@@ -314,14 +314,13 @@
     background: var(--color-surface);
     color: var(--color-text-primary);
     width: 80px;
-    outline: none;
   }
 
-  .field-input:focus { border-color: var(--color-focus-ring); }
+  .field-input:focus-visible { border-color: var(--color-focus-ring); }
 
   .actions {
     display: flex;
-    gap: var(--space-1);
+    gap: var(--space-2);
     margin-top: var(--space-6);
   }
 

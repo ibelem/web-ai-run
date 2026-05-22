@@ -2,6 +2,9 @@
   let { iterations = $bindable(50) }: { iterations: number } = $props();
 
   const iterationOptions = [1, 10, 20, 50, 100, 500, 1000, 10000];
+
+  const HIGH_ITER_THRESHOLD = 500;
+  const showHighIterWarning = $derived(iterations >= HIGH_ITER_THRESHOLD);
 </script>
 
 <div class="run-config">
@@ -17,7 +20,11 @@
       {/each}
     </div>
   </div>
-
+  {#if showHighIterWarning}
+    <p class="iter-warning">
+      {iterations.toLocaleString()} iterations can take several minutes and may slow your browser tab on large models.
+    </p>
+  {/if}
 </div>
 
 <style>
@@ -52,6 +59,7 @@
     font-family: var(--font-mono);
     font-size: var(--text-xs);
     padding: var(--space-half) var(--space-1);
+    min-height: 32px;
     border: 1px solid var(--color-border);
     border-radius: var(--radius-base);
     background: var(--color-surface);
@@ -59,6 +67,10 @@
     cursor: pointer;
     transition: all var(--transition-base);
     white-space: nowrap;
+  }
+
+  @media (pointer: coarse) {
+    .iter-btn { min-height: 44px; padding: var(--space-1) var(--space-2); }
   }
 
   .iter-btn:hover {
@@ -69,6 +81,12 @@
     background: var(--color-primary);
     color: #fff;
     border-color: var(--color-primary);
+  }
+
+  .iter-warning {
+    font-size: var(--text-sm);
+    color: var(--color-warning, #d97706);
+    margin: 0;
   }
 
 </style>

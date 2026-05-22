@@ -2,7 +2,7 @@
   import type { TestItem } from '$lib/engine/types';
   import { getBackendLabel } from '$lib/engine/backends';
 
-  let { queue = [] }: { queue: TestItem[] } = $props();
+  let { queue = [], onretry, isRunning = false }: { queue: TestItem[]; onretry?: (item: TestItem) => void; isRunning?: boolean } = $props();
 
   const statusIcons: Record<string, string> = {
     pending: '○',
@@ -23,6 +23,9 @@
         <span class="item-model">{item.hf_model_id.split('/')[1]}</span>
         <span class="item-file">{item.file_path.split('/').pop()}</span>
         <span class="item-backend">{getBackendLabel(item.backend)}</span>
+        {#if item.status === 'error' && onretry && !isRunning}
+          <button class="retry-btn" onclick={() => onretry!(item)} title="Retry this item">↺</button>
+        {/if}
       </div>
     {/each}
   </div>
@@ -71,4 +74,23 @@
   .item-model { flex: 1; }
   .item-file { color: var(--color-text-muted); }
   .item-backend { min-width: 100px; text-align: right; }
+
+  .retry-btn {
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    padding: 0 6px;
+    border: 1px solid var(--color-error);
+    border-radius: var(--radius-sm);
+    background: none;
+    color: var(--color-error);
+    cursor: pointer;
+    line-height: 1.5;
+    transition: background var(--transition-base), color var(--transition-base);
+    flex-shrink: 0;
+  }
+
+  .retry-btn:hover {
+    background: var(--color-error);
+    color: #fff;
+  }
 </style>

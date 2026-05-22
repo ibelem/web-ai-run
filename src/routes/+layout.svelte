@@ -187,6 +187,7 @@
               src={data.session.user.user_metadata.avatar_url ?? data.session.user.user_metadata.picture}
               alt="Avatar"
               class="nav-avatar"
+              loading="lazy"
               crossorigin="anonymous"
             />
           {:else}
@@ -260,7 +261,7 @@
     align-items: center;
     justify-content: space-between;
     height: 56px;
-    padding: 0 var(--space-3);
+    padding: 0 var(--space-2);
     border-bottom: 1px solid var(--color-nav-border);
     background: var(--color-nav-bg);
     position: sticky;
@@ -317,7 +318,7 @@
     text-decoration: none;
     color: var(--color-text-secondary);
     opacity: 0.7;
-    padding: 6px 12px;
+    padding: 6px;
     border-radius: var(--radius-sm);
     border: none;
     border-bottom: 2px solid transparent;
@@ -436,7 +437,7 @@
     background: none;
     cursor: pointer;
     color: var(--color-text-secondary);
-    padding: var(--space-half);
+    padding: var(--space-half) var(--space-half) var(--space-half) 0;
     border-radius: var(--radius-sm);
   }
 
@@ -481,7 +482,7 @@
       right: 0;
       background: var(--color-surface);
       border-bottom: 1px solid var(--color-border);
-      padding: var(--space-1) 0;
+      padding: 0;
       z-index: var(--z-overlay);
       box-shadow: var(--shadow-dropdown);
     }
@@ -505,7 +506,6 @@
 
     .mobile-menu-item.active {
       color: var(--color-primary);
-      border-left: 3px solid var(--color-nav-active-border);
       background: var(--color-nav-item-active);
     }
 
@@ -519,8 +519,9 @@
     align-items: center;
     justify-content: center;
     gap: var(--space-2);
-    padding: var(--space-4) var(--space-2);
-    font-size: var(--text-base);
+    padding: var(--space-2) var(--space-2) var(--space-6) var(--space-2);
+    font-size: var(--text-sm);
+    font-weight: 500;
     color: var(--color-text-muted);
   }
 </style>

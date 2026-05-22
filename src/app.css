@@ -28,11 +28,11 @@
   --font-ui: 'Satoshi', system-ui, -apple-system, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, monospace;
   --text-xs: 12px;
-  --text-sm: 13px;
-  --text-base: 14px;
+  --text-sm: 14px;
+  --text-base: 16px;
   --text-lg: 18px;
   --text-xl: 22px;
-  --text-2xl: 28px;
+  --text-2xl: 28px;  
 
   /* Spacing (3px base) */
   --space-half: 3px;
@@ -42,11 +42,12 @@
   --space-4: 18px;
   --space-5: 21px;
   --space-6: 24px;
+  --space-8: 36px;
 
   /* Border radius */
-  --radius-sm: 3px;
-  --radius-base: 3px;
-  --radius-lg: 3px;
+  --radius-sm: 1px;
+  --radius-base: 2px;
+  --radius-lg: 4px;
 
   /* Z-index scale */
   --z-base: 0;
@@ -72,10 +73,10 @@
   --color-surface-raised: #FFFFFF;
   --color-surface-sunken: #F5F7FA;
   --color-surface-alt: #EDF2F7;
-  --color-page-bg: #FCFCFC;
+  --color-page-bg: transparent;
   --color-text-primary: #181818;
   --color-text-secondary: #4A5568;
-  --color-text-muted: #8F8F8F;
+  --color-text-muted: #6B6B6B;
   --color-border: #E2E8F0;
   --color-border-strong: #ECECEC;
   --color-disabled: #ECECEC;
@@ -109,11 +110,30 @@
   --color-metric-tail: #D69E2E;
   --color-metric-throughput: #E53E3E;
 
-  /* Data type colors */
+  /* Data type colors (semantic groups) */
   --color-dtype-float: rgba(43, 1, 127, 1.0);
   --color-dtype-int: rgba(1, 134, 179, 1.0);
   --color-dtype-quant: rgba(214, 158, 46, 1.0);
   --color-dtype-mixed: rgba(56, 161, 105, 1.0);
+
+  /* Data type colors (per-precision) */
+  --color-dt-fp32:      #0953DE;
+  --color-dt-fp16:      #8b5cf6;
+  --color-dt-bf16:      #7c3aed;
+  --color-dt-fp8:       #a855f7;
+  --color-dt-int8:      #06b6d4;
+  --color-dt-uint8:     #0891b2;
+  --color-dt-int4:      #10b981;
+  --color-dt-uint4:     #059669;
+  --color-dt-q4:        #16a34a;
+  --color-dt-q4f16:     #6366f1;
+  --color-dt-bnb4:      #f59e0b;
+  --color-dt-quantized: #ea580c;
+
+  /* Format colors */
+  --color-fmt-onnx:     #3b82f6;
+  --color-fmt-tflite:   #10b981;
+  --color-fmt-litertlm: #f97316;
 
   /* Runtime colors */
   --color-runtime-ort: #181818;
@@ -122,7 +142,7 @@
   /* Semantic colors */
   --color-success: #38A169;
   --color-error: #E53E3E;
-  --color-warning: #D69E2E;
+  --color-warning: #ff0081;
   --color-info: #00C7FD;
 
   /* Logo */
@@ -162,11 +182,30 @@
   --color-backend-webnn-gpu: #63B3ED;
   --color-backend-webnn-npu: #A0C4FF;
 
-  /* Data type dark */
+  /* Data type dark (semantic groups) */
   --color-dtype-float: #63B3ED;
   --color-dtype-int: #00C7FD;
   --color-dtype-quant: #F6E05E;
   --color-dtype-mixed: #68D391;
+
+  /* Data type dark (per-precision) */
+  --color-dt-fp32:      #63B3ED;
+  --color-dt-fp16:      #a78bfa;
+  --color-dt-bf16:      #8b5cf6;
+  --color-dt-fp8:       #c084fc;
+  --color-dt-int8:      #22d3ee;
+  --color-dt-uint8:     #06b6d4;
+  --color-dt-int4:      #34d399;
+  --color-dt-uint4:     #10b981;
+  --color-dt-q4:        #4ade80;
+  --color-dt-q4f16:     #818cf8;
+  --color-dt-bnb4:      #fbbf24;
+  --color-dt-quantized: #fb923c;
+
+  /* Format dark */
+  --color-fmt-onnx:     #60a5fa;
+  --color-fmt-tflite:   #34d399;
+  --color-fmt-litertlm: #fb923c;
 
   /* Runtime dark */
   --color-runtime-ort: rgba(255, 255, 255, 0.8);
@@ -190,6 +229,12 @@ input[type="checkbox"] {
 
 [data-theme="dark"] input[type="checkbox"] {
   accent-color: var(--color-info);
+}
+
+/* Global focus ring */
+*:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
 }
 
 /* Base styles */
@@ -308,8 +353,8 @@ body {
 /* Tag base */
 .tag {
   font-family: var(--font-ui);
-  font-size: 10px;
-  padding: 1px 5px;
+  font-size: var(--text-xs);
+  padding: 1px 7px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--color-border);
   color: var(--color-text-secondary);
@@ -318,7 +363,6 @@ body {
   text-overflow: ellipsis;
   max-width: 100%;
   display: inline-block;
-  line-height: 1.6;
 }
 
 /* Empty state */

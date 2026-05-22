@@ -94,12 +94,12 @@ components:
     backgroundColor: "transparent"
     textColor: "{colors.text-secondary}"
     rounded: "{rounded.sm}"
-    padding: "2px 7px"
+    padding: "1px 7px"
   chip-selected:
     backgroundColor: "{colors.primary}"
     textColor: "{colors.surface}"
     rounded: "{rounded.sm}"
-    padding: "2px 7px"
+    padding: "1px 7px"
   tag:
     backgroundColor: "transparent"
     textColor: "{colors.text-secondary}"

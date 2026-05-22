@@ -210,7 +210,7 @@ The new card has a flex layout: left side (inert, repo/file info) + right side (
     font-family: var(--font-mono);
     font-size: 11px;
     font-weight: 600;
-    padding: 2px 7px;
+    padding: 1px 7px;
     border-radius: var(--radius-sm);
     border: 1px solid;
     background: none;
@@ -749,7 +749,7 @@ Replace the entire `.file-card` layout section (keep `.file-grid`, repo styles, 
     font-family: var(--font-mono);
     font-size: 11px;
     font-weight: 600;
-    padding: 2px 7px;
+    padding: 1px 7px;
     border-radius: var(--radius-sm);
     border: 1px solid;
     background: none;

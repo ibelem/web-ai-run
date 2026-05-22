@@ -192,10 +192,9 @@
     border-radius: var(--radius-base);
     background: var(--color-surface);
     color: var(--color-text-primary);
-    outline: none;
   }
 
-  .field-input:focus, .field-select:focus {
+  .field-input:focus-visible, .field-select:focus-visible {
     border-color: var(--color-focus-ring);
   }
 
