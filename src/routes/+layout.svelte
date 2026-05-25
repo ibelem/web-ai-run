@@ -68,6 +68,7 @@
   ]);
 </script>
 
+<a href="#main-content" class="skip-link">Skip to main content</a>
 <nav class="top-bar">
   <div class="nav-left">
     <button
@@ -199,7 +200,7 @@
         </button>
         {#if showUserMenu}
           <div class="user-dropdown">
-            <a href="/profile" class="dropdown-item" onclick={() => showUserMenu = false}>Profile</a>
+            <a href="/account" class="dropdown-item" onclick={() => showUserMenu = false}>Account</a>
             <button class="dropdown-item" onclick={() => { showUserMenu = false; signOut(); }}>
               Sign out
             </button>
@@ -241,7 +242,7 @@
   </div>
 {/if}
 
-<main>
+<main id="main-content">
   {@render children()}
 </main>
 
@@ -258,6 +259,24 @@
 </footer>
 
 <style>
+  .skip-link {
+    position: absolute;
+    top: -100%;
+    left: var(--space-2);
+    z-index: calc(var(--z-overlay) + 1);
+    padding: var(--space-1) var(--space-2);
+    background: var(--color-primary);
+    color: var(--color-text-on-primary);
+    border-radius: var(--radius-base);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    text-decoration: none;
+  }
+
+  .skip-link:focus {
+    top: var(--space-1);
+  }
+
   .top-bar {
     display: flex;
     align-items: center;
@@ -309,7 +328,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    min-width: 44px;
+    min-width: 16px;
     min-height: 44px;
   }
 
@@ -320,7 +339,7 @@
     text-decoration: none;
     color: var(--color-text-secondary);
     opacity: 0.7;
-    padding: 6px;
+    padding: 6px 6px;
     border-radius: var(--radius-sm);
     border: none;
     border-bottom: 2px solid transparent;
@@ -355,7 +374,7 @@
     padding: 0 5px;
     border-radius: 9px;
     background: var(--color-primary);
-    color: #fff;
+    color: var(--color-text-on-primary);
     font-size: 11px;
     font-weight: 600;
     line-height: 1;

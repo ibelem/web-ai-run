@@ -13,8 +13,13 @@ describe('Profile & Role Management', () => {
     expect(isAtLeast('anonymous', 'member')).toBe(false);
   });
 
-  it('profile server module is importable', async () => {
+  it('profile server module redirects to /account#profile', async () => {
     const mod = await import('../../../src/routes/profile/+page.server');
+    expect(typeof mod.load).toBe('function');
+  });
+
+  it('account server module has update action', async () => {
+    const mod = await import('../../../src/routes/account/+page.server');
     expect(typeof mod.load).toBe('function');
     expect(typeof mod.actions.update).toBe('function');
   });

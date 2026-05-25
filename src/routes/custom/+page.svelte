@@ -425,4 +425,20 @@
   }
 
   .btn-ghost:hover { background: var(--color-surface-sunken); }
+
+  @media (max-width: 640px) {
+    .file-info {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: var(--space-1);
+    }
+
+    .file-details {
+      flex-wrap: wrap;
+    }
+
+    .file-name {
+      word-break: break-all;
+    }
+  }
 </style>

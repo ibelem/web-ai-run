@@ -81,6 +81,9 @@
   --color-border-strong: #ECECEC;
   --color-disabled: #ECECEC;
 
+  /* Text on colored backgrounds */
+  --color-text-on-primary: #fff;
+
   /* Focus */
   --color-focus-ring: rgba(7, 66, 176, 1);
 
@@ -382,7 +385,7 @@ body {
   border: none;
   border-radius: var(--radius-base);
   background: var(--color-primary);
-  color: #FFFFFF;
+  color: var(--color-text-on-primary);
   cursor: pointer;
   transition: background var(--transition-base);
 }

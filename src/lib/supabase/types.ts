@@ -83,6 +83,20 @@ export interface Database {
           last_synced?: string;
         };
       };
+      shared_configs: {
+        Row: {
+          id: string;
+          owner_id: string;
+          config: SharedRunConfig;
+          created_at: string;
+        };
+        Insert: {
+          id: string;
+          owner_id: string;
+          config: SharedRunConfig;
+        };
+        Update: never;
+      };
       results: {
         Row: {
           id: string;
@@ -142,6 +156,17 @@ export interface RecipeModel {
   file_path: string;
   data_type: string;
   size_bytes?: number;
+}
+
+export interface SharedRunConfig {
+  models: { hf_model_id: string; file_path: string }[];
+  backends: string[];
+  iterations: number;
+  upload?: boolean;
+  cpu?: string;
+  os?: string;
+  ort?: string;
+  litert?: string;
 }
 
 export interface BenchmarkMetrics {

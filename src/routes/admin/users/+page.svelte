@@ -224,4 +224,24 @@
     font-size: var(--text-sm);
     color: var(--color-text-secondary);
   }
+
+  @media (max-width: 640px) {
+    .users-table {
+      font-size: var(--text-xs);
+    }
+
+    .users-table th,
+    .users-table td {
+      padding: var(--space-half) var(--space-1);
+    }
+
+    .pagination {
+      gap: var(--space-1);
+    }
+
+    .page-btn {
+      padding: 6px 12px;
+      font-size: var(--text-sm);
+    }
+  }
 </style>

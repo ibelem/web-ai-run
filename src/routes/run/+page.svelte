@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
+  import { browser } from '$app/environment';
   import { get } from 'svelte/store';
   import type { Backend, TestItem, TestResult, RunConfig as RunConfigType, EnvironmentInfo } from '$lib/engine/types';
   import { detectAvailableBackends } from '$lib/engine/backends';
@@ -8,6 +9,7 @@
   import { ResultsWriter } from '$lib/engine/results-writer';
   import { runInWorker, isWorkerSupported, terminateWorker } from '$lib/engine/worker/pool';
   import { auth, isAuthenticated } from '$lib/stores/auth';
+  import type { SharedRunConfig } from '$lib/supabase/types';
   import { CPU_MODELS } from '$lib/data/cpu-models';
   import { OS_MODELS } from '$lib/data/os-models';
   import { fetchRuntimeVersions } from '$lib/engine/runtime-versions';
@@ -123,6 +125,11 @@
   const usesOnnx = $derived(hashModels.some(m => m.runtime === 'onnx'));
   const usesLitert = $derived(hashModels.some(m => m.runtime === 'litert'));
 
+  const completedCount = $derived(queue.filter(i => i.status === 'completed' || i.status === 'error').length);
+  const totalQueue = $derived(queue.length);
+  const activeItem = $derived(queue.find(i => i.status === 'downloading' || i.status === 'compiling' || i.status === 'running'));
+  const nextItem = $derived(queue.find(i => i.status === 'pending'));
+
   const RUN_MODELS_KEY = 'run_models';
 
   $effect(() => {
@@ -137,6 +144,8 @@
     void ortVersion;
     void litertVersion;
     writeHash();
+    shareUrl = '';
+    shareId = '';
     // Persist current model selection so navigation away doesn't lose it
     try {
       if (hashModels.length > 0) sessionStorage.setItem(RUN_MODELS_KEY, JSON.stringify(hashModels));
@@ -145,6 +154,8 @@
   });
 
   onMount(async () => {
+    window.addEventListener('keydown', handleKeydown);
+
     // Parse hash first (may come from a shared URL or sessionStorage redirect)
     const parsed = parseHash();
 
@@ -193,7 +204,20 @@
     mounted = true;
   });
 
+  function handleKeydown(e: KeyboardEvent) {
+    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement || e.target instanceof HTMLTextAreaElement) return;
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && !isRunning && hashModels.length > 0) {
+      e.preventDefault();
+      startBenchmark();
+    } else if (e.key === 'Escape' && isRunning) {
+      e.preventDefault();
+      stopBenchmark();
+    }
+  }
+
   onDestroy(() => {
+    if (!browser) return;
+    window.removeEventListener('keydown', handleKeydown);
     terminateWorker();
   });
 
@@ -284,6 +308,48 @@
     statusText = 'Stopped.';
   }
 
+  let shareUrl = $state('');
+  let shareId = $state('');
+  let shareLoading = $state(false);
+
+  async function shareConfig() {
+    if (hashModels.length === 0) return;
+    shareLoading = true;
+    try {
+      const config: SharedRunConfig = {
+        models: hashModels.map(m => ({ hf_model_id: m.hf_model_id, file_path: m.file_path })),
+        backends: selectedBackends,
+        iterations,
+        upload: saveResults || undefined,
+        cpu: cpuModel.trim() || undefined,
+        os: osModel.trim() || undefined,
+        ort: usesOnnx && ortVersion ? ortVersion : undefined,
+        litert: usesLitert && litertVersion ? litertVersion : undefined,
+      };
+      const res = await fetch('/api/shared-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(config),
+      });
+      if (!res.ok) throw new Error('Failed to create share link');
+      const { id } = await res.json();
+      shareId = id;
+      shareUrl = `${location.origin}/run/s/${id}`;
+      await navigator.clipboard.writeText(shareUrl);
+    } catch {
+      shareUrl = '';
+    } finally {
+      shareLoading = false;
+    }
+  }
+
+  async function deleteShareUrl() {
+    if (!shareId) return;
+    await fetch(`/api/shared-config?id=${shareId}`, { method: 'DELETE' });
+    shareUrl = '';
+    shareId = '';
+  }
+
   async function retryItem(item: TestItem) {
     if (isRunning) return;
     item.status = 'pending';
@@ -352,15 +418,33 @@
 </script>
 
 <div class="run-page">
-  <header class="page-header">
-    <h1>Benchmark</h1>
-    <p>
-      {#if totalModels > 0}
-        {totalModels} model{totalModels > 1 ? 's' : ''} selected
-      {:else}
-        Select models from the Model page to benchmark.
-      {/if}
-    </p>
+  <header class="page-header page-header-row">
+    <div>
+      <h1>Benchmark</h1>
+      <p>
+        {#if totalModels > 0}
+          {totalModels} model{totalModels > 1 ? 's' : ''} selected
+        {:else}
+          Select models from the Model page to benchmark.
+        {/if}
+      </p>
+    </div>
+    {#if $isAuthenticated && totalModels > 0 && !isRunning}
+      <div class="share-row">
+        <button class="btn-share" onclick={shareConfig} disabled={shareLoading} title="Create a short URL to share this benchmark configuration">
+          {#if shareLoading}
+            <span class="spinner spinner-sm"></span>
+          {:else if shareUrl}
+            Copied!
+          {:else}
+            Share
+          {/if}
+        </button>
+        {#if shareUrl}
+          <button class="btn-share-delete" onclick={deleteShareUrl} title="Delete shared link">Delete</button>
+        {/if}
+      </div>
+    {/if}
   </header>
 
   <section class="config-section">
@@ -468,18 +552,18 @@
             <div class="model-item-left">
               <div class="model-item-top">
                 <span class="model-item-repo">{m.hf_model_id}</span>
+                {#if m.data_type}
+                  <span class="model-item-dtype" data-dtype={m.data_type}>{m.data_type === 'quantized' ? 'quant' : m.data_type}</span>
+                {/if}
               </div>
               <div class="model-item-bottom">
                 <FormatIcon format={ext} size={14} />
                 <span class="model-item-name">{m.file_path.split('/').pop()}</span>
+                {#if m.size_bytes}
+                  <span class="model-item-size">{formatSize(m.size_bytes)}</span>
+                {/if}
               </div>
             </div>
-            {#if m.data_type}
-              <span class="model-item-dtype" data-dtype={m.data_type}>{m.data_type === 'quantized' ? 'quant' : m.data_type}</span>
-            {/if}
-            {#if m.size_bytes}
-              <span class="model-item-size">{formatSize(m.size_bytes)}</span>
-            {/if}
           </li>
         {/each}
       </ul>
@@ -501,7 +585,7 @@
         {#if saveResults}
           {#if $isAuthenticated}
             <p class="upload-disclosure">
-              Your CPU model, GPU, OS, and browser will be saved alongside the benchmark scores — this hardware context is what makes the results meaningful.
+              Your CPU model, GPU, OS, and browser will be saved alongside the benchmark scores to make the results meaningful
             </p>
           {:else}
             <p class="upload-disclosure upload-disclosure-warn">
@@ -509,25 +593,38 @@
             </p>
           {/if}
         {/if}
-        <button class="btn-primary" onclick={startBenchmark} disabled={totalModels === 0 || (saveResults && (!$isAuthenticated || !cpuModel.trim() || !osModel.trim()))}>
-          Run Benchmark
+        <button class="btn-primary" onclick={startBenchmark} disabled={totalModels === 0 || (saveResults && (!$isAuthenticated || !cpuModel.trim() || !osModel.trim()))} title="Ctrl+Enter">
+          Run Benchmark <kbd class="kbd-hint">Ctrl+Enter</kbd>
         </button>
         {#if saveResults && $isAuthenticated && (!cpuModel.trim() || !osModel.trim())}
           <p class="action-hint action-hint-warn">
-            Fill in your CPU and OS above to enable result upload.
+            Fill in your CPU and OS above to enable result upload
           </p>
         {/if}
         {#if totalModels === 0}
           <p class="action-hint">No models selected. <a href="/browse">Browse models</a> to pick one, or <a href="/custom">upload your own</a>.</p>
         {/if}
       {:else}
-        <button class="btn-stop" onclick={stopBenchmark}>Stop</button>
+        <button class="btn-stop" onclick={stopBenchmark} title="Esc">Stop <kbd class="kbd-hint">Esc</kbd></button>
       {/if}
     </div>
   </section>
 
   {#if isRunning || statusText}
     <section class="status-section">
+      {#if isRunning && totalQueue > 0}
+        <div class="progress-summary">
+          <span class="progress-count">{completedCount}/{totalQueue} complete</span>
+          {#if activeItem}
+            <span class="progress-current">Running: {activeItem.hf_model_id.split('/')[1]} on {activeItem.backend}</span>
+          {/if}
+          {#if nextItem && !activeItem}
+            <span class="progress-next">Next: {nextItem.hf_model_id.split('/')[1]} on {nextItem.backend}</span>
+          {:else if nextItem}
+            <span class="progress-next">Next: {nextItem.hf_model_id.split('/')[1]} on {nextItem.backend}</span>
+          {/if}
+        </div>
+      {/if}
       <p class="status-text">{statusText}</p>
       {#if downloadPercent > 0 && downloadPercent < 100}
         <ProgressBar percent={downloadPercent} label="Downloading" />
@@ -644,7 +741,7 @@
   .custom-checkbox.checked {
     border-color: var(--color-primary);
     background: var(--color-primary);
-    color: #fff;
+    color: var(--color-text-on-primary);
   }
 
   .btn-stop {
@@ -659,8 +756,110 @@
     cursor: pointer;
   }
 
+  .actions :global(.btn-primary) {
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .kbd-hint {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 400;
+    padding: 1px 4px;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.15);
+    opacity: 0.7;
+    margin-left: 6px;
+  }
+
+  .btn-stop .kbd-hint {
+    background: rgba(229, 62, 62, 0.1);
+  }
+
+  .page-header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+  }
+
+  .share-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+  }
+
+  .btn-share {
+    font-family: var(--font-ui);
+    font-size: var(--text-base);
+    font-weight: 500;
+    padding: 10px 20px;
+    border: 1px solid var(--color-primary);
+    border-radius: var(--radius-base);
+    background: none;
+    color: var(--color-primary);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    transition: background var(--transition-base);
+  }
+
+  .btn-share:hover:not(:disabled) {
+    background: var(--color-accent-light);
+  }
+
+  .btn-share:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+
+
+  .btn-share-delete {
+    font-family: var(--font-ui);
+    font-size: var(--text-base);
+    font-weight: 500;
+    padding: 10px 20px;
+    border: 1px solid var(--color-error);
+    border-radius: var(--radius-base);
+    background: none;
+    color: var(--color-error);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background var(--transition-base);
+  }
+
+  .btn-share-delete:hover {
+    background: rgba(229, 62, 62, 0.06);
+  }
+
   .status-section {
     margin-bottom: var(--space-2);
+  }
+
+  .progress-summary {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin-bottom: var(--space-1);
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+  }
+
+  .progress-count {
+    font-weight: 600;
+    color: var(--color-text-primary);
+  }
+
+  .progress-current {
+    color: var(--color-primary);
+  }
+
+  .progress-next {
+    color: var(--color-text-muted);
   }
 
   .status-text {
@@ -690,7 +889,7 @@
     font-size: var(--text-sm);
     color: var(--color-text-secondary);
     white-space: nowrap;
-    width: 100px;
+    width: 77px;
     flex-shrink: 0;
   }
 
@@ -725,7 +924,7 @@
   .model-list {
     list-style: none;
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(4, 1fr);
     gap: 3px;
   }
 
@@ -808,6 +1007,7 @@
     white-space: nowrap;
     flex-shrink: 0;
     line-height: 1.4;
+    margin-left: auto;
   }
 
   .model-item-size {
@@ -821,6 +1021,7 @@
     white-space: nowrap;
     flex-shrink: 0;
     line-height: 1.4;
+    margin-left: auto;
   }
 
   .model-item-dtype[data-dtype="fp32"]      { color: var(--color-dt-fp32);      border-color: var(--color-dt-fp32); }
@@ -850,5 +1051,41 @@
 
   .version-select:focus-visible {
     border-color: var(--color-focus-ring);
+  }
+
+  @media (max-width: 640px) {
+    .page-header-row {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .share-row {
+      width: 100%;
+    }
+
+    .btn-share,
+    .btn-share-delete {
+      flex: 1;
+      padding: 8px 12px;
+      font-size: var(--text-sm);
+    }
+
+    .env-label {
+      width: 70px;
+    }
+
+    .cpu-input {
+      width: 100%;
+    }
+
+    .actions {
+      flex-direction: column;
+    }
+
+    .actions :global(.btn-primary),
+    .btn-stop {
+      width: 100%;
+      justify-content: center;
+    }
   }
 </style>

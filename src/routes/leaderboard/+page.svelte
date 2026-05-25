@@ -448,4 +448,41 @@
     color: var(--color-text-muted);
     margin-left: 4px;
   }
+
+  @media (max-width: 768px) {
+    .filters {
+      flex-direction: column;
+    }
+
+    .filter-select {
+      width: 100%;
+    }
+
+    .date-range {
+      width: 100%;
+    }
+
+    .filter-date {
+      flex: 1;
+      width: auto;
+    }
+
+    .results-table-wrapper {
+      margin: 0 calc(-1 * var(--space-2));
+      padding: 0 var(--space-2);
+    }
+
+    .results-table {
+      font-size: var(--text-xs);
+    }
+
+    .results-table th,
+    .results-table td {
+      padding: var(--space-half) 6px;
+    }
+
+    .cell-model {
+      max-width: 120px;
+    }
+  }
 </style>

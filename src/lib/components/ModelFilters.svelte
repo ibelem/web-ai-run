@@ -323,7 +323,7 @@
 
   .tag.selected {
     background: var(--color-primary);
-    color: #fff;
+    color: var(--color-text-on-primary);
     border-color: var(--color-primary);
   }
 

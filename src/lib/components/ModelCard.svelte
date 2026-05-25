@@ -53,7 +53,7 @@
   const hasSelection = $derived(variants.some((v) => selectedIds.has(v.id)));
 </script>
 
-<div class="model-card" class:has-selection={hasSelection}>
+<div class="model-card" class:has-selection={hasSelection} role="group" aria-label="Model: {hfModelId}">
   <div class="card-left">
     <div class="card-row card-top">
       {#if task && task !== 'uncategorized'}
@@ -224,7 +224,7 @@
   .chip[data-dtype="bnb4"]      { color: var(--color-dt-bnb4); border-color: var(--color-dt-bnb4); }
   .chip[data-dtype="quantized"] { color: var(--color-dt-quantized); border-color: var(--color-dt-quantized); }
 
-  .chip.chip-selected { color: #fff; }
+  .chip.chip-selected { color: var(--color-text-on-primary); }
   .chip.chip-selected[data-dtype="fp32"]      { background: var(--color-dt-fp32); border-color: var(--color-dt-fp32); }
   .chip.chip-selected[data-dtype="fp16"]      { background: var(--color-dt-fp16); border-color: var(--color-dt-fp16); }
   .chip.chip-selected[data-dtype="bf16"]      { background: var(--color-dt-bf16); border-color: var(--color-dt-bf16); }

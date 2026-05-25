@@ -46,7 +46,7 @@
     font-size: var(--text-sm);
     color: var(--color-text-secondary);
     white-space: nowrap;
-    min-width: 103px;
+    min-width: 80px;
   }
 
   .iter-group {
@@ -59,7 +59,7 @@
     font-family: var(--font-mono);
     font-size: var(--text-xs);
     padding: var(--space-half) var(--space-1);
-    min-height: 32px;
+    min-height: 28px;
     border: 1px solid var(--color-border);
     border-radius: var(--radius-base);
     background: var(--color-surface);
@@ -79,7 +79,7 @@
 
   .iter-btn.active {
     background: var(--color-primary);
-    color: #fff;
+    color: var(--color-text-on-primary);
     border-color: var(--color-primary);
   }
 

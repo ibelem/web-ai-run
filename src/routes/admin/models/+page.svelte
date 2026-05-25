@@ -333,4 +333,26 @@
     color: var(--color-text-secondary);
     padding: 0 var(--space-1);
   }
+
+  @media (max-width: 640px) {
+    .models-table {
+      font-size: var(--text-xs);
+    }
+
+    .models-table td {
+      padding: 6px var(--space-1);
+    }
+
+    .sort-btn {
+      padding: 8px var(--space-1);
+    }
+
+    .repo-name {
+      max-width: 120px;
+    }
+
+    .file-path {
+      max-width: 100px;
+    }
+  }
 </style>

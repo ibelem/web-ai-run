@@ -463,4 +463,34 @@
   .status-error {
     background: var(--color-error);
   }
+
+  @media (max-width: 640px) {
+    .run-group-header {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: var(--space-half);
+    }
+
+    .run-group-meta {
+      width: 100%;
+      justify-content: flex-start;
+    }
+
+    .run-hw {
+      max-width: none;
+    }
+
+    .results-table {
+      font-size: var(--text-xs);
+    }
+
+    .results-table th,
+    .results-table td {
+      padding: var(--space-half) 6px;
+    }
+
+    .cell-model {
+      max-width: 100px;
+    }
+  }
 </style>

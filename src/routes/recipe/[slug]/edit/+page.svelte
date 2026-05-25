@@ -1,10 +1,12 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
+  import { beforeNavigate } from '$app/navigation';
   import HFSearch, { type SelectedHFModel } from '$lib/components/HFSearch.svelte';
   import HFUrlImport from '$lib/components/HFUrlImport.svelte';
   import FormatIcon from '$lib/components/FormatIcon.svelte';
   import { updateRecipe, deleteRecipe } from '$lib/recipes/crud';
   import type { RecipeModel } from '$lib/supabase/types';
+  import { onMount, onDestroy } from 'svelte';
 
   let { data } = $props();
 
@@ -12,6 +14,7 @@
   let visibility = $state<'personal' | 'public'>(data.recipe.visibility);
   let saving = $state(false);
   let errorMessage = $state('');
+  let justSaved = $state(false);
 
   // Current models in the recipe
   let recipeModels = $state<RecipeModel[]>([...data.recipe.models]);
@@ -72,6 +75,38 @@
 
   const isEmpty = $derived(recipeModels.length === 0);
 
+  const isDirty = $derived(() => {
+    if (recipeName !== data.recipe.name) return true;
+    if (visibility !== data.recipe.visibility) return true;
+    if (recipeModels.length !== data.recipe.models.length) return true;
+    return recipeModels.some((m, i) => {
+      const orig = data.recipe.models[i];
+      return !orig || m.hf_model_id !== orig.hf_model_id || m.file_path !== orig.file_path;
+    });
+  });
+
+  function handleBeforeUnload(e: BeforeUnloadEvent) {
+    if (isDirty() && !justSaved) {
+      e.preventDefault();
+    }
+  }
+
+  onMount(() => {
+    window.addEventListener('beforeunload', handleBeforeUnload);
+  });
+
+  onDestroy(() => {
+    window.removeEventListener('beforeunload', handleBeforeUnload);
+  });
+
+  beforeNavigate(({ cancel }) => {
+    if (isDirty() && !justSaved) {
+      if (!confirm('You have unsaved changes. Leave this page?')) {
+        cancel();
+      }
+    }
+  });
+
   async function handleSave() {
     if (!recipeName.trim()) {
       errorMessage = 'Recipe name is required.';
@@ -85,6 +120,7 @@
       } else {
         await updateRecipe(data.recipe.id, { name: recipeName.trim(), models: recipeModels, visibility });
       }
+      justSaved = true;
       goto('/recipe');
     } catch (e: any) {
       errorMessage = e.message ?? 'Failed to save.';
@@ -413,7 +449,7 @@
   .visibility-tab.active {
     background: var(--color-primary);
     border-color: var(--color-primary);
-    color: #fff;
+    color: var(--color-text-on-primary);
   }
 
   .zone {
@@ -442,7 +478,7 @@
     padding: 0 5px;
     border-radius: 9px;
     background: var(--color-primary);
-    color: #fff;
+    color: var(--color-text-on-primary);
     font-size: 11px;
     font-weight: 600;
     letter-spacing: 0;
@@ -684,7 +720,7 @@
     border: none;
     border-radius: var(--radius-base);
     background: var(--color-primary);
-    color: #fff;
+    color: var(--color-text-on-primary);
     cursor: pointer;
     transition: background var(--transition-base);
   }

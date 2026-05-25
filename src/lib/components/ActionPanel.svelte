@@ -324,7 +324,7 @@
     padding: 0 5px;
     border-radius: 9px;
     background: var(--color-primary);
-    color: #fff;
+    color: var(--color-text-on-primary);
     font-size: 11px;
     font-weight: 600;
     letter-spacing: 0;
@@ -407,7 +407,7 @@
 
   .deselect-btn:hover {
     background: var(--color-error);
-    color: #fff;
+    color: var(--color-text-on-primary);
   }
 
   /* Recipe */
@@ -517,7 +517,7 @@
     border: none;
     border-radius: var(--radius-base);
     background: var(--color-primary);
-    color: #fff;
+    color: var(--color-text-on-primary);
     cursor: pointer;
     transition: background var(--transition-base);
   }

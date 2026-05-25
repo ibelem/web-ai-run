@@ -259,4 +259,20 @@
   }
 
   .editing-row td { background:var(--color-accent-light); }
+
+  @media (max-width: 640px) {
+    .input[name="name"] {
+      min-width: 0;
+      width: 100%;
+    }
+
+    .add-form {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .row-actions {
+      flex-wrap: wrap;
+    }
+  }
 </style>

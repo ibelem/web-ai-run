@@ -113,7 +113,7 @@
 
   .retry-btn:hover {
     background: var(--color-error);
-    color: #fff;
+    color: var(--color-text-on-primary);
   }
 
   .error-detail {

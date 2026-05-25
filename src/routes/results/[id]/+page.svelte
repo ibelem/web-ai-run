@@ -253,7 +253,7 @@
     border: none;
     border-radius: var(--radius-base);
     background: var(--color-primary);
-    color: #fff;
+    color: var(--color-text-on-primary);
     text-decoration: none;
     cursor: pointer;
     transition: background var(--transition-base);

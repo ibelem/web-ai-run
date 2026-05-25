@@ -210,7 +210,7 @@
 
   .recipe-card:hover .visibility-badge {
     background: var(--color-dt-int8);
-    color: #fff;
+    color: var(--color-text-on-primary);
   }
 
   .visibility-toggle {
@@ -228,7 +228,7 @@
 
   .recipe-card:hover .visibility-toggle {
     background: var(--color-dt-fp16);
-    color: #fff;
+    color: var(--color-text-on-primary);
   }
 
   .visibility-toggle.is-public {
@@ -239,7 +239,7 @@
   .recipe-card:hover .visibility-toggle.is-public {
     background: var(--color-dt-int8);
     border-color: var(--color-dt-int8);
-    color: #fff;
+    color: var(--color-text-on-primary);
   }
 
   .recipe-meta {
@@ -289,7 +289,7 @@
     border: none;
     border-radius: var(--radius-base);
     background: var(--color-primary);
-    color: #fff;
+    color: var(--color-text-on-primary);
     cursor: pointer;
     transition: background var(--transition-base);
   }
@@ -322,4 +322,20 @@
   }
 
   .btn-delete-sm:hover { background: var(--color-nav-item-hover); }
+
+  @media (max-width: 640px) {
+    .page-header {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .btn-new-recipe {
+      width: 100%;
+      text-align: center;
+    }
+
+    .recipe-grid {
+      grid-template-columns: 1fr;
+    }
+  }
 </style>

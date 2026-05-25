@@ -148,7 +148,7 @@
               }}
             >Run model</button>
           {:else}
-            <a href="/browse" class="hf-home-btn hf-home-btn-secondary">Browse local</a>
+            <a href="/browse" class="hf-home-btn hf-home-btn-secondary">Browse</a>
           {/if}
         </div>
       </div>
@@ -184,7 +184,7 @@
         </div>
 
         <h1 class="hero-title">
-          <span class="hero-gradient">Benchmark On-device AI</span><br/>
+          <span class="hero-gradient">Benchmark on-device AI</span><br/>
           <span>on the open web</span>
         </h1>
 
@@ -280,21 +280,6 @@
   {/if}
 
   {#if !$isAuthenticated}
-  <!-- Quick Actions -->
-  <section class="quick-actions">
-    <a href="/browse" class="action-card">
-      <h3 class="action-title">Browse & Run Models</h3>
-      <p class="action-desc">Select models and benchmark them across backends.</p>
-    </a>
-    <a href="/recipe" class="action-card">
-      <h3 class="action-title">Saved Recipes</h3>
-      <p class="action-desc">Re-run curated benchmark suites with one click.</p>
-    </a>
-    <a href="/custom" class="action-card">
-      <h3 class="action-title">Upload & Test</h3>
-      <p class="action-desc">Bring your own ONNX or LiteRT model to benchmark.</p>
-    </a>
-  </section>
 
   <!-- Recent Model Updates -->
   <section class="card recent-models">
@@ -477,7 +462,7 @@
     font-size: var(--text-base);
     font-weight: 500;
     text-decoration: none;
-    color: #fff;
+    color: var(--color-text-on-primary);
     background: var(--color-primary);
     cursor: pointer;
     transition: background var(--transition-base);
@@ -717,6 +702,10 @@
       font-size: 15px;
     }
 
+    .hero-left {
+      padding-bottom: 16px;
+    }
+
     .hero-right {
       display: flex;
       justify-content: center;
@@ -854,7 +843,7 @@
   .hf-home-btn-primary {
     border: none;
     background: var(--color-primary);
-    color: #fff;
+    color: var(--color-text-on-primary);
     transition: background var(--transition-base);
   }
 
@@ -998,38 +987,6 @@
   }
 
   /* Quick Actions */
-  .quick-actions {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: var(--space-4);
-  }
-
-  .action-card {
-    background: var(--color-surface);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-lg);
-    padding: 20px;
-    text-decoration: none;
-    transition: border-color var(--transition-base), background var(--transition-base);
-  }
-
-  .action-card:hover {
-    border-color: var(--color-primary);
-    background:var(--color-accent-light);
-  }
-
-  .action-title {
-    font-size: 16px;
-    font-weight: 600;
-    color: var(--color-text-primary);
-    margin-bottom: var(--space-half);
-  }
-
-  .action-desc {
-    font-size: var(--text-base);
-    color: var(--color-text-muted);
-    line-height: 1.5;
-  }
 
   /* Recent Models */
   .model-list {

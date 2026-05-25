@@ -8,7 +8,7 @@
   <nav class="error-nav">
     <a href="/" class="error-link">Home</a>
     <a href="/browse" class="error-link">Browse</a>
-    <a href="/recipe" class="error-link">Recipes</a>
+    <a href="/recipe" class="error-link">Recipe</a>
     <a href="/custom" class="error-link">Custom</a>
   </nav>
 </div>

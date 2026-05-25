@@ -207,7 +207,7 @@
     </div>
   {:else}
     <div class="page-body">
-      <div class="sidebar-wrap" class:open={showFilters}>
+      <aside class="sidebar-wrap" class:open={showFilters} aria-label="Model filters">
         <ModelFilters
           {formats}
           {orgs}
@@ -222,7 +222,7 @@
           onfilter={handleFilter}
           onrefresh={refreshModels}
         />
-      </div>
+      </aside>
 
       <div class="content">
         <div class="content-toolbar">
@@ -331,7 +331,7 @@
     padding: 0 5px;
     border-radius: 9px;
     background: var(--color-primary);
-    color: #fff;
+    color: var(--color-text-on-primary);
     font-size: 11px;
     font-weight: 600;
   }
@@ -427,7 +427,7 @@
     border: none;
     border-radius: var(--radius-base);
     background: var(--color-primary);
-    color: #fff;
+    color: var(--color-text-on-primary);
     cursor: pointer;
     white-space: nowrap;
     transition: background var(--transition-base);

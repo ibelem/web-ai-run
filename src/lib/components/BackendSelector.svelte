@@ -31,10 +31,12 @@
         class:unavailable={!avail}
         disabled={!avail}
         onclick={() => toggle(backend.id)}
+        aria-label="{backend.label} ({avail ? 'available' : 'unavailable'})"
       >
-        <span class="backend-dot" class:available={avail}></span>
+        <span class="backend-dot" class:available={avail} aria-hidden="true"></span>
         <span class="backend-label-text">{backend.label}</span>
-        <span class="backend-help" title={avail ? backend.description : `${unavailableReason(backend)} ${backend.description}`}>?</span>
+        {#if !avail}<span class="backend-unavail-text" aria-hidden="true">N/A</span>{/if}
+        <span class="backend-help" title={avail ? backend.description : `${unavailableReason(backend)} ${backend.description}`} aria-label="Info: {avail ? backend.description : unavailableReason(backend)}">?</span>
       </button>
     {/each}
   </div>
@@ -52,7 +54,7 @@
     font-size: var(--text-sm);
     color: var(--color-text-secondary);
     white-space: nowrap;
-    min-width: 103px;
+    min-width: 80px;
   }
 
   .backend-btns {
@@ -68,7 +70,7 @@
     font-family: var(--font-mono);
     font-size: var(--text-xs);
     padding: var(--space-half) var(--space-1);
-    min-height: 32px;
+    min-height: 28px;
     border: 1px solid var(--color-border);
     border-radius: var(--radius-base);
     background: var(--color-surface);
@@ -87,12 +89,13 @@
 
   .backend-btn.active {
     background: var(--color-primary);
-    color: #FFFFFF;
+    color: var(--color-text-on-primary);
     border-color: var(--color-primary);
   }
 
   .backend-btn.active .backend-dot.available {
-    background: #fff;
+    background: var(--color-text-on-primary);
+    border-color: var(--color-text-on-primary);
   }
 
   .backend-btn.active .backend-help {
@@ -110,11 +113,22 @@
     height: 6px;
     border-radius: 50%;
     flex-shrink: 0;
-    background: var(--color-error);
+    background: none;
+    border: 1.5px solid var(--color-text-muted);
   }
 
   .backend-dot.available {
     background: var(--color-success);
+    border-color: var(--color-success);
+  }
+
+  .backend-unavail-text {
+    font-family: var(--font-ui);
+    font-size: 9px;
+    font-weight: 600;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
   }
 
   .backend-help {

@@ -379,7 +379,7 @@
   .visibility-tab.active {
     background: var(--color-primary);
     border-color: var(--color-primary);
-    color: #fff;
+    color: var(--color-text-on-primary);
   }
 
   .zone {
@@ -408,7 +408,7 @@
     padding: 0 5px;
     border-radius: 9px;
     background: var(--color-primary);
-    color: #fff;
+    color: var(--color-text-on-primary);
     font-size: 11px;
     font-weight: 600;
     letter-spacing: 0;
@@ -626,7 +626,7 @@
     border: none;
     border-radius: var(--radius-base);
     background: var(--color-primary);
-    color: #fff;
+    color: var(--color-text-on-primary);
     cursor: pointer;
     transition: background var(--transition-base);
   }
