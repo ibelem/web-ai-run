@@ -174,7 +174,7 @@
 
       <div class="date-range">
         <input class="filter-date" type="date" bind:value={filterDateFrom} title="From date" />
-        <span class="date-sep">–</span>
+        <span class="date-sep">-</span>
         <input class="filter-date" type="date" bind:value={filterDateTo} title="To date" />
         {#if filterDateFrom || filterDateTo}
           <button class="clear-dates" onclick={clearDateFilters} title="Clear date filter">×</button>

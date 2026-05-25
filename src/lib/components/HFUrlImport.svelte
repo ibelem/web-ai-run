@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { SelectedHFModel } from './HFSearch.svelte';
   import { inferFormat, inferDataType, inferRuntime, stripExt } from '$lib/huggingface/parser';
+  import FormatIcon from './FormatIcon.svelte';
 
   interface Props {
     url: string;
@@ -305,7 +306,10 @@
                   <span class="no-formats-label">No supported formats (onnx / tflite / litertlm)</span>
                 {:else}
                   {#each counts as c (c.format)}
-                    <span class="tag tag-format fmt-count" data-format={c.format}>{c.format} ×{c.count}</span>
+                    <span class="fmt-count-wrap">
+                      <FormatIcon format={c.format} size={14} />
+                      <span class="fmt-count-num">×{c.count}</span>
+                    </span>
                   {/each}
                 {/if}
               </div>
@@ -617,8 +621,16 @@
 
   .tag-task { background: var(--color-surface-sunken); }
 
-  .tag-format[data-format="onnx"]     { color: var(--color-fmt-onnx); border-color: var(--color-fmt-onnx); }
-  .tag-format[data-format="tflite"]   { color: var(--color-fmt-tflite); border-color: var(--color-fmt-tflite); }
-  .tag-format[data-format="litertlm"] { color: var(--color-fmt-litertlm); border-color: var(--color-fmt-litertlm); }
+  .fmt-count-wrap {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+  }
+
+  .fmt-count-num {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+  }
 
 </style>

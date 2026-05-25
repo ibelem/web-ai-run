@@ -251,7 +251,7 @@
     font-weight: 500;
     padding: 5px 12px;
     border: none;
-    border-radius: 100px;
+    border-radius: var(--radius-base);
     background: var(--color-primary);
     color: #fff;
     text-decoration: none;

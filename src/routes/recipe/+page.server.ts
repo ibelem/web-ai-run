@@ -1,12 +1,9 @@
 import { redirect } from '@sveltejs/kit';
-import type { PageLoad } from './$types';
-import { createClient } from '$lib/supabase/client';
+import type { PageServerLoad } from './$types';
 import type { Recipe } from '$lib/recipes/crud';
 
-export const load: PageLoad = async () => {
-  const supabase = createClient();
-
-  const { data: { session } } = await supabase.auth.getSession();
+export const load: PageServerLoad = async ({ locals }) => {
+  const session = await locals.getSession();
 
   if (!session) {
     redirect(302, '/login');
@@ -14,7 +11,7 @@ export const load: PageLoad = async () => {
 
   const userId = session.user.id;
 
-  const query = (supabase.from('recipes') as any)
+  const query = (locals.supabase.from('recipes') as any)
     .select('*')
     .or(`owner_id.eq.${userId},visibility.eq.public`);
 

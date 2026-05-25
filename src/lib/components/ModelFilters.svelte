@@ -1,4 +1,6 @@
 <script lang="ts">
+  import FormatIcon from './FormatIcon.svelte';
+
   interface Props {
     formats: string[];
     orgs: string[];
@@ -114,8 +116,9 @@
             class="tag"
             class:selected={selectedFormats.has(fmt)}
             data-format={fmt}
+            title={fmt}
             onclick={() => toggleFormat(fmt)}
-          >{fmt}</button>
+          ><FormatIcon format={fmt} size={14} selected={selectedFormats.has(fmt)} /></button>
         {/each}
       </div>
     </div>
@@ -295,6 +298,9 @@
   }
 
   .tag {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     font-family: var(--font-ui);
     font-size: var(--text-xs);
     font-weight: 500;
@@ -358,4 +364,9 @@
   .tag.selected[data-format="onnx"]     { background: var(--color-fmt-onnx);     border-color: var(--color-fmt-onnx); }
   .tag.selected[data-format="tflite"]   { background: var(--color-fmt-tflite);   border-color: var(--color-fmt-tflite); }
   .tag.selected[data-format="litertlm"] { background: var(--color-fmt-litertlm); border-color: var(--color-fmt-litertlm); }
+
+  .tag.selected[data-format="tflite"] :global(.fmt-icon),
+  .tag.selected[data-format="litertlm"] :global(.fmt-icon) {
+    filter: brightness(0) invert(1);
+  }
 </style>

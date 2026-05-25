@@ -1,4 +1,6 @@
 <script lang="ts">
+  import FormatIcon from './FormatIcon.svelte';
+
   interface Variant {
     id: string;
     dataType: string;
@@ -38,6 +40,16 @@
     return dt === 'quantized' ? 'quant' : dt;
   }
 
+  const maxSize = $derived(() => {
+    const sizes = variants.map(v => v.sizeBytes).filter(s => s > 0);
+    if (sizes.length === 0) return '';
+    return formatSize(Math.max(...sizes));
+  });
+
+  const sizeTooltip = $derived(
+    variants.map(v => `${dtypeLabel(v.dataType)}: ${formatSize(v.sizeBytes)}`).join('\n')
+  );
+
   const hasSelection = $derived(variants.some((v) => selectedIds.has(v.id)));
 </script>
 
@@ -53,8 +65,11 @@
       <span class="info-repo" title={hfModelId}>{hfModelId}</span>
     </div>
     <div class="card-row card-bottom">
-      <span class="tag tag-format" data-format={format}>{format}</span>
-      <span class="info-file" title={filePath}>{filePath}</span>
+      <FormatIcon {format} size={16} />
+      <span class="info-file" title={filePath}>{filePath}.{format}</span>
+      {#if maxSize()}
+        <span class="info-size" title={sizeTooltip}>{maxSize()}</span>
+      {/if}
     </div>
   </div>
   <div class="card-right">
@@ -119,6 +134,7 @@
   .card-bottom {
     flex-wrap: nowrap;
     overflow: hidden;
+    pointer-events: auto;
   }
 
   .card-right {
@@ -154,6 +170,17 @@
     min-width: 0;
   }
 
+  .info-size {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--color-text-muted);
+    padding: 1px 7px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--color-border);
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
 
   .tag-task {
     background: var(--color-surface-sunken);
@@ -164,10 +191,6 @@
     flex-shrink: 0;
   }
 
-  .tag-format { flex-shrink: 0; }
-  .tag-format[data-format="onnx"]     { color: var(--color-fmt-onnx); border-color: var(--color-fmt-onnx); }
-  .tag-format[data-format="tflite"]   { color: var(--color-fmt-tflite); border-color: var(--color-fmt-tflite); }
-  .tag-format[data-format="litertlm"] { color: var(--color-fmt-litertlm); border-color: var(--color-fmt-litertlm); }
 
   .chip {
     font-family: var(--font-mono);

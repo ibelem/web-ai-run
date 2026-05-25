@@ -11,6 +11,13 @@
       selected = [...selected, id];
     }
   }
+
+  function unavailableReason(backend: typeof BACKENDS[0]): string {
+    if (backend.id === 'wasm_n') return 'SharedArrayBuffer not available in this browser.';
+    if (backend.id === 'webgpu') return 'WebGPU not supported or no GPU adapter found.';
+    if (backend.requiresFlag) return `Requires Chrome/Edge with WebNN flag enabled.`;
+    return 'Not detected on this device.';
+  }
 </script>
 
 <div class="backend-selector">
@@ -23,10 +30,11 @@
         class:active={selected.includes(backend.id)}
         class:unavailable={!avail}
         disabled={!avail}
-        title={avail ? backend.description : `${backend.description}${backend.requiresFlag ? ' (needs browser flag)' : ' (not detected on this device)'}`}
         onclick={() => toggle(backend.id)}
       >
-        {backend.label}
+        <span class="backend-dot" class:available={avail}></span>
+        <span class="backend-label-text">{backend.label}</span>
+        <span class="backend-help" title={avail ? backend.description : `${unavailableReason(backend)} ${backend.description}`}>?</span>
       </button>
     {/each}
   </div>
@@ -54,6 +62,9 @@
   }
 
   .backend-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
     font-family: var(--font-mono);
     font-size: var(--text-xs);
     padding: var(--space-half) var(--space-1);
@@ -80,8 +91,45 @@
     border-color: var(--color-primary);
   }
 
+  .backend-btn.active .backend-dot.available {
+    background: #fff;
+  }
+
+  .backend-btn.active .backend-help {
+    color: rgba(255, 255, 255, 0.7);
+    border-color: rgba(255, 255, 255, 0.4);
+  }
+
   .backend-btn.unavailable {
-    opacity: 0.4;
+    opacity: 0.5;
     cursor: not-allowed;
+  }
+
+  .backend-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    background: var(--color-error);
+  }
+
+  .backend-dot.available {
+    background: var(--color-success);
+  }
+
+  .backend-help {
+    font-family: var(--font-ui);
+    font-size: 9px;
+    font-weight: 600;
+    width: 14px;
+    height: 14px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    border: 1px solid var(--color-border-strong);
+    color: var(--color-text-muted);
+    flex-shrink: 0;
+    cursor: help;
   }
 </style>

@@ -36,6 +36,10 @@
   function formatDate(iso: string): string {
     return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
   }
+
+  function uniqueModelIds(recipe: Recipe): string[] {
+    return [...new Set(recipe.models.map(m => m.hf_model_id))];
+  }
 </script>
 
 <div class="recipe-page">
@@ -79,11 +83,11 @@
             &middot; {formatDate(recipe.updated_at)}
           </p>
           <div class="recipe-models">
-            {#each recipe.models.slice(0, 3) as model}
-              <span class="model-tag">{model.hf_model_id.split('/').pop()}</span>
+            {#each uniqueModelIds(recipe).slice(0, 3) as id}
+              <span class="model-tag">{id}</span>
             {/each}
-            {#if recipe.models.length > 3}
-              <span class="model-tag model-tag-more">+{recipe.models.length - 3}</span>
+            {#if uniqueModelIds(recipe).length > 3}
+              <span class="model-tag model-tag-more">+{uniqueModelIds(recipe).length - 3}</span>
             {/if}
           </div>
           <div class="recipe-actions">
@@ -132,7 +136,7 @@
     font-weight: 500;
     padding: 10px 20px;
     border: 1px solid var(--color-primary);
-    border-radius: 100px;
+    border-radius: var(--radius-base);
     background: none;
     color: var(--color-primary);
     text-decoration: none;
@@ -283,7 +287,7 @@
     font-weight: 500;
     padding: 4px 10px;
     border: none;
-    border-radius: 100px;
+    border-radius: var(--radius-base);
     background: var(--color-primary);
     color: #fff;
     cursor: pointer;
@@ -297,7 +301,7 @@
     font-size: var(--text-xs);
     padding: 4px 10px;
     border: 1px solid var(--color-border);
-    border-radius: 100px;
+    border-radius: var(--radius-base);
     background: none;
     color: var(--color-text-secondary);
     cursor: pointer;
@@ -311,7 +315,7 @@
     font-size: var(--text-xs);
     padding: 4px 10px;
     border: 1px solid var(--color-border);
-    border-radius: 100px;
+    border-radius: var(--radius-base);
     background: none;
     color: var(--color-text-secondary);
     cursor: pointer;

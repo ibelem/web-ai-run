@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { TestItem } from '$lib/engine/types';
-  import { getBackendLabel } from '$lib/engine/backends';
+  import { getBackendLabel, BACKENDS } from '$lib/engine/backends';
 
   let { queue = [], onretry, isRunning = false }: { queue: TestItem[]; onretry?: (item: TestItem) => void; isRunning?: boolean } = $props();
 
@@ -12,6 +12,20 @@
     completed: '✓',
     error: '✗',
   };
+
+  function suggestAlternative(failedBackend: string): string {
+    const fallbacks: Record<string, string[]> = {
+      webnn_npu: ['webnn_gpu', 'webgpu'],
+      webnn_gpu: ['webgpu', 'wasm_n'],
+      webnn_cpu: ['wasm_n', 'wasm_1'],
+      webgpu: ['wasm_n', 'wasm_1'],
+      wasm_n: ['wasm_1'],
+    };
+    const alts = fallbacks[failedBackend];
+    if (!alts) return '';
+    const labels = alts.map(id => getBackendLabel(id)).join(' or ');
+    return `Try: ${labels}`;
+  }
 </script>
 
 <div class="test-queue">
@@ -27,6 +41,14 @@
           <button class="retry-btn" onclick={() => onretry!(item)} title="Retry this item">↺</button>
         {/if}
       </div>
+      {#if item.status === 'error' && item.error}
+        <div class="error-detail">
+          <span class="error-msg">{item.error}</span>
+          {#if suggestAlternative(item.backend)}
+            <span class="error-suggestion">{suggestAlternative(item.backend)}</span>
+          {/if}
+        </div>
+      {/if}
     {/each}
   </div>
 </div>
@@ -92,5 +114,24 @@
   .retry-btn:hover {
     background: var(--color-error);
     color: #fff;
+  }
+
+  .error-detail {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-half) var(--space-2);
+    padding: 2px var(--space-1) var(--space-half) 24px;
+    font-size: 11px;
+    line-height: 1.4;
+  }
+
+  .error-msg {
+    color: var(--color-error);
+    word-break: break-word;
+  }
+
+  .error-suggestion {
+    color: var(--color-text-secondary);
+    font-weight: 500;
   }
 </style>

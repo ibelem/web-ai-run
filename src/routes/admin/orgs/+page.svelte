@@ -164,21 +164,8 @@
   .btn-add:hover { background:var(--color-accent-light); }
 
   .btn-primary {
-    font-family: var(--font-ui);
-    font-size: var(--text-sm);
-    font-weight: 500;
-    padding: var(--space-1) var(--space-2);
-    border: none;
-    border-radius: var(--radius-base);
-    background: var(--color-primary);
-    color: #fff;
-    cursor: pointer;
     white-space: nowrap;
-    transition: background var(--transition-base);
   }
-
-  .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
-  .btn-primary:not(:disabled):hover { background: var(--color-primary-hover); }
 
   .table-wrapper {
     overflow-x: auto;

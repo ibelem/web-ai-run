@@ -524,7 +524,7 @@ Add these styles:
   top: 100%;
   right: 0;
   margin-top: var(--space-half);
-  min-width: 140px;
+  min-width: 146px;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-base);

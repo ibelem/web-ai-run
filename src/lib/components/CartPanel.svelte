@@ -112,10 +112,10 @@
 
   function formatSize(bytes?: number): string {
     if (!bytes) return '';
-    if (bytes >= 1_073_741_824) return `${(bytes / 1_073_741_824).toFixed(1)}G`;
-    if (bytes >= 1_048_576) return `${(bytes / 1_048_576).toFixed(0)}M`;
-    if (bytes >= 1024) return `${(bytes / 1024).toFixed(0)}K`;
-    return `${bytes}B`;
+    if (bytes >= 1_073_741_824) return `${(bytes / 1_073_741_824).toFixed(1)} GB`;
+    if (bytes >= 1_048_576) return `${(bytes / 1_048_576).toFixed(0)} MB`;
+    if (bytes >= 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+    return `${bytes} B`;
   }
 </script>
 
@@ -542,7 +542,7 @@
     width: 100%;
     padding: 10px 20px;
     border: 1px solid var(--color-primary);
-    border-radius: 100px;
+    border-radius: var(--radius-base);
     background: none;
     color: var(--color-primary);
     cursor: pointer;
@@ -573,7 +573,7 @@
     font-weight: 500;
     padding: 10px 20px;
     border: none;
-    border-radius: 100px;
+    border-radius: var(--radius-base);
     background: var(--color-primary);
     color: #fff;
     cursor: pointer;

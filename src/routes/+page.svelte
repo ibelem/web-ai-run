@@ -8,6 +8,7 @@
   import type { Backend, EnvironmentInfo } from '$lib/engine/types';
   import { inferFormat, stripExt } from '$lib/huggingface/parser';
   import HFSearch, { type SelectedHFModel } from '$lib/components/HFSearch.svelte';
+  import FormatIcon from '$lib/components/FormatIcon.svelte';
   import HFUrlImport from '$lib/components/HFUrlImport.svelte';
   import { cart, cartCount } from '$lib/stores/cart';
 
@@ -183,12 +184,12 @@
         </div>
 
         <h1 class="hero-title">
-          <span class="hero-gradient">Benchmark AI</span><br/>
+          <span class="hero-gradient">Benchmark On-device AI</span><br/>
           <span>on the open web</span>
         </h1>
 
         <p class="hero-subtitle">
-          LiteRT.js, ONNX Runtime Web, WebNN, WebGPU, and Wasm. Run real ML models in your browser and compare performance across backends — no install, no server.
+          LiteRT.js, ONNX Runtime Web, WebNN, WebGPU, and Wasm. Run real ML models in your browser and compare performance across backends - no install, no server.
         </p>
 
         <div class="hero-ctas">
@@ -311,8 +312,8 @@
               <span class="model-file">{stripExt(model.file_path)}</span>
             </div>
             <div class="model-badges">
-              <span class="badge badge-format" data-format={inferFormat(model.file_path)}>{inferFormat(model.file_path)}</span>
-              <span class="badge badge-dtype" data-dtype={model.data_type}>{model.data_type}</span>
+              <FormatIcon format={inferFormat(model.file_path)} size={16} />
+              <span class="badge badge-dtype" data-dtype={model.data_type}>{model.data_type === 'quantized' ? 'quant' : model.data_type}</span>
             </div>
             <span class="model-synced">{formatRelative(model.last_synced)}</span>
           </a>
@@ -389,7 +390,7 @@
   .hero-eyebrow {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
+    gap: 2px;
     margin-bottom: 20px;
   }
 
@@ -435,11 +436,18 @@
 
   .hero-title {
     font-size: 44px;
-    line-height: 1.05;
+    line-height: 1.1;
     font-weight: 700;
     letter-spacing: -0.02em;
     margin-bottom: 20px;
     color: var(--color-text-primary);
+  }
+
+  .hero-gradient {
+    background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-accent) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
   }
 
   .hero-subtitle {
@@ -464,7 +472,7 @@
     gap: 8px;
     padding: 10px 20px;
     border: none;
-    border-radius: 100px;
+    border-radius: var(--radius-base);
     font-family: var(--font-ui);
     font-size: var(--text-base);
     font-weight: 500;
@@ -482,7 +490,7 @@
     align-items: center;
     padding: 10px 20px;
     border: 1px solid var(--color-border);
-    border-radius: 100px;
+    border-radius: var(--radius-base);
     font-family: var(--font-ui);
     font-size: var(--text-base);
     font-weight: 500;
@@ -505,7 +513,7 @@
     font-weight: 500;
     font-family: var(--font-mono);
     padding: 4px 10px;
-    border-radius: 100px;
+    border-radius: var(--radius-base);
     background: var(--color-surface-sunken);
     color: var(--color-text-secondary);
     border: 1px solid var(--color-border);
@@ -526,9 +534,38 @@
     margin: 20px 16px;
     background: var(--color-surface);
     border: 1px solid var(--color-border);
-    animation: hero-float 6s ease-in-out infinite;
     will-change: transform;
+    animation: hero-float 6s ease-in-out infinite;
   }
+
+
+  .mock-float-badge {
+    position: absolute;
+    font-size: 11px;
+    font-family: var(--font-mono);
+    font-weight: 500;
+    padding: 4px 10px;
+    border-radius: var(--radius-sm);
+    background: var(--color-surface);
+    border: 1px solid;
+  }
+
+  .mock-float-top {
+    top: -12px;
+    left: -16px;
+    color: var(--color-backend-webnn-gpu);
+    border-color: var(--color-backend-webnn-gpu);
+    transform: rotate(-4deg);
+  }
+
+  .mock-float-bottom {
+    bottom: -12px;
+    right: -16px;
+    color: var(--color-accent);
+    border-color: var(--color-accent);
+    transform: rotate(3deg);
+  }
+
 
   .mock-header {
     display: flex;
@@ -653,35 +690,6 @@
     color: var(--color-text-primary);
   }
 
-  .mock-float-badge {
-    position: absolute;
-    font-size: 11px;
-    font-family: var(--font-mono);
-    font-weight: 500;
-    padding: 4px 10px;
-    border-radius: var(--radius-sm);
-    background: var(--color-surface);
-    border: 1px solid;
-  }
-
-  .mock-float-top {
-    top: -12px;
-    left: -16px;
-    color: var(--color-backend-webnn-gpu);
-    border-color: var(--color-backend-webnn-gpu);
-    box-shadow: 0 4px 12px rgba(9,83,222,0.15);
-    transform: rotate(-4deg);
-  }
-
-  .mock-float-bottom {
-    bottom: -12px;
-    right: -16px;
-    color: var(--color-accent);
-    border-color: var(--color-accent);
-    box-shadow: 0 4px 12px color-mix(in srgb, var(--color-accent) 15%, transparent);
-    transform: rotate(3deg);
-  }
-
   @keyframes hero-ping {
     75%, 100% {
       transform: scale(2.4);
@@ -771,9 +779,9 @@
     max-width: 600px;
     margin: 0 auto;
     border: 1px solid var(--color-border);
-    border-radius: 100px;
+    border-radius: var(--radius-base);
     background: var(--color-surface-raised);
-    padding: 0 8px 0 20px;
+    padding: 0 5px 0 10px;
     transition: border-color var(--transition-base), box-shadow var(--transition-base);
   }
 
@@ -824,7 +832,7 @@
     font-size: var(--text-base);
     font-weight: 500;
     padding: 10px 20px;
-    border-radius: 100px;
+    border-radius: var(--radius-base);
     white-space: nowrap;
     text-decoration: none;
     cursor: pointer;
@@ -1092,11 +1100,7 @@
     text-align: center;
   }
 
-  .badge-format[data-format="onnx"]     { color: var(--color-fmt-onnx);     border-color: var(--color-fmt-onnx); }
-  .badge-format[data-format="tflite"]   { color: var(--color-fmt-tflite);   border-color: var(--color-fmt-tflite); }
-  .badge-format[data-format="litertlm"] { color: var(--color-fmt-litertlm); border-color: var(--color-fmt-litertlm); }
-
-  .badge-dtype { width: 40px; }
+  .badge-dtype { width: 48px; }
 
   .badge-dtype[data-dtype="fp32"]      { color: var(--color-dt-fp32);      border-color: var(--color-dt-fp32); }
   .badge-dtype[data-dtype="fp16"]      { color: var(--color-dt-fp16);      border-color: var(--color-dt-fp16); }

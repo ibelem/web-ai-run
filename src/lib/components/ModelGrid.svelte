@@ -101,7 +101,7 @@
 
   <div class="footer">
     <p class="count">
-      {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, groups.length)} of {groups.length} model{groups.length === 1 ? '' : 's'}
+      {(currentPage - 1) * PAGE_SIZE + 1} - {Math.min(currentPage * PAGE_SIZE, groups.length)} of {groups.length} model{groups.length === 1 ? '' : 's'}
       {#if models.length !== groups.length}
         <span class="file-count">({models.length} files)</span>
       {/if}

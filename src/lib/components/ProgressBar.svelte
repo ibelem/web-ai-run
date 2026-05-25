@@ -7,7 +7,7 @@
     <span class="progress-label">{label}</span>
   {/if}
   <div class="progress-track">
-    <div class="progress-fill" style="width: {Math.min(100, percent)}%"></div>
+    <div class="progress-fill" style="transform: scaleX({Math.min(100, percent) / 100})"></div>
   </div>
   <span class="progress-percent">{percent.toFixed(0)}%</span>
 </div>
@@ -35,9 +35,12 @@
 
   .progress-fill {
     height: 100%;
+    width: 100%;
     background: var(--color-info);
     border-radius: 2px;
-    transition: width 150ms ease;
+    transform-origin: left;
+    transition: transform 150ms ease;
+    will-change: transform;
   }
 
   .progress-percent {

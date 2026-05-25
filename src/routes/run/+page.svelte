@@ -13,6 +13,7 @@
   import { fetchRuntimeVersions } from '$lib/engine/runtime-versions';
   import { inferDataType } from '$lib/huggingface/parser';
   import BackendSelector from '$lib/components/BackendSelector.svelte';
+  import FormatIcon from '$lib/components/FormatIcon.svelte';
   import RunConfigCmp from '$lib/components/RunConfig.svelte';
   import ProgressBar from '$lib/components/ProgressBar.svelte';
   import TestQueue from '$lib/components/TestQueue.svelte';
@@ -262,6 +263,7 @@
 
       if (queueFlushTimer) { clearTimeout(queueFlushTimer); queueFlushTimer = null; }
       item.status = result.error_message ? 'error' : 'completed';
+      if (result.error_message) item.error = result.error_message;
       item.progress = 100;
       results = [...results, result];
       queue = [...queue];
@@ -336,6 +338,8 @@
 
     if (queueFlushTimer) { clearTimeout(queueFlushTimer); queueFlushTimer = null; }
     item.status = result.error_message ? 'error' : 'completed';
+    if (result.error_message) item.error = result.error_message;
+    else item.error = undefined;
     item.progress = 100;
     results = [...results.filter((r) => !(r.test_item.hf_model_id === item.hf_model_id && r.test_item.file_path === item.file_path && r.test_item.backend === item.backend)), result];
     queue = [...queue];
@@ -466,7 +470,7 @@
                 <span class="model-item-repo">{m.hf_model_id}</span>
               </div>
               <div class="model-item-bottom">
-                <span class="model-item-format" data-format={ext}>{ext}</span>
+                <FormatIcon format={ext} size={14} />
                 <span class="model-item-name">{m.file_path.split('/').pop()}</span>
               </div>
             </div>
@@ -793,20 +797,6 @@
     min-width: 0;
   }
 
-  .model-item-format {
-    font-family: var(--font-mono);
-    font-size: 11px;
-    font-weight: 600;
-    padding: 1px 7px;
-    border-radius: var(--radius-sm);
-    border: 1px solid;
-    flex-shrink: 0;
-    line-height: 1.4;
-  }
-
-  .model-item-format[data-format="onnx"]     { color: var(--color-fmt-onnx);     border-color: var(--color-fmt-onnx); }
-  .model-item-format[data-format="tflite"]   { color: var(--color-fmt-tflite);   border-color: var(--color-fmt-tflite); }
-  .model-item-format[data-format="litertlm"] { color: var(--color-fmt-litertlm); border-color: var(--color-fmt-litertlm); }
 
   .model-item-dtype {
     font-family: var(--font-mono);

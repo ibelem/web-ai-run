@@ -136,15 +136,6 @@
           </a>
         {/if}
       {/each}
-      {#if $cartCount > 0}
-        <button
-          class="nav-item nav-cart"
-          onclick={() => cartPanelOpen.set(true)}
-        >
-          Cart
-          <span class="nav-cart-badge">{$cartCount}</span>
-        </button>
-      {/if}
       {#if data.role === 'admin'}
         <a
           href="/admin/users"
@@ -157,6 +148,15 @@
     </div>
   </div>
   <div class="nav-right">
+    {#if $cartCount > 0}
+      <button
+        class="nav-item nav-cart"
+        onclick={() => cartPanelOpen.set(true)}
+      >
+        Cart
+        <span class="nav-cart-badge">{$cartCount}</span>
+      </button>
+    {/if}
     <button class="nav-item theme-toggle" onclick={toggleTheme} aria-label="Toggle theme">
       {#if $theme === 'light'}
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -522,8 +522,7 @@
     justify-content: center;
     gap: var(--space-2);
     padding: var(--space-2) var(--space-2) var(--space-6) var(--space-2);
-    font-size: var(--text-sm);
-    font-weight: 500;
+    font-size: var(--text-xs);
     color: var(--color-text-muted);
   }
 </style>

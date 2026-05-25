@@ -190,21 +190,6 @@
     cursor: not-allowed;
   }
 
-  .btn-primary {
-    font-family: var(--font-ui);
-    font-size: var(--text-sm);
-    font-weight: 500;
-    padding: var(--space-1) var(--space-2);
-    border: none;
-    border-radius: var(--radius-base);
-    background: var(--color-text-primary);
-    color: var(--color-surface);
-    cursor: pointer;
-    transition: opacity var(--transition-base);
-  }
-
-  .btn-primary:hover { opacity: 0.85; }
-  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 
   .form-error {
     font-size: var(--text-sm);

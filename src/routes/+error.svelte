@@ -7,9 +7,9 @@
   <h1 class="error-message">{$page.error?.message ?? 'Something went wrong'}</h1>
   <nav class="error-nav">
     <a href="/" class="error-link">Home</a>
-    <a href="/browse" class="error-link">Browse Models</a>
-    <a href="/run" class="error-link">Run Benchmark</a>
-    <a href="/custom" class="error-link">Upload Custom Model</a>
+    <a href="/browse" class="error-link">Browse</a>
+    <a href="/recipe" class="error-link">Recipes</a>
+    <a href="/custom" class="error-link">Custom</a>
   </nav>
 </div>
 
@@ -41,7 +41,9 @@
 
   .error-nav {
     display: flex;
-    gap: var(--space-2);
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--space-1);
     margin-top: var(--space-2);
   }
 
@@ -54,9 +56,27 @@
     border: 1px solid var(--color-border);
     border-radius: var(--radius-sm);
     transition: border-color var(--transition-base);
+    white-space: nowrap;
   }
 
   .error-link:hover {
     border-color: var(--color-primary);
+  }
+
+  @media (max-width: 600px) {
+    .error-nav {
+      flex-direction: column;
+      align-items: stretch;
+      width: 100%;
+      max-width: 260px;
+    }
+
+    .error-link {
+      text-align: center;
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
   }
 </style>

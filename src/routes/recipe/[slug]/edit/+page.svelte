@@ -2,6 +2,7 @@
   import { goto } from '$app/navigation';
   import HFSearch, { type SelectedHFModel } from '$lib/components/HFSearch.svelte';
   import HFUrlImport from '$lib/components/HFUrlImport.svelte';
+  import FormatIcon from '$lib/components/FormatIcon.svelte';
   import { updateRecipe, deleteRecipe } from '$lib/recipes/crud';
   import type { RecipeModel } from '$lib/supabase/types';
 
@@ -59,6 +60,14 @@
 
   function basename(path: string) {
     return path.split('/').pop() ?? path;
+  }
+
+  function formatSize(bytes?: number): string {
+    if (!bytes) return '';
+    if (bytes >= 1_073_741_824) return `${(bytes / 1_073_741_824).toFixed(1)}G`;
+    if (bytes >= 1_048_576) return `${(bytes / 1_048_576).toFixed(0)}M`;
+    if (bytes >= 1024) return `${(bytes / 1024).toFixed(0)}K`;
+    return `${bytes}B`;
   }
 
   const isEmpty = $derived(recipeModels.length === 0);
@@ -161,10 +170,13 @@
                 <span class="model-item-repo">{m.hf_model_id}</span>
               </div>
               <div class="model-item-bottom">
-                <span class="model-item-format" data-format={ext}>{ext}</span>
+                <FormatIcon format={ext} size={14} />
                 <span class="model-item-name">{basename(m.file_path)}</span>
               </div>
             </div>
+            {#if m.size_bytes}
+              <span class="model-item-size">{formatSize(m.size_bytes)}</span>
+            {/if}
             {#if m.data_type}
               <span class="model-item-dtype" data-dtype={m.data_type}>{m.data_type === 'quantized' ? 'quant' : m.data_type}</span>
             {/if}
@@ -246,7 +258,7 @@
 
   /* Sidebar */
   .recipe-sidebar {
-    width: 200px;
+    width: 220px;
     flex-shrink: 0;
     position: sticky;
     top: calc(56px + var(--space-3));
@@ -336,17 +348,15 @@
     .recipe-sidebar {
       width: 100%;
       position: static;
-      flex-direction: row;
-      flex-wrap: wrap;
     }
     .sidebar-list {
-      flex-direction: row;
-      flex-wrap: wrap;
+      flex-direction: column;
     }
   }
 
   .edit-page {
-    max-width: 100%;
+    flex: 1;
+    min-width: 0;
     display: flex;
     flex-direction: column;
     gap: var(--space-3);
@@ -354,7 +364,7 @@
 
   .meta-row {
     display: flex;
-    gap: var(--space-2);
+    gap: var(--space-1);
     align-items: center;
   }
 
@@ -379,9 +389,12 @@
     border-radius: var(--radius-base);
     overflow: hidden;
     flex-shrink: 0;
+    min-width: 146px;
   }
 
   .visibility-tab {
+    width: 50%;
+    box-sizing: border-box;
     font-family: var(--font-ui);
     font-size: var(--text-sm);
     font-weight: 500;
@@ -507,20 +520,17 @@
     min-width: 0;
   }
 
-  .model-item-format {
+
+  .model-item-size {
     font-family: var(--font-mono);
     font-size: 11px;
-    font-weight: 600;
+    color: var(--color-text-muted);
     padding: 1px 7px;
     border-radius: var(--radius-sm);
-    border: 1px solid;
+    border: 1px solid var(--color-border);
+    white-space: nowrap;
     flex-shrink: 0;
-    line-height: 1.4;
   }
-
-  .model-item-format[data-format="onnx"]     { color: var(--color-fmt-onnx);     border-color: var(--color-fmt-onnx); }
-  .model-item-format[data-format="tflite"]   { color: var(--color-fmt-tflite);   border-color: var(--color-fmt-tflite); }
-  .model-item-format[data-format="litertlm"] { color: var(--color-fmt-litertlm); border-color: var(--color-fmt-litertlm); }
 
   .model-item-dtype {
     font-family: var(--font-mono);
@@ -654,7 +664,7 @@
     font-weight: 500;
     padding: 10px 20px;
     border: 1px solid var(--color-border);
-    border-radius: 100px;
+    border-radius: var(--radius-base);
     background: none;
     color: var(--color-text-secondary);
     text-decoration: none;
@@ -672,7 +682,7 @@
     font-weight: 500;
     padding: 10px 20px;
     border: none;
-    border-radius: 100px;
+    border-radius: var(--radius-base);
     background: var(--color-primary);
     color: #fff;
     cursor: pointer;
@@ -699,5 +709,24 @@
   .error-text {
     font-size: var(--text-sm);
     color: var(--color-error);
+  }
+
+  @media (max-width: 640px) {
+    .save-bar {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .save-actions {
+      margin-left: 0;
+      width: 100%;
+    }
+
+    .btn-ghost,
+    .btn-save {
+      flex: 1;
+      text-align: center;
+      min-height: 44px;
+    }
   }
 </style>

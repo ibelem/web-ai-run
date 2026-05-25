@@ -407,7 +407,7 @@
     font-weight: 500;
     padding: 10px 20px;
     border: 1px solid var(--color-primary);
-    border-radius: 100px;
+    border-radius: var(--radius-base);
     background: none;
     color: var(--color-primary);
     cursor: pointer;
@@ -425,7 +425,7 @@
     font-weight: 500;
     padding: 10px 20px;
     border: none;
-    border-radius: 100px;
+    border-radius: var(--radius-base);
     background: var(--color-primary);
     color: #fff;
     cursor: pointer;

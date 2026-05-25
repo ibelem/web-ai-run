@@ -46,8 +46,8 @@
 
   /* Border radius */
   --radius-sm: 1px;
-  --radius-base: 2px;
-  --radius-lg: 4px;
+  --radius-base: 3px;
+  --radius-lg: 5px;
 
   /* Z-index scale */
   --z-base: 0;
@@ -151,6 +151,7 @@
 }
 
 [data-theme="dark"] {
+  --color-accent-light: rgba(0, 199, 253, 0.12);
   --color-surface: #151F30;
   --color-surface-raised: #151F30;
   --color-surface-sunken: #0F1724;
@@ -379,7 +380,7 @@ body {
   font-weight: 500;
   padding: 10px 20px;
   border: none;
-  border-radius: 100px;
+  border-radius: var(--radius-base);
   background: var(--color-primary);
   color: #FFFFFF;
   cursor: pointer;
@@ -388,3 +389,5 @@ body {
 
 .btn-primary:hover { background: var(--color-primary-hover); }
 .btn-primary:disabled { background: var(--color-disabled); color: var(--color-text-muted); cursor: not-allowed; }
+
+

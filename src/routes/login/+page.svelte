@@ -340,7 +340,6 @@
 
   .btn-primary {
     width: 100%;
-    min-height: 40px;
   }
 
   .alt-actions {
