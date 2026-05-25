@@ -25,7 +25,7 @@
   }
 
   function formatDate(iso: string): string {
-    return new Date(iso).toLocaleDateString(undefined, {
+    return new Date(iso).toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
       year: 'numeric',
@@ -237,7 +237,7 @@
             </button>
           </form>
         </div>
-        <p class="meta">Member since {new Date(data.profile.created_at).toLocaleDateString()}</p>
+        <p class="meta">Member since {new Date(data.profile.created_at).toLocaleDateString('en-US')}</p>
       {/if}
     {/if}
   </section>

@@ -100,7 +100,7 @@
   });
 
   function formatDate(iso: string): string {
-    return new Date(iso).toLocaleDateString(undefined, {
+    return new Date(iso).toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
       hour: '2-digit',
@@ -632,12 +632,12 @@
 
   .mock-bar-2 {
     width: 72%;
-    background: var(--color-backend-webnn-gpu);
+    background: var(--color-backend-webgpu);
   }
 
   .mock-bar-3 {
     width: 40%;
-    background: var(--color-backend-webgpu);
+    background: var(--color-backend-wasm-4);
   }
 
   .mock-bar-4 {

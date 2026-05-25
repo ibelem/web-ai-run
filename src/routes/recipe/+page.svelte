@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { goto } from '$app/navigation';
   import { deleteRecipe, updateRecipe } from '$lib/recipes/crud';
   import type { Recipe } from '$lib/recipes/crud';
 
@@ -34,13 +33,107 @@
   }
 
   function formatDate(iso: string): string {
-    return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+    return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   }
 
-  function uniqueModelIds(recipe: Recipe): string[] {
-    return [...new Set(recipe.models.map(m => m.hf_model_id))];
+  let copyFeedback = $state<string | null>(null);
+
+  async function copyShareLink(recipe: Recipe) {
+    const url = `${window.location.origin}/recipe/${recipe.slug}`;
+    await navigator.clipboard.writeText(url);
+    copyFeedback = recipe.id;
+    setTimeout(() => { copyFeedback = null; }, 2000);
+  }
+
+  const publicRecipes = $derived(data.recipes.filter(r => r.visibility === 'public'));
+  const personalRecipes = $derived(data.recipes.filter(r => r.visibility === 'personal'));
+
+  function splitTwo(recipes: Recipe[]): [Recipe[], Recipe[]] {
+    return [recipes.filter((_, i) => i % 2 === 0), recipes.filter((_, i) => i % 2 === 1)];
   }
 </script>
+
+{#snippet recipeRow(recipe: Recipe, visLabel: string)}
+  <tr class="recipe-row">
+    <td class="cell-name">
+      <a href="/recipe/{recipe.slug}" class="name-link" title={recipe.name}>{recipe.name}</a>
+      <div class="model-popup">
+        {#each recipe.models as m}
+          <div class="popup-row">
+            <span class="popup-repo">{m.hf_model_id}</span>
+            <span class="popup-file">{m.file_path.split('/').pop()}</span>
+            <span class="dtype-chip" data-dtype={m.data_type}>{m.data_type}</span>
+          </div>
+        {/each}
+      </div>
+    </td>
+    <td class="cell-date">{formatDate(recipe.updated_at)}</td>
+    <td class="cell-actions">
+      <span class="cell-actions-inner">
+        <button class="action-btn action-run" onclick={() => runRecipe(recipe)}>Run</button>
+        <button class="action-btn action-share" onclick={() => copyShareLink(recipe)}>
+          {copyFeedback === recipe.id ? '✓' : 'Link'}
+        </button>
+        {#if data.userId === recipe.owner_id}
+          <button class="action-btn action-vis" onclick={() => toggleVisibility(recipe)}>{visLabel}</button>
+          <a href="/recipe/{recipe.slug}/edit" class="action-btn action-edit">Edit</a>
+          <button class="action-btn action-delete" onclick={() => handleDelete(recipe)}>Del</button>
+        {/if}
+      </span>
+    </td>
+  </tr>
+{/snippet}
+
+{#snippet recipeTable(col: Recipe[], visLabel: string)}
+  {#if col.length > 0}
+    <div class="table-wrapper">
+      <table class="recipe-table">
+        <thead>
+          <tr>
+            <th class="col-name">Name</th>
+            <th class="col-date">Updated</th>
+            <th class="col-actions"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {#each col as recipe (recipe.id)}
+            {@render recipeRow(recipe, visLabel)}
+          {/each}
+        </tbody>
+      </table>
+    </div>
+    <!-- Mobile cards -->
+    <div class="mobile-cards">
+      {#each col as recipe (recipe.id)}
+        <div class="mobile-card">
+          <div class="mobile-card-top">
+            <a href="/recipe/{recipe.slug}" class="mobile-card-name">{recipe.name}</a>
+            <span class="mobile-card-date">{formatDate(recipe.updated_at)}</span>
+          </div>
+          <div class="mobile-card-models">
+            {#each recipe.models as m}
+              <div class="mobile-model-row">
+                <span class="mobile-model-id">{m.hf_model_id}</span>
+                <span class="dtype-chip" data-dtype={m.data_type}>{m.data_type}</span>
+              </div>
+            {/each}
+          </div>
+          <div class="mobile-card-actions">
+            <button class="action-btn action-run" onclick={() => runRecipe(recipe)}>Run</button>
+            <button class="action-btn action-share" onclick={() => copyShareLink(recipe)}>
+              {copyFeedback === recipe.id ? '✓' : 'Link'}
+            </button>
+            {#if data.userId === recipe.owner_id}
+              <button class="action-btn action-vis" onclick={() => toggleVisibility(recipe)}>{visLabel}</button>
+              <a href="/recipe/{recipe.slug}/edit" class="action-btn action-edit">Edit</a>
+              <button class="action-btn action-delete" onclick={() => handleDelete(recipe)}>Del</button>
+            {/if}
+          </div>
+        </div>
+      {/each}
+    </div>
+  {/if}
+{/snippet}
 
 <div class="recipe-page">
   <header class="page-header">
@@ -60,46 +153,35 @@
       <p>No recipes yet. Browse models and save them as a recipe from the Cart panel.</p>
     </div>
   {:else}
-    <div class="recipe-grid">
-      {#each data.recipes as recipe (recipe.id)}
-        <div class="recipe-card">
-          <div class="recipe-header">
-            <h2 class="recipe-name">{recipe.name}</h2>
-            {#if data.userId === recipe.owner_id}
-              <button
-                class="visibility-toggle"
-                class:is-public={recipe.visibility === 'public'}
-                onclick={() => toggleVisibility(recipe)}
-                title="Click to toggle visibility"
-              >
-                {recipe.visibility === 'public' ? 'public' : 'personal'}
-              </button>
-            {:else if recipe.visibility === 'public'}
-              <span class="visibility-badge">public</span>
-            {/if}
-          </div>
-          <p class="recipe-meta">
-            {recipe.models.length} model{recipe.models.length !== 1 ? 's' : ''}
-            &middot; {formatDate(recipe.updated_at)}
-          </p>
-          <div class="recipe-models">
-            {#each uniqueModelIds(recipe).slice(0, 3) as id}
-              <span class="model-tag">{id}</span>
-            {/each}
-            {#if uniqueModelIds(recipe).length > 3}
-              <span class="model-tag model-tag-more">+{uniqueModelIds(recipe).length - 3}</span>
-            {/if}
-          </div>
-          <div class="recipe-actions">
-            <button class="btn-run-sm" onclick={() => runRecipe(recipe)}>Run</button>
-            {#if data.userId === recipe.owner_id}
-              <a href="/recipe/{recipe.slug}/edit" class="btn-edit-sm">Edit</a>
-              <button class="btn-delete-sm" onclick={() => handleDelete(recipe)}>Delete</button>
-            {/if}
-          </div>
+
+    {#if publicRecipes.length > 0}
+      {@const [left, right] = splitTwo(publicRecipes)}
+      <section class="recipe-section">
+        <div class="section-header">
+          <h2 class="section-title section-public">Public</h2>
+          <span class="count-badge">{publicRecipes.length}</span>
         </div>
-      {/each}
-    </div>
+        <div class="two-col">
+          {@render recipeTable(left, '→ Personal')}
+          {@render recipeTable(right, '→ Personal')}
+        </div>
+      </section>
+    {/if}
+
+    {#if personalRecipes.length > 0}
+      {@const [left, right] = splitTwo(personalRecipes)}
+      <section class="recipe-section">
+        <div class="section-header">
+          <h2 class="section-title section-personal">Personal</h2>
+          <span class="count-badge">{personalRecipes.length}</span>
+        </div>
+        <div class="two-col">
+          {@render recipeTable(left, '→ Public')}
+          {@render recipeTable(right, '→ Public')}
+        </div>
+      </section>
+    {/if}
+
   {/if}
 </div>
 
@@ -159,171 +241,269 @@
     color: var(--color-text-muted);
   }
 
-  .recipe-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-    gap: var(--space-2);
+  .recipe-section {
+    margin-bottom: var(--space-4);
   }
 
-  .recipe-card {
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-base);
-    padding: var(--space-2);
-    background: var(--color-surface-raised);
-    display: flex;
-    flex-direction: column;
-    transition: border-color var(--transition-base), background var(--transition-base);
-  }
-
-  .recipe-card:hover {
-    border-color: var(--color-primary);
-    background: var(--color-accent-light);
-  }
-
-  .recipe-header {
+  .section-header {
     display: flex;
     align-items: center;
     gap: var(--space-1);
-    margin-bottom: var(--space-half);
+    margin-bottom: var(--space-2);
+    padding-bottom: var(--space-1);
   }
 
-  .recipe-name {
-    flex: 1;
-    font-size: var(--text-base);
+  .section-title {
+    font-size: var(--text-sm);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin: 0;
+  }
+
+  .section-public  { color: var(--color-dt-int8); }
+  .section-personal { color: var(--color-dt-fp16); }
+
+  .count-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 9px;
+    background: var(--color-primary);
+    color: var(--color-text-on-primary);
+    font-size: 11px;
+    font-weight: 600;
+    font-family: var(--font-mono);
+    letter-spacing: 0;
+    text-transform: none;
+  }
+
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-3);
+    align-items: start;
+  }
+
+  .table-wrapper {
+    overflow: visible;
+  }
+
+  .recipe-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--font-ui);
+    font-size: var(--text-sm);
+    table-layout: fixed;
+  }
+
+  .recipe-table th {
+    text-align: left;
+    padding: var(--space-1);
+    font-size: var(--text-xs);
     font-weight: 500;
-    color: var(--color-text-primary);
-    overflow: hidden;
-    text-overflow: ellipsis;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    border-bottom: 1px solid var(--color-border-strong);
     white-space: nowrap;
   }
 
-  .visibility-badge {
-    font-size: var(--text-xs);
-    padding: 2px 8px;
-    border-radius: var(--radius-sm);
-    border: 1px solid var(--color-dt-int8);
-    background: none;
-    color: var(--color-dt-int8);
-    flex-shrink: 0;
-    transition: background var(--transition-base), color var(--transition-base);
+  .recipe-table td {
+    padding: var(--space-1);
+    border-bottom: 1px solid var(--color-border);
+    vertical-align: middle;
+    white-space: nowrap;
+    overflow: hidden;
   }
 
-  .recipe-card:hover .visibility-badge {
-    background: var(--color-dt-int8);
-    color: var(--color-text-on-primary);
+  /* Name fills remaining space; others are fixed */
+  .col-name    { width: auto; }
+  .col-date    { width: 90px; }
+  .col-actions { width: 290px; }
+
+  /* Name cell — relative so popup anchors to it */
+  .cell-name {
+    position: relative;
+    overflow: visible !important;
   }
 
-  .visibility-toggle {
-    font-family: var(--font-ui);
-    font-size: var(--text-xs);
-    padding: 2px 8px;
-    border-radius: var(--radius-sm);
-    border: 1px solid var(--color-dt-fp16);
-    background: none;
-    color: var(--color-dt-fp16);
-    cursor: pointer;
-    flex-shrink: 0;
-    transition: background var(--transition-base), color var(--transition-base), border-color var(--transition-base);
+  .name-link {
+    display: block;
+    font-weight: 500;
+    color: var(--color-text-primary);
+    text-decoration: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: color var(--transition-base);
   }
 
-  .recipe-card:hover .visibility-toggle {
-    background: var(--color-dt-fp16);
-    color: var(--color-text-on-primary);
+  .name-link:hover {
+    color: var(--color-primary);
   }
 
-  .visibility-toggle.is-public {
-    border-color: var(--color-dt-int8);
-    color: var(--color-dt-int8);
+  /* Hover popup */
+  .model-popup {
+    display: none;
+    position: absolute;
+    top: calc(100% + 0px);
+    left: 0;
+    z-index: var(--z-dropdown);
+    background: var(--color-surface-raised);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-base);
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+    box-shadow: var(--shadow-dropdown);
+    padding: var(--space-1) var(--space-2);
+    width: calc(100% + 90px + 290px);
+    pointer-events: none;
   }
 
-  .recipe-card:hover .visibility-toggle.is-public {
-    background: var(--color-dt-int8);
-    border-color: var(--color-dt-int8);
-    color: var(--color-text-on-primary);
+  .recipe-row:hover .model-popup {
+    display: block;
   }
 
-  .recipe-meta {
-    font-size: var(--text-xs);
-    color: var(--color-text-muted);
-    margin-bottom: var(--space-1);
-  }
-
-  .recipe-models {
+  .popup-row {
     display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-half);
-    margin-bottom: var(--space-2);
-    flex: 1;
-    align-content: flex-start;
-    min-height: 52px;
+    align-items: center;
+    gap: var(--space-1);
+    padding: 3px 0;
+    border-bottom: 1px solid var(--color-border);
   }
 
-  .model-tag {
+  .popup-row:last-child {
+    border-bottom: none;
+  }
+
+  .popup-repo {
     font-family: var(--font-mono);
     font-size: var(--text-xs);
-    padding: 2px 6px;
-    border-radius: var(--radius-sm);
-    background: var(--color-surface-sunken);
-    color: var(--color-text-secondary);
+    font-weight: 500;
+    color: var(--color-text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: 300px;
+    flex-shrink: 0;
   }
 
-  .model-tag-more {
+  .popup-file {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .dtype-chip {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 1px 6px;
+    border-radius: var(--radius-sm);
+    border: 1px solid;
+    line-height: 1.4;
+    white-space: nowrap;
+    display: inline-block;
+    vertical-align: middle;
+    margin-right: 2px;
+  }
+
+  .dtype-chip[data-dtype="fp32"]      { color: var(--color-dt-fp32);      border-color: var(--color-dt-fp32); }
+  .dtype-chip[data-dtype="fp16"]      { color: var(--color-dt-fp16);      border-color: var(--color-dt-fp16); }
+  .dtype-chip[data-dtype="bf16"]      { color: var(--color-dt-bf16);      border-color: var(--color-dt-bf16); }
+  .dtype-chip[data-dtype="fp8"]       { color: var(--color-dt-fp8);       border-color: var(--color-dt-fp8); }
+  .dtype-chip[data-dtype="int8"]      { color: var(--color-dt-int8);      border-color: var(--color-dt-int8); }
+  .dtype-chip[data-dtype="uint8"]     { color: var(--color-dt-uint8);     border-color: var(--color-dt-uint8); }
+  .dtype-chip[data-dtype="int4"]      { color: var(--color-dt-int4);      border-color: var(--color-dt-int4); }
+  .dtype-chip[data-dtype="uint4"]     { color: var(--color-dt-uint4);     border-color: var(--color-dt-uint4); }
+  .dtype-chip[data-dtype="q4"]        { color: var(--color-dt-q4);        border-color: var(--color-dt-q4); }
+  .dtype-chip[data-dtype="q4f16"]     { color: var(--color-dt-q4f16);     border-color: var(--color-dt-q4f16); }
+  .dtype-chip[data-dtype="bnb4"]      { color: var(--color-dt-bnb4);      border-color: var(--color-dt-bnb4); }
+  .dtype-chip[data-dtype="quantized"] { color: var(--color-dt-quantized); border-color: var(--color-dt-quantized); }
+
+  .cell-date {
+    font-size: var(--text-xs);
     color: var(--color-text-muted);
   }
 
-  .recipe-actions {
-    display: flex;
-    gap: var(--space-1);
-  }
-
-  .recipe-actions > * {
-    flex: 1;
+  .cell-actions {
+    vertical-align: middle;
     text-align: center;
   }
 
-  .btn-run-sm {
-    font-family: var(--font-ui);
-    font-size: var(--text-xs);
-    font-weight: 500;
-    padding: 4px 10px;
-    border: none;
-    border-radius: var(--radius-base);
-    background: var(--color-primary);
-    color: var(--color-text-on-primary);
-    cursor: pointer;
-    transition: background var(--transition-base);
+  .cell-actions-inner {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    vertical-align: middle;
+    white-space: nowrap;
   }
 
-  .btn-run-sm:hover { background: var(--color-primary-hover); }
-
-  .btn-edit-sm {
-    font-family: var(--font-ui);
-    font-size: var(--text-xs);
-    padding: 4px 10px;
+  .action-btn {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 1px 6px;
+    line-height: 1.4;
+    border-radius: var(--radius-sm);
     border: 1px solid var(--color-border);
-    border-radius: var(--radius-base);
     background: none;
     color: var(--color-text-secondary);
     cursor: pointer;
     text-decoration: none;
+    white-space: nowrap;
+    display: inline-block;
+    vertical-align: middle;
+    transition: color var(--transition-base), border-color var(--transition-base), background var(--transition-base);
   }
 
-  .btn-edit-sm:hover { background: var(--color-nav-item-hover); }
+  .action-run    { width: 34px;  text-align: center; border-color: var(--color-primary); color: var(--color-primary); }
+  .action-share  { width: 40px;  text-align: center; }
+  .action-vis    { width: 96px;  text-align: center; }
+  .action-edit   { width: 40px;  text-align: center; }
+  .action-delete { width: 34px;  text-align: center; }
 
-  .btn-delete-sm {
-    font-family: var(--font-ui);
-    font-size: var(--text-xs);
-    padding: 4px 10px;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-base);
-    background: none;
-    color: var(--color-text-secondary);
-    cursor: pointer;
+  .action-run:hover {
+    background: var(--color-primary);
+    color: var(--color-text-on-primary);
   }
 
-  .btn-delete-sm:hover { background: var(--color-nav-item-hover); }
+  .action-share:hover,
+  .action-edit:hover,
+  .action-vis:hover {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+  }
 
-  @media (max-width: 640px) {
+  .action-delete:hover {
+    border-color: var(--color-error);
+    color: var(--color-error);
+  }
+
+  .recipe-table tbody tr:hover td {
+    background: var(--color-surface-sunken);
+  }
+
+  .mobile-cards {
+    display: none;
+  }
+
+  @media (max-width: 900px) {
+    .two-col {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 768px) {
     .page-header {
       flex-direction: column;
       align-items: flex-start;
@@ -334,8 +514,83 @@
       text-align: center;
     }
 
-    .recipe-grid {
-      grid-template-columns: 1fr;
+    .table-wrapper {
+      display: none;
+    }
+
+    .mobile-cards {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-2);
+    }
+
+    .mobile-card {
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-base);
+      padding: var(--space-2);
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-1);
+    }
+
+    .mobile-card-top {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: var(--space-1);
+    }
+
+    .mobile-card-name {
+      font-size: var(--text-sm);
+      font-weight: 500;
+      color: var(--color-text-primary);
+      text-decoration: none;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      min-width: 0;
+    }
+
+    .mobile-card-name:hover {
+      color: var(--color-primary);
+    }
+
+    .mobile-card-date {
+      font-size: var(--text-xs);
+      color: var(--color-text-muted);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .mobile-card-models {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .mobile-model-row {
+      display: flex;
+      align-items: center;
+      gap: var(--space-1);
+    }
+
+    .mobile-model-id {
+      font-family: var(--font-mono);
+      font-size: var(--text-xs);
+      color: var(--color-text-secondary);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .mobile-card-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      padding-top: var(--space-1);
+      border-top: 1px solid var(--color-border);
     }
   }
 </style>

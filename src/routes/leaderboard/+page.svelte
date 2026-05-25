@@ -10,6 +10,7 @@
   let filterDateFrom = $state('');
   let filterDateTo = $state('');
   let groupByHardware = $state(false);
+  let showAllColumns = $state(false);
   let sortColumn = $state<string>('average_ms');
   let sortAscending = $state(true);
 
@@ -185,6 +186,10 @@
         <input type="checkbox" bind:checked={groupByHardware} />
         Group by hardware
       </label>
+      <label class="group-toggle">
+        <input type="checkbox" bind:checked={showAllColumns} />
+        All columns
+      </label>
     </div>
 
     {#if sortedResults.length === 0}
@@ -199,26 +204,30 @@
               <th>Model</th>
               <th>Backend</th>
               <th>Data Type</th>
-              <th class="sortable" onclick={() => toggleSort('compilation_ms')}>
-                Compile (ms){sortIndicator('compilation_ms')}
-              </th>
-              <th class="sortable" onclick={() => toggleSort('load_and_compile_ms')}>
-                Load+Compile (ms){sortIndicator('load_and_compile_ms')}
-              </th>
+              {#if showAllColumns}
+                <th class="sortable" onclick={() => toggleSort('compilation_ms')}>
+                  Compile{sortIndicator('compilation_ms')}
+                </th>
+                <th class="sortable" onclick={() => toggleSort('load_and_compile_ms')}>
+                  Load+Compile{sortIndicator('load_and_compile_ms')}
+                </th>
+              {/if}
               <th class="sortable" onclick={() => toggleSort('average_ms')}>
                 Avg (ms){sortIndicator('average_ms')}
               </th>
               <th class="sortable" onclick={() => toggleSort('median_ms')}>
                 Median (ms){sortIndicator('median_ms')}
               </th>
-              <th class="sortable" onclick={() => toggleSort('best_ms')}>
-                Best (ms){sortIndicator('best_ms')}
-              </th>
-              <th class="sortable" onclick={() => toggleSort('p90_ms')}>
-                p90 (ms){sortIndicator('p90_ms')}
-              </th>
+              {#if showAllColumns}
+                <th class="sortable" onclick={() => toggleSort('best_ms')}>
+                  Best{sortIndicator('best_ms')}
+                </th>
+                <th class="sortable" onclick={() => toggleSort('p90_ms')}>
+                  p90{sortIndicator('p90_ms')}
+                </th>
+              {/if}
               <th class="sortable" onclick={() => toggleSort('throughput_fps')}>
-                Throughput (fps){sortIndicator('throughput_fps')}
+                FPS{sortIndicator('throughput_fps')}
               </th>
               <th>GPU</th>
               <th>Browser</th>
@@ -232,12 +241,16 @@
                 </td>
                 <td><span class="badge">{getBackendLabel(result.backend)}</span></td>
                 <td><span class="badge">{result.data_type}</span></td>
-                <td class="cell-metric">{result.compilation_ms?.toFixed(1) ?? '—'}</td>
-                <td class="cell-metric">{result.load_and_compile_ms?.toFixed(1) ?? '—'}</td>
+                {#if showAllColumns}
+                  <td class="cell-metric">{result.compilation_ms?.toFixed(1) ?? '—'}</td>
+                  <td class="cell-metric">{result.load_and_compile_ms?.toFixed(1) ?? '—'}</td>
+                {/if}
                 <td class="cell-metric">{result.average_ms?.toFixed(1) ?? '—'}</td>
                 <td class="cell-metric">{result.median_ms?.toFixed(1) ?? '—'}</td>
-                <td class="cell-metric">{result.best_ms?.toFixed(1) ?? '—'}</td>
-                <td class="cell-metric">{result.p90_ms?.toFixed(1) ?? '—'}</td>
+                {#if showAllColumns}
+                  <td class="cell-metric">{result.best_ms?.toFixed(1) ?? '—'}</td>
+                  <td class="cell-metric">{result.p90_ms?.toFixed(1) ?? '—'}</td>
+                {/if}
                 <td class="cell-metric">{result.throughput_fps?.toFixed(1) ?? '—'}</td>
                 <td class="cell-info">{result.gpu || '—'}</td>
                 <td class="cell-info">

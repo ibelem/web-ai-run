@@ -151,8 +151,8 @@
             <tr>
               <td class="model-col">{result.test_item.hf_model_id.split('/')[1]}</td>
               <td>{getBackendLabel(result.test_item.backend)}</td>
-              <td class="metric">{result.metrics!.compilation_ms != null ? fmt(result.metrics!.compilation_ms) : '—'}</td>
-              <td class="metric">{result.metrics!.load_and_compile_ms != null ? fmt(result.metrics!.load_and_compile_ms) : '—'}</td>
+              <td class="metric">{result.metrics!.compilation_ms != null ? fmt(result.metrics!.compilation_ms) : ''}<span class="na">{result.metrics!.compilation_ms == null ? 'n/a' : ''}</span></td>
+              <td class="metric">{result.metrics!.load_and_compile_ms != null ? fmt(result.metrics!.load_and_compile_ms) : ''}<span class="na">{result.metrics!.load_and_compile_ms == null ? 'n/a' : ''}</span></td>
               <td class="metric">{fmt(result.metrics!.first_inference_ms)}</td>
               <td class="metric highlight">{fmt(result.metrics!.median_ms)}</td>
               <td class="metric">{fmt(result.metrics!.average_ms)}</td>
@@ -319,6 +319,12 @@
   .metric.highlight {
     color: var(--color-text-primary);
     font-weight: 600;
+  }
+
+  .na {
+    color: var(--color-text-muted);
+    font-weight: 400;
+    font-size: 10px;
   }
 
   .results-footer {

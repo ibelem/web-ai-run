@@ -1,0 +1,406 @@
+<script lang="ts">
+  import { goto } from '$app/navigation';
+  import { deleteRecipe, updateRecipe } from '$lib/recipes/crud';
+  import type { Recipe } from '$lib/recipes/crud';
+  import FormatIcon from '$lib/components/FormatIcon.svelte';
+
+  let { data } = $props();
+
+  function getFormat(filePath: string): string {
+    if (filePath.endsWith('.tflite')) return 'tflite';
+    if (filePath.endsWith('.litertlm')) return 'litertlm';
+    return 'onnx';
+  }
+
+  function basename(path: string) {
+    return path.split('/').pop() ?? path;
+  }
+
+  function formatSize(bytes?: number): string {
+    if (!bytes) return '';
+    if (bytes >= 1_073_741_824) return `${(bytes / 1_073_741_824).toFixed(1)}G`;
+    if (bytes >= 1_048_576) return `${(bytes / 1_048_576).toFixed(0)}M`;
+    if (bytes >= 1024) return `${(bytes / 1024).toFixed(0)}K`;
+    return `${bytes}B`;
+  }
+
+  function runRecipe(recipe: Recipe) {
+    try {
+      sessionStorage.setItem('hf_ext_models', JSON.stringify(
+        recipe.models.map((m) => ({
+          hf_model_id: m.hf_model_id,
+          file_path: m.file_path,
+          data_type: m.data_type,
+          runtime: (m.file_path.endsWith('.tflite') || m.file_path.endsWith('.litertlm')) ? 'litert' : 'onnx',
+        }))
+      ));
+    } catch {}
+    window.location.href = '/run';
+  }
+
+  async function handleDelete() {
+    if (!confirm(`Delete "${data.recipe.name}"?`)) return;
+    await deleteRecipe(data.recipe.id);
+    goto('/recipe');
+  }
+
+  async function toggleVisibility() {
+    const next = data.recipe.visibility === 'public' ? 'personal' : 'public';
+    await updateRecipe(data.recipe.id, { visibility: next });
+    data.recipe = { ...data.recipe, visibility: next };
+  }
+
+  let copyFeedback = $state(false);
+
+  async function copyShareLink() {
+    await navigator.clipboard.writeText(window.location.href);
+    copyFeedback = true;
+    setTimeout(() => { copyFeedback = false; }, 2000);
+  }
+
+  function formatDate(iso: string): string {
+    return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+</script>
+
+<div class="recipe-detail">
+  <header class="page-header">
+    <div class="page-header-text">
+      <h1>{data.recipe.name}</h1>
+      <p>{data.recipe.models.length} model{data.recipe.models.length !== 1 ? 's' : ''} &middot; {data.recipe.visibility} &middot; Updated {formatDate(data.recipe.updated_at)}</p>
+    </div>
+    <div class="header-actions">
+      <button class="btn-run" onclick={() => runRecipe(data.recipe)}>Run</button>
+      <button class="btn-share" onclick={copyShareLink}>
+        {copyFeedback ? 'Copied!' : 'Share'}
+      </button>
+      {#if data.isOwner}
+        <a href="/recipe/{data.recipe.slug}/edit" class="btn-edit">Edit</a>
+        <button class="btn-delete" onclick={handleDelete}>Delete</button>
+      {/if}
+    </div>
+  </header>
+
+  <div class="models-section">
+    <div class="zone-label">
+      Models
+      <span class="count-badge">{data.recipe.models.length}</span>
+    </div>
+    <ul class="model-list">
+      {#each data.recipe.models as m (`${m.hf_model_id}::${m.file_path}`)}
+        {@const ext = getFormat(m.file_path)}
+        <li class="model-item">
+          <div class="model-item-left">
+            <div class="model-item-top">
+              <span class="model-item-repo">{m.hf_model_id}</span>
+            </div>
+            <div class="model-item-bottom">
+              <FormatIcon format={ext} size={14} />
+              <span class="model-item-name">{basename(m.file_path)}</span>
+            </div>
+          </div>
+          {#if m.size_bytes}
+            <span class="model-item-size">{formatSize(m.size_bytes)}</span>
+          {/if}
+          {#if m.data_type}
+            <span class="model-item-dtype" data-dtype={m.data_type}>{m.data_type === 'quantized' ? 'quant' : m.data_type}</span>
+          {/if}
+        </li>
+      {/each}
+    </ul>
+  </div>
+
+  {#if data.isOwner}
+    <div class="visibility-section">
+      <button class="vis-toggle" class:is-public={data.recipe.visibility === 'public'} onclick={toggleVisibility}>
+        {data.recipe.visibility === 'public' ? 'Make Personal' : 'Make Public'}
+      </button>
+    </div>
+  {/if}
+
+  <div class="back-link">
+    <a href="/recipe">&larr; All Recipes</a>
+  </div>
+</div>
+
+<style>
+  .recipe-detail {
+    max-width: 100%;
+  }
+
+  .page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    margin-bottom: var(--space-3);
+  }
+
+  .page-header-text h1 {
+    font-size: var(--text-xl);
+    font-weight: 600;
+    color: var(--color-text-primary);
+    margin: 0;
+  }
+
+  .page-header-text p {
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+    margin: 2px 0 0;
+  }
+
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+    flex-shrink: 0;
+    flex-wrap: wrap;
+  }
+
+  .btn-run, .btn-share, .btn-edit, .btn-delete {
+    font-family: var(--font-ui);
+    font-size: var(--text-base);
+    font-weight: 500;
+    padding: 10px 20px;
+    border-radius: var(--radius-base);
+    border: none;
+    cursor: pointer;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: background var(--transition-base), opacity var(--transition-base);
+  }
+
+  .btn-run {
+    background: var(--color-primary);
+    color: var(--color-text-on-primary);
+  }
+
+  .btn-run:hover {
+    background: var(--color-primary-hover);
+  }
+
+  .btn-share {
+    background: none;
+    border: 1px solid var(--color-border);
+    color: var(--color-text-secondary);
+  }
+
+  .btn-share:hover {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+  }
+
+  .btn-edit {
+    background: none;
+    border: 1px solid var(--color-border);
+    color: var(--color-text-secondary);
+  }
+
+  .btn-edit:hover {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+  }
+
+  .btn-delete {
+    background: none;
+    border: 1px solid var(--color-border);
+    color: var(--color-text-secondary);
+  }
+
+  .btn-delete:hover {
+    background: var(--color-error);
+    border-color: var(--color-error);
+    color: var(--color-text-on-primary);
+  }
+
+  .models-section {
+    margin-bottom: var(--space-3);
+  }
+
+  .zone-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: var(--text-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--color-text-muted);
+    margin-bottom: var(--space-1);
+  }
+
+  .count-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 9px;
+    background: var(--color-primary);
+    color: var(--color-text-on-primary);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0;
+    text-transform: none;
+  }
+
+  .model-list {
+    list-style: none;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 3px;
+  }
+
+  .model-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    background: var(--color-surface-raised);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-base);
+    min-width: 0;
+    transition: border-color var(--transition-base), background var(--transition-base);
+  }
+
+  .model-item:hover {
+    border-color: var(--color-primary);
+    background: var(--color-accent-light);
+  }
+
+  .model-item-left {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    overflow: hidden;
+    min-width: 0;
+  }
+
+  .model-item-top,
+  .model-item-bottom {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    overflow: hidden;
+    white-space: nowrap;
+    min-width: 0;
+  }
+
+  .model-item-repo {
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    color: var(--color-text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+  }
+
+  .model-item-name {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+  }
+
+  .model-item-size {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--color-text-muted);
+    padding: 1px 7px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--color-border);
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .model-item-dtype {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 1px 7px;
+    border-radius: var(--radius-sm);
+    border: 1px solid;
+    white-space: nowrap;
+    flex-shrink: 0;
+    line-height: 1.4;
+  }
+
+  .model-item-dtype[data-dtype="fp32"]      { color: var(--color-dt-fp32);      border-color: var(--color-dt-fp32); }
+  .model-item-dtype[data-dtype="fp16"]      { color: var(--color-dt-fp16);      border-color: var(--color-dt-fp16); }
+  .model-item-dtype[data-dtype="bf16"]      { color: var(--color-dt-bf16);      border-color: var(--color-dt-bf16); }
+  .model-item-dtype[data-dtype="fp8"]       { color: var(--color-dt-fp8);       border-color: var(--color-dt-fp8); }
+  .model-item-dtype[data-dtype="int8"]      { color: var(--color-dt-int8);      border-color: var(--color-dt-int8); }
+  .model-item-dtype[data-dtype="uint8"]     { color: var(--color-dt-uint8);     border-color: var(--color-dt-uint8); }
+  .model-item-dtype[data-dtype="int4"]      { color: var(--color-dt-int4);      border-color: var(--color-dt-int4); }
+  .model-item-dtype[data-dtype="uint4"]     { color: var(--color-dt-uint4);     border-color: var(--color-dt-uint4); }
+  .model-item-dtype[data-dtype="q4"]        { color: var(--color-dt-q4);        border-color: var(--color-dt-q4); }
+  .model-item-dtype[data-dtype="q4f16"]     { color: var(--color-dt-q4f16);     border-color: var(--color-dt-q4f16); }
+  .model-item-dtype[data-dtype="bnb4"]      { color: var(--color-dt-bnb4);      border-color: var(--color-dt-bnb4); }
+  .model-item-dtype[data-dtype="quantized"] { color: var(--color-dt-quantized); border-color: var(--color-dt-quantized); }
+
+  .visibility-section {
+    margin-bottom: var(--space-3);
+  }
+
+  .vis-toggle {
+    font-family: var(--font-ui);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    padding: 6px 14px;
+    border-radius: var(--radius-base);
+    border: 1px solid var(--color-border);
+    background: none;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    transition: color var(--transition-base), border-color var(--transition-base);
+  }
+
+  .vis-toggle:hover {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+  }
+
+  .vis-toggle.is-public {
+    border-color: var(--color-dt-int8);
+    color: var(--color-dt-int8);
+  }
+
+  .back-link a {
+    font-family: var(--font-ui);
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+    text-decoration: none;
+    transition: color var(--transition-base);
+  }
+
+  .back-link a:hover {
+    color: var(--color-primary);
+  }
+
+  @media (max-width: 900px) {
+    .model-list { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  @media (max-width: 640px) {
+    .page-header {
+      flex-direction: column;
+    }
+
+    .header-actions {
+      width: 100%;
+    }
+
+    .btn-run, .btn-share, .btn-edit, .btn-delete {
+      flex: 1;
+      text-align: center;
+    }
+
+    .model-list { grid-template-columns: 1fr; }
+  }
+</style>
