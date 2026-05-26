@@ -53,7 +53,7 @@
   }
 </script>
 
-{#snippet recipeRow(recipe: Recipe, visLabel: string)}
+{#snippet recipeRow(recipe: any, visLabel: string, showOwner = false)}
   <tr class="recipe-row">
     <td class="cell-name">
       <a href="/recipe/{recipe.slug}" class="name-link" title={recipe.name}>{recipe.name}</a>
@@ -61,12 +61,22 @@
         {#each recipe.models as m}
           <div class="popup-row">
             <span class="popup-repo">{m.hf_model_id}</span>
-            <span class="popup-file">{m.file_path.split('/').pop()}</span>
+            <span class="popup-file">{m.file_path}</span>
             <span class="dtype-chip" data-dtype={m.data_type}>{m.data_type}</span>
           </div>
         {/each}
       </div>
     </td>
+    {#if showOwner}
+      <td class="cell-owner">
+        {#if recipe.owner_avatar_url}
+          <img src={recipe.owner_avatar_url} alt="" class="owner-avatar" crossorigin="anonymous" />
+        {:else}
+          <span class="owner-avatar owner-avatar-placeholder">{(recipe.owner_display_name ?? '?')[0].toUpperCase()}</span>
+        {/if}
+        <span class="owner-name">{recipe.owner_display_name ?? 'Unknown'}</span>
+      </td>
+    {/if}
     <td class="cell-date">{formatDate(recipe.updated_at)}</td>
     <td class="cell-actions">
       <span class="cell-actions-inner">
@@ -84,20 +94,21 @@
   </tr>
 {/snippet}
 
-{#snippet recipeTable(col: Recipe[], visLabel: string)}
+{#snippet recipeTable(col: any[], visLabel: string, showOwner = false)}
   {#if col.length > 0}
     <div class="table-wrapper">
       <table class="recipe-table">
         <thead>
           <tr>
             <th class="col-name">Name</th>
+            {#if showOwner}<th class="col-owner">User</th>{/if}
             <th class="col-date">Updated</th>
             <th class="col-actions"></th>
           </tr>
         </thead>
         <tbody>
           {#each col as recipe (recipe.id)}
-            {@render recipeRow(recipe, visLabel)}
+            {@render recipeRow(recipe, visLabel, showOwner)}
           {/each}
         </tbody>
       </table>
@@ -110,6 +121,16 @@
             <a href="/recipe/{recipe.slug}" class="mobile-card-name">{recipe.name}</a>
             <span class="mobile-card-date">{formatDate(recipe.updated_at)}</span>
           </div>
+          {#if showOwner}
+            <div class="mobile-card-owner">
+              {#if recipe.owner_avatar_url}
+                <img src={recipe.owner_avatar_url} alt="" class="owner-avatar" crossorigin="anonymous" />
+              {:else}
+                <span class="owner-avatar owner-avatar-placeholder">{(recipe.owner_display_name ?? '?')[0].toUpperCase()}</span>
+              {/if}
+              <span class="owner-name">{recipe.owner_display_name ?? 'Unknown'}</span>
+            </div>
+          {/if}
           <div class="mobile-card-models">
             {#each recipe.models as m}
               <div class="mobile-model-row">
@@ -162,8 +183,8 @@
           <span class="count-badge">{publicRecipes.length}</span>
         </div>
         <div class="two-col">
-          {@render recipeTable(left, '→ Personal')}
-          {@render recipeTable(right, '→ Personal')}
+          {@render recipeTable(left, '→ Personal', true)}
+          {@render recipeTable(right, '→ Personal', true)}
         </div>
       </section>
     {/if}
@@ -284,7 +305,6 @@
   .two-col {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: var(--space-3);
     align-items: start;
   }
 
@@ -320,8 +340,13 @@
     overflow: hidden;
   }
 
+  .two-col > :first-child .recipe-row td:last-child {
+    border-right: 1px solid var(--color-border);
+  }
+
   /* Name fills remaining space; others are fixed */
   .col-name    { width: auto; }
+  .col-owner   { width: 120px; }
   .col-date    { width: 90px; }
   .col-actions { width: 290px; }
 
@@ -360,7 +385,7 @@
     border-top-right-radius: 0;
     box-shadow: var(--shadow-dropdown);
     padding: var(--space-1) var(--space-2);
-    width: calc(100% + 90px + 290px);
+    width: calc(100% + 120px + 90px + 290px);
     pointer-events: none;
   }
 
@@ -429,6 +454,48 @@
   .dtype-chip[data-dtype="q4f16"]     { color: var(--color-dt-q4f16);     border-color: var(--color-dt-q4f16); }
   .dtype-chip[data-dtype="bnb4"]      { color: var(--color-dt-bnb4);      border-color: var(--color-dt-bnb4); }
   .dtype-chip[data-dtype="quantized"] { color: var(--color-dt-quantized); border-color: var(--color-dt-quantized); }
+
+  .cell-owner {
+    vertical-align: middle;
+  }
+
+  .owner-avatar {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    vertical-align: middle;
+    flex-shrink: 0;
+  }
+
+  .owner-avatar-placeholder {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-surface-sunken);
+    border: 1px solid var(--color-border);
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--color-text-secondary);
+  }
+
+  .cell-owner {
+    display: table-cell;
+  }
+
+  .cell-owner > .owner-avatar,
+  .cell-owner > .owner-name {
+    display: inline;
+    vertical-align: middle;
+  }
+
+  .owner-name {
+    font-size: var(--text-xs);
+    color: var(--color-text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-left: 5px;
+  }
 
   .cell-date {
     font-size: var(--text-xs);
@@ -560,6 +627,12 @@
       color: var(--color-text-muted);
       white-space: nowrap;
       flex-shrink: 0;
+    }
+
+    .mobile-card-owner {
+      display: flex;
+      align-items: center;
+      gap: 5px;
     }
 
     .mobile-card-models {

@@ -2,6 +2,11 @@ import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import type { Recipe } from '$lib/recipes/crud';
 
+export interface RecipeWithOwner extends Recipe {
+  owner_display_name: string | null;
+  owner_avatar_url: string | null;
+}
+
 export const load: PageServerLoad = async ({ locals }) => {
   const session = await locals.getSession();
 
@@ -11,14 +16,20 @@ export const load: PageServerLoad = async ({ locals }) => {
 
   const userId = session.user.id;
 
-  const query = (locals.supabase.from('recipes') as any)
-    .select('*')
-    .or(`owner_id.eq.${userId},visibility.eq.public`);
+  const { data, error } = await (locals.supabase.from('recipes') as any)
+    .select('*, profiles!owner_id(display_name, email, avatar_url)')
+    .or(`owner_id.eq.${userId},visibility.eq.public`)
+    .order('updated_at', { ascending: false });
 
-  const { data, error } = await query.order('updated_at', { ascending: false });
+  const recipes: RecipeWithOwner[] = (data ?? []).map((r: any) => ({
+    ...r,
+    owner_display_name: r.profiles?.display_name || r.profiles?.email?.split('@')[0] || null,
+    owner_avatar_url: r.profiles?.avatar_url ?? null,
+    profiles: undefined,
+  }));
 
   return {
-    recipes: (data as Recipe[]) ?? [],
+    recipes,
     userId,
     error: error?.message ?? null,
   };

@@ -15,6 +15,9 @@
     <a href="/admin/models" class="subnav-item" class:active={$page.url.pathname === '/admin/models'}>
       Models
     </a>
+    <a href="/admin/export" class="subnav-item subnav-export" download>
+      Export SQL
+    </a>
   </nav>
 
   {@render children()}
@@ -51,5 +54,16 @@
   .subnav-item.active {
     color: var(--color-primary);
     background:var(--color-accent-light);
+  }
+
+  .subnav-export {
+    margin-left: auto;
+    border: 1px solid var(--color-border);
+  }
+
+  .subnav-export:hover {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+    background: var(--color-accent-light);
   }
 </style>

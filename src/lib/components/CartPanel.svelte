@@ -149,15 +149,15 @@
           {#each cartModels as m (`${m.hf_model_id}::${m.file_path}`)}
             <li class="model-row">
               <div class="model-info">
-                <span class="model-name" title={m.file_path}>{basename(m.file_path)}</span>
-                <span class="model-meta">{m.hf_model_id}</span>
+                <span class="model-name" title={m.hf_model_id}>{m.hf_model_id}</span>
+                <span class="model-meta" title={m.file_path}>{m.file_path}</span>
               </div>
               <div class="model-tags">
                 {#if m.size_bytes}
                   <span class="tag tag-size">{formatSize(m.size_bytes)}</span>
                 {/if}
                 {#if m.data_type}
-                  <span class="tag tag-dtype" data-dtype={m.data_type}>{m.data_type}</span>
+                  <span class="tag tag-dtype" data-dtype={m.data_type}>{m.data_type === 'quantized' ? 'quant' : m.data_type}</span>
                 {/if}
               </div>
               <button
@@ -398,7 +398,7 @@
 
   .model-name {
     font-family: var(--font-mono);
-    font-size: var(--text-sm);
+    font-size: var(--text-xs);
     color: var(--color-text-primary);
     white-space: nowrap;
     overflow: hidden;

@@ -64,7 +64,7 @@
     { href: '/custom',      label: 'Custom',      show: true },
     { href: '/run',         label: 'Run',         show: false },
     { href: '/results',     label: 'Results',     show: $isAuthenticated },
-    { href: '/leaderboard', label: 'Leaderboard', show: data.role === 'intel' || data.role === 'admin' },
+    { href: '/leaderboard', label: 'Leaderboard', show: $auth.role === 'intel' || $auth.role === 'admin' },
   ]);
 </script>
 
@@ -137,7 +137,7 @@
           </a>
         {/if}
       {/each}
-      {#if data.role === 'admin'}
+      {#if $auth.role === 'admin'}
         <a
           href="/admin/users"
           class="nav-item"
@@ -229,7 +229,7 @@
         </a>
       {/if}
     {/each}
-    {#if data.role === 'admin'}
+    {#if $auth.role === 'admin'}
       <a
         href="/admin/users"
         class="mobile-menu-item"

@@ -237,8 +237,8 @@ input[type="checkbox"] {
 
 /* Global focus ring */
 *:focus-visible {
-  outline: 2px solid var(--color-focus-ring);
-  outline-offset: 2px;
+  outline: none;
+  outline-offset: 0px;
 }
 
 /* Base styles */

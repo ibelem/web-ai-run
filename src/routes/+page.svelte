@@ -122,7 +122,9 @@
 
 <div class="dashboard">
   <!-- Hero / HF Search (mutually exclusive) -->
-  {#if $isAuthenticated}
+  {#if $auth.loading}
+    <div class="auth-loading-placeholder"></div>
+  {:else if $isAuthenticated}
     <section class="hf-home-section">
       <div class="hf-home-search-wrap">
         <svg class="hf-home-search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -257,7 +259,7 @@
   {/if}
 
   <!-- Capabilities -->
-  {#if !$isAuthenticated}
+  {#if !$auth.loading && !$isAuthenticated}
   <section id="capabilities" class="card capabilities">
     <h2 class="card-title">Environment</h2>
     {#if loadingEnv}
@@ -279,7 +281,7 @@
 
   {/if}
 
-  {#if !$isAuthenticated}
+  {#if !$auth.loading && !$isAuthenticated}
 
   <!-- Recent Model Updates -->
   <section class="card recent-models">
@@ -743,6 +745,10 @@
     }
   }
 
+  .auth-loading-placeholder {
+    min-height: 50vh;
+  }
+
   /* HF home search */
   .hf-home-section {
     display: flex;
@@ -751,13 +757,6 @@
     justify-content: center;
     min-height: 50vh;
     text-align: center;
-  }
-
-  .hf-home-eyebrow {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: var(--space-2);
   }
 
   .hf-home-search-wrap {
@@ -948,44 +947,6 @@
     font-style: italic;
   }
 
-  .backends-heading {
-    font-size: var(--text-sm);
-    font-weight: 600;
-    color: var(--color-text-secondary);
-    margin-bottom: var(--space-1);
-  }
-
-  .backends-list {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-2);
-  }
-
-  .backend-item {
-    display: flex;
-    align-items: center;
-    gap: var(--space-half);
-  }
-
-  .backend-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-  }
-
-  .backend-dot.available {
-    background: var(--color-success);
-  }
-
-  .backend-dot.unavailable {
-    background: var(--color-error);
-  }
-
-  .backend-label {
-    font-size: var(--text-sm);
-    color: var(--color-text-primary);
-  }
-
   /* Quick Actions */
 
   /* Recent Models */
@@ -1103,53 +1064,4 @@
     text-decoration: underline;
   }
 
-  /* Recent Results */
-  .results-table-wrap {
-    overflow-x: auto;
-  }
-
-  .results-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: var(--text-sm);
-  }
-
-  .results-table th {
-    text-align: left;
-    font-weight: 600;
-    color: var(--color-text-muted);
-    font-size: var(--text-xs);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    padding: var(--space-1) var(--space-1);
-    border-bottom: 1px solid var(--color-border);
-  }
-
-  .results-table td {
-    padding: var(--space-1) var(--space-1);
-    color: var(--color-text-primary);
-    border-bottom: 1px solid var(--color-border);
-  }
-
-  .mono {
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-  }
-
-  .status-badge {
-    font-size: var(--text-xs);
-    font-weight: 600;
-    padding: 1px 6px;
-    border-radius: var(--radius-sm);
-    background: var(--color-surface-sunken);
-    color: var(--color-text-muted);
-  }
-
-  .status-badge.completed {
-    color: var(--color-success);
-  }
-
-  .status-badge.error {
-    color: var(--color-error);
-  }
 </style>

@@ -66,7 +66,7 @@
     </div>
     <div class="card-row card-bottom">
       <FormatIcon {format} size={16} />
-      <span class="info-file" title={filePath}>{filePath}.{format}</span>
+      <span class="info-file" title="{filePath}.{format}">{filePath}.{format}</span>
       {#if maxSize()}
         <span class="info-size" title={sizeTooltip}>{maxSize()}</span>
       {/if}

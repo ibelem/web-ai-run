@@ -508,10 +508,6 @@
 
   .repo-name:hover { text-decoration: underline; }
 
-  .fmt-count {
-    flex-shrink: 0;
-    width: auto !important;
-  }
 
   .stars {
     display: inline-flex;

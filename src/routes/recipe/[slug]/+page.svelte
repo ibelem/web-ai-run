@@ -96,7 +96,7 @@
             </div>
             <div class="model-item-bottom">
               <FormatIcon format={ext} size={14} />
-              <span class="model-item-name">{basename(m.file_path)}</span>
+              <span class="model-item-name">{m.file_path}</span>
             </div>
           </div>
           {#if m.size_bytes}

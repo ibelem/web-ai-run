@@ -474,10 +474,6 @@
     color: var(--color-text-muted);
   }
 
-  .fmt-count {
-    flex-shrink: 0;
-    width: auto !important;
-  }
 
   .no-formats-label {
     font-size: var(--text-xs);
@@ -531,8 +527,7 @@
     min-width: 0;
   }
 
-  .card-top,
-  .card-bottom {
+  .card-top {
     display: flex;
     align-items: center;
     gap: 5px;
@@ -551,14 +546,6 @@
     pointer-events: auto;
   }
 
-  .info-task {
-    font-family: var(--font-ui);
-    font-size: 10px;
-    color: var(--color-text-muted);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
 
   .info-file {
     font-family: var(--font-mono);

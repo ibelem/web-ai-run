@@ -378,54 +378,6 @@
   .env-label { color: var(--color-text-muted); }
   .env-value { color: var(--color-text-primary); }
 
-  .dialog-panel h2 {
-    font-size: var(--text-lg);
-    font-weight: 300;
-    margin-bottom: var(--space-1);
-  }
-
-  .dialog-body {
-    margin-bottom: var(--space-2);
-    color: var(--color-text-secondary);
-    font-size: var(--text-sm);
-  }
-
-  .dialog-actions {
-    flex-direction: column;
-  }
-
-  .btn-secondary {
-    font-family: var(--font-ui);
-    font-size: var(--text-base);
-    font-weight: 500;
-    padding: 10px 20px;
-    min-height: 40px;
-    border: 1px solid var(--color-primary);
-    border-radius: var(--radius-sm);
-    background: none;
-    color: var(--color-primary);
-    cursor: pointer;
-    transition: background var(--transition-base);
-  }
-
-  .btn-secondary:hover { background:var(--color-accent-light); }
-
-  .btn-ghost {
-    font-family: var(--font-ui);
-    font-size: var(--text-base);
-    font-weight: 500;
-    padding: 10px 20px;
-    min-height: 40px;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-sm);
-    background: none;
-    color: var(--color-text-secondary);
-    cursor: pointer;
-    transition: background var(--transition-base);
-  }
-
-  .btn-ghost:hover { background: var(--color-surface-sunken); }
-
   @media (max-width: 640px) {
     .file-info {
       flex-direction: column;

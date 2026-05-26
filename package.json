@@ -9,7 +9,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
-    "sync:models": "node --env-file=.env --import tsx/esm scripts/sync-models.ts"
+    "sync:models": "node --env-file=.env --import tsx/esm scripts/sync-models.ts",
+    "db:backup": "node --env-file=.env scripts/db-backup.mjs"
   },
   "devDependencies": {
     "@sveltejs/adapter-vercel": "^5.7.0",

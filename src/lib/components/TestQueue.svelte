@@ -35,7 +35,7 @@
       <div class="queue-item" class:active={item.status === 'running' || item.status === 'downloading' || item.status === 'compiling'} class:done={item.status === 'completed'} class:failed={item.status === 'error'}>
         <span class="status-icon">{statusIcons[item.status]}</span>
         <span class="item-model">{item.hf_model_id.split('/')[1]}</span>
-        <span class="item-file">{item.file_path.split('/').pop()}</span>
+        <span class="item-file">{item.file_path}</span>
         <span class="item-backend">{getBackendLabel(item.backend)}</span>
         {#if item.status === 'error' && onretry && !isRunning}
           <button class="retry-btn" onclick={() => onretry!(item)} title="Retry this item">↺</button>

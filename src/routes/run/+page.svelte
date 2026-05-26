@@ -558,7 +558,7 @@
               </div>
               <div class="model-item-bottom">
                 <FormatIcon format={ext} size={14} />
-                <span class="model-item-name">{m.file_path.split('/').pop()}</span>
+                <span class="model-item-name">{m.file_path}</span>
                 {#if m.size_bytes}
                   <span class="model-item-size">{formatSize(m.size_bytes)}</span>
                 {/if}
@@ -589,7 +589,7 @@
             </p>
           {:else}
             <p class="upload-disclosure upload-disclosure-warn">
-              <a href="/login">Sign in</a> to upload results — we need an account to attribute the data.
+              <a href="/login">Sign in</a> to upload results - we need an account to attribute the data.
             </p>
           {/if}
         {/if}
