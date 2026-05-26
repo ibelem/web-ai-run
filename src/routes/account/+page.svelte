@@ -29,8 +29,8 @@
     const file = (e.target as HTMLInputElement).files?.[0];
     if (!file) return;
 
-    if (file.size > 10 * 1024 * 1024) {
-      avatarError = 'Image must be under 10 MB.';
+    if (file.size > 4 * 1024 * 1024) {
+      avatarError = 'Image must be under 4 MB.';
       return;
     }
 
