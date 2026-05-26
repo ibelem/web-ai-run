@@ -1,12 +1,130 @@
 <script lang="ts">
-  import { enhance } from '$app/forms';
+  import { enhance, deserialize } from '$app/forms';
   import type { SharedRunConfig } from '$lib/supabase/types';
   import { browser } from '$app/environment';
+  import { invalidateAll } from '$app/navigation';
+  import { createClient } from '$lib/supabase/client';
+  import { gravatarUrl } from '$lib/utils/gravatar';
 
   let { data, form } = $props<{ data: any; form: any }>();
 
   let sharedConfigs = $state([...data.sharedConfigs]);
   let saving = $state(false);
+
+  const supabase = createClient();
+
+  // True if user signed in via OAuth (has a provider-managed avatar)
+  const hasOAuthPhoto = !!(
+    data.session?.user?.user_metadata?.avatar_url ||
+    data.session?.user?.user_metadata?.picture
+  );
+
+  let uploadedAvatarUrl = $state<string | null>(!hasOAuthPhoto ? (data.profile?.avatar_url ?? null) : null);
+  let avatarUploading = $state(false);
+  let avatarError = $state('');
+  let gravatarFailedAccount = $state(false);
+  let fileInput: HTMLInputElement;
+
+  async function handleAvatarFile(e: Event) {
+    const file = (e.target as HTMLInputElement).files?.[0];
+    if (!file) return;
+
+    if (file.size > 10 * 1024 * 1024) {
+      avatarError = 'Image must be under 10 MB.';
+      return;
+    }
+
+    avatarError = '';
+    avatarUploading = true;
+
+    try {
+      const compressed = await compressImage(file);
+      const userId = data.session!.user.id;
+      const path = `${userId}/avatar.jpg`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(path, compressed, { upsert: true, contentType: 'image/jpeg' });
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path);
+      const publicUrl = urlData.publicUrl;
+
+      const fd = new FormData();
+      fd.set('avatar_url', publicUrl);
+      const res = await fetch('?/updateAvatar', { method: 'POST', headers: { Accept: 'application/json' }, body: fd });
+      const result = deserialize(await res.text());
+      if (result.type === 'failure' || result.type === 'error') {
+        throw new Error((result.data as any)?.error ?? 'Failed to save avatar URL.');
+      }
+
+      uploadedAvatarUrl = `${publicUrl}?t=${Date.now()}`;
+      await invalidateAll();
+    } catch (err: any) {
+      avatarError = err?.message ?? 'Upload failed. Please try again.';
+    } finally {
+      avatarUploading = false;
+    }
+  }
+
+  async function removeAvatar() {
+    avatarError = '';
+    avatarUploading = true;
+
+    try {
+      const userId = data.session!.user.id;
+      const { error: removeError } = await supabase.storage.from('avatars').remove([`${userId}/avatar.jpg`]);
+      if (removeError) {
+        avatarError = removeError.message ?? 'Could not delete photo. Please try again.';
+        return;
+      }
+
+      const fd = new FormData();
+      fd.set('avatar_url', '');
+      const res = await fetch('?/updateAvatar', { method: 'POST', headers: { Accept: 'application/json' }, body: fd });
+      const result = deserialize(await res.text());
+      if (result.type === 'failure' || result.type === 'error') {
+        throw new Error((result.data as any)?.error ?? 'Failed to clear avatar URL.');
+      }
+
+      uploadedAvatarUrl = null;
+      await invalidateAll();
+      gravatarFailedAccount = false;
+    } catch (err: any) {
+      avatarError = err?.message ?? 'Could not remove photo.';
+    } finally {
+      avatarUploading = false;
+    }
+  }
+
+  function compressImage(file: File): Promise<Blob> {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        const MAX = 256;
+        let { width, height } = img;
+        if (width > height) {
+          if (width > MAX) { height = Math.round(height * MAX / width); width = MAX; }
+        } else {
+          if (height > MAX) { width = Math.round(width * MAX / height); height = MAX; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        canvas.getContext('2d')!.drawImage(img, 0, 0, width, height);
+        canvas.toBlob(
+          (blob) => blob ? resolve(blob) : reject(new Error('Compression failed')),
+          'image/jpeg',
+          0.8
+        );
+      };
+      img.onerror = () => reject(new Error('Could not read image'));
+      img.src = url;
+    });
+  }
 
   const TABS = ['results', 'recipes', 'shared', 'profile'] as const;
   type Tab = typeof TABS[number];
@@ -184,13 +302,67 @@
       {#if data.profile}
         <div class="profile-card">
           <div class="avatar-section">
-            {#if data.profile.avatar_url}
-              <img src={data.profile.avatar_url} alt="Avatar" class="avatar" loading="lazy" crossorigin="anonymous" />
-            {:else}
-              <div class="avatar-placeholder">
-                {data.profile.display_name?.[0]?.toUpperCase() ?? '?'}
-              </div>
-            {/if}
+            <div class="avatar-upload-area">
+              <button
+                class="avatar-button"
+                onclick={() => !hasOAuthPhoto && fileInput?.click()}
+                aria-label={hasOAuthPhoto ? 'Avatar' : 'Click to upload photo'}
+                disabled={avatarUploading || hasOAuthPhoto}
+                type="button"
+              >
+                {#if uploadedAvatarUrl}
+                  <img src={uploadedAvatarUrl} alt="Avatar" class="avatar" loading="lazy" crossorigin="anonymous" />
+                {:else if !hasOAuthPhoto && data.profile.email && !gravatarFailedAccount}
+                  <img
+                    src={gravatarUrl(data.profile.email, 256)}
+                    alt="Avatar"
+                    class="avatar"
+                    loading="lazy"
+                    crossorigin="anonymous"
+                    onerror={() => { gravatarFailedAccount = true; }}
+                  />
+                {:else}
+                  <div class="avatar-placeholder">{data.profile.display_name?.[0]?.toUpperCase() ?? data.profile.email?.[0]?.toUpperCase() ?? '?'}</div>
+                {/if}
+                {#if avatarUploading}
+                  <div class="avatar-spinner-overlay" aria-hidden="true"></div>
+                {/if}
+              </button>
+
+              {#if !hasOAuthPhoto}
+                <input
+                  bind:this={fileInput}
+                  type="file"
+                  accept="image/*"
+                  class="avatar-file-input"
+                  onchange={handleAvatarFile}
+                />
+                <div class="avatar-actions">
+                  <button
+                    type="button"
+                    class="btn-sm"
+                    onclick={() => fileInput?.click()}
+                    disabled={avatarUploading}
+                  >
+                    {uploadedAvatarUrl ? 'Change photo' : 'Upload photo'}
+                  </button>
+                  {#if uploadedAvatarUrl}
+                    <button
+                      type="button"
+                      class="btn-sm btn-sm-danger"
+                      onclick={removeAvatar}
+                      disabled={avatarUploading}
+                    >
+                      Remove
+                    </button>
+                  {/if}
+                </div>
+                {#if avatarError}
+                  <p class="avatar-error">{avatarError}</p>
+                {/if}
+              {/if}
+            </div>
+
             <span class="role-badge role-{data.profile.role}">{data.profile.role}</span>
           </div>
 
@@ -433,6 +605,75 @@
     font-size: var(--text-lg);
     font-weight: 500;
     color: var(--color-text-secondary);
+  }
+
+  .avatar-upload-area {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-1);
+  }
+
+  .avatar-button {
+    position: relative;
+    border: none;
+    background: none;
+    padding: 0;
+    border-radius: 50%;
+    cursor: pointer;
+    display: block;
+  }
+
+  .avatar-button:disabled {
+    cursor: default;
+  }
+
+  .avatar-button .avatar,
+  .avatar-button .avatar-placeholder {
+    width: 80px;
+    height: 80px;
+    font-size: var(--text-xl);
+  }
+
+  .avatar-spinner-overlay {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.35);
+  }
+
+  .avatar-spinner-overlay::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 20px;
+    height: 20px;
+    margin: -10px 0 0 -10px;
+    border: 2px solid rgba(255,255,255,0.4);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  .avatar-file-input {
+    display: none;
+  }
+
+  .avatar-actions {
+    display: flex;
+    gap: var(--space-1);
+  }
+
+  .avatar-error {
+    font-size: var(--text-xs);
+    color: var(--color-error);
+    text-align: center;
+    max-width: 200px;
   }
 
   .role-badge {

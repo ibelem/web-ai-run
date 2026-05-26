@@ -40,6 +40,7 @@ export const load: PageServerLoad = async ({ locals }) => {
   ]);
 
   return {
+    session,
     recipes: recipesRes.data ?? [],
     sharedConfigs: sharedRes.data ?? [],
     results: resultsRes.data ?? [],
@@ -70,5 +71,35 @@ export const actions: Actions = {
     }
 
     return { success: true };
-  }
+  },
+
+  updateAvatar: async ({ request, locals }) => {
+    const session = await locals.getSession();
+    if (!session) throw redirect(302, '/login');
+
+    const formData = await request.formData();
+    const raw = (formData.get('avatar_url') as string | null) || null;
+
+    // Validate: must be null or a valid https URL
+    let avatar_url: string | null = null;
+    if (raw) {
+      try {
+        const parsed = new URL(raw);
+        if (parsed.protocol !== 'https:') throw new Error('invalid protocol');
+        avatar_url = raw;
+      } catch {
+        return { success: false, error: 'Invalid avatar URL.' };
+      }
+    }
+
+    const { error } = await (locals.supabase.from('profiles') as any)
+      .update({ avatar_url })
+      .eq('id', session.user.id);
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    return { success: true };
+  },
 };

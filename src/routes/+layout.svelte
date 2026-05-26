@@ -194,6 +194,14 @@
               loading="lazy"
               crossorigin="anonymous"
             />
+          {:else if data.profileAvatarUrl}
+            <img
+              src={data.profileAvatarUrl}
+              alt="Avatar"
+              class="nav-avatar"
+              loading="lazy"
+              crossorigin="anonymous"
+            />
           {:else if data.session?.user?.email && !gravatarFailed}
             <img
               src={gravatarUrl(data.session.user.email, 60)}
