@@ -9,8 +9,10 @@
   import CartPanel from '$lib/components/CartPanel.svelte';
   import { createClient } from '$lib/supabase/client';
   import type { Role } from '$lib/types/roles';
+  import { gravatarUrl } from '$lib/utils/gravatar';
 
   let { data, children } = $props();
+  let gravatarFailed = $state(false);
 
   const supabase = createClient();
 
@@ -192,9 +194,18 @@
               loading="lazy"
               crossorigin="anonymous"
             />
+          {:else if data.session?.user?.email && !gravatarFailed}
+            <img
+              src={gravatarUrl(data.session.user.email, 60)}
+              alt="Avatar"
+              class="nav-avatar"
+              loading="lazy"
+              crossorigin="anonymous"
+              onerror={() => { gravatarFailed = true; }}
+            />
           {:else}
             <span class="nav-avatar-placeholder">
-              {data.session?.user?.user_metadata?.full_name?.[0]?.toUpperCase() ?? '?'}
+              {data.session?.user?.user_metadata?.full_name?.[0]?.toUpperCase() ?? data.session?.user?.email?.[0]?.toUpperCase() ?? '?'}
             </span>
           {/if}
         </button>

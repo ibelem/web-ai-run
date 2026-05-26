@@ -123,7 +123,7 @@
 
     {#if view === 'otp'}
       <p class="login-subtitle">Check your inbox at <strong>{email}</strong></p>
-      <p class="login-hint">Click the link in the email, or enter the 6-digit code below.</p>
+      <p class="login-hint">Click the link in the email to sign in. If you received a 6-digit code instead, enter it below.</p>
 
       <form onsubmit={verifyOtp}>
         <label class="field-label" for="otp-input">6-digit code</label>
