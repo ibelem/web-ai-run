@@ -15,6 +15,9 @@
     <a href="/admin/models" class="subnav-item" class:active={$page.url.pathname === '/admin/models'}>
       Models
     </a>
+    <a href="/admin/recipes" class="subnav-item" class:active={$page.url.pathname === '/admin/recipes'}>
+      Recipes
+    </a>
     <a href="/admin/export" class="subnav-item subnav-export" download>
       Export SQL
     </a>

@@ -582,7 +582,7 @@
 
   .avatar-section {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: var(--space-2);
     margin-bottom: var(--space-3);
   }

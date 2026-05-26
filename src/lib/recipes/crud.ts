@@ -7,6 +7,8 @@ export interface Recipe {
   name: string;
   slug: string;
   visibility: 'personal' | 'public';
+  featured: boolean;
+  featured_order: number | null;
   models: RecipeModel[];
   created_at: string;
   updated_at: string;

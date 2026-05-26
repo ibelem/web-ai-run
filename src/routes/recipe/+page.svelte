@@ -45,15 +45,55 @@
     setTimeout(() => { copyFeedback = null; }, 2000);
   }
 
-  const publicRecipes = $derived(data.recipes.filter(r => r.visibility === 'public'));
-  const personalRecipes = $derived(data.recipes.filter(r => r.visibility === 'personal'));
+  const TABS = ['featured', 'community', 'mine'] as const;
+  type Tab = typeof TABS[number];
 
-  function splitTwo(recipes: Recipe[]): [Recipe[], Recipe[]] {
-    return [recipes.filter((_, i) => i % 2 === 0), recipes.filter((_, i) => i % 2 === 1)];
+  function getTabFromHash(): Tab {
+    if (typeof window === 'undefined') return 'featured';
+    const hash = location.hash.slice(1);
+    return (TABS as readonly string[]).includes(hash) ? (hash as Tab) : 'featured';
+  }
+
+  let activeTab = $state<Tab>(getTabFromHash());
+  let searchQuery = $state('');
+
+  function setTab(tab: Tab) {
+    activeTab = tab;
+    searchQuery = '';
+    history.replaceState(null, '', `#${tab}`);
+  }
+
+  const featuredRecipes = $derived(
+    data.recipes
+      .filter((r: any) => r.visibility === 'public' && r.featured)
+      .sort((a: any, b: any) => {
+        const ao = a.featured_order ?? Infinity;
+        const bo = b.featured_order ?? Infinity;
+        if (ao !== bo) return ao - bo;
+        return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
+      })
+  );
+
+  const communityRecipes = $derived(
+    data.recipes
+      .filter((r: any) => r.visibility === 'public' && !r.featured)
+      .sort((a: any, b: any) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
+  );
+
+  const mineRecipes = $derived(
+    data.recipes
+      .filter((r: any) => r.owner_id === data.userId)
+      .sort((a: any, b: any) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
+  );
+
+  function filterBySearch(recipes: any[]): any[] {
+    if (!searchQuery.trim()) return recipes;
+    const q = searchQuery.toLowerCase();
+    return recipes.filter(r => r.name.toLowerCase().includes(q));
   }
 </script>
 
-{#snippet recipeRow(recipe: any, visLabel: string, showOwner = false)}
+{#snippet recipeRow(recipe: any, visLabel: string, showOwner = false, showOwnerActions = false)}
   <tr class="recipe-row">
     <td class="cell-name">
       <a href="/recipe/{recipe.slug}" class="name-link" title={recipe.name}>{recipe.name}</a>
@@ -84,7 +124,7 @@
         <button class="action-btn action-share" onclick={() => copyShareLink(recipe)}>
           {copyFeedback === recipe.id ? '✓' : 'Link'}
         </button>
-        {#if data.userId === recipe.owner_id}
+        {#if showOwnerActions && data.userId === recipe.owner_id}
           <button class="action-btn action-vis" onclick={() => toggleVisibility(recipe)}>{visLabel}</button>
           <a href="/recipe/{recipe.slug}/edit" class="action-btn action-edit">Edit</a>
           <button class="action-btn action-delete" onclick={() => handleDelete(recipe)}>Del</button>
@@ -94,7 +134,7 @@
   </tr>
 {/snippet}
 
-{#snippet recipeTable(col: any[], visLabel: string, showOwner = false)}
+{#snippet recipeTable(col: any[], visLabel: string, showOwner = false, showOwnerActions = false)}
   {#if col.length > 0}
     <div class="table-wrapper">
       <table class="recipe-table">
@@ -108,7 +148,7 @@
         </thead>
         <tbody>
           {#each col as recipe (recipe.id)}
-            {@render recipeRow(recipe, visLabel, showOwner)}
+            {@render recipeRow(recipe, visLabel, showOwner, showOwnerActions)}
           {/each}
         </tbody>
       </table>
@@ -144,7 +184,7 @@
             <button class="action-btn action-share" onclick={() => copyShareLink(recipe)}>
               {copyFeedback === recipe.id ? '✓' : 'Link'}
             </button>
-            {#if data.userId === recipe.owner_id}
+            {#if showOwnerActions && data.userId === recipe.owner_id}
               <button class="action-btn action-vis" onclick={() => toggleVisibility(recipe)}>{visLabel}</button>
               <a href="/recipe/{recipe.slug}/edit" class="action-btn action-edit">Edit</a>
               <button class="action-btn action-delete" onclick={() => handleDelete(recipe)}>Del</button>
@@ -162,47 +202,60 @@
       <h1>Recipes</h1>
       <p>Saved model combinations for quick re-runs.</p>
     </div>
-    <a href="/recipe/new" class="btn-new-recipe">New Recipe</a>
+    <div class="page-header-actions">
+      <input
+        type="search"
+        class="search-input"
+        placeholder="Search recipes…"
+        bind:value={searchQuery}
+        aria-label="Search recipes"
+      />
+      <a href="/recipe/new" class="btn-new-recipe">New Recipe</a>
+    </div>
   </header>
+
+  <nav class="tabs">
+    <button class="tab" class:active={activeTab === 'featured'} onclick={() => setTab('featured')}>
+      Featured <span class="tab-count">{featuredRecipes.length}</span>
+    </button>
+    <button class="tab" class:active={activeTab === 'community'} onclick={() => setTab('community')}>
+      Community <span class="tab-count">{communityRecipes.length}</span>
+    </button>
+    <button class="tab" class:active={activeTab === 'mine'} onclick={() => setTab('mine')}>
+      Mine <span class="tab-count">{mineRecipes.length}</span>
+    </button>
+  </nav>
 
   {#if data.error}
     <div class="error-banner">
       <p>Failed to load recipes: {data.error}</p>
     </div>
-  {:else if data.recipes.length === 0}
-    <div class="empty">
-      <p>No recipes yet. Browse models and save them as a recipe from the Cart panel.</p>
-    </div>
   {:else}
+    <section class="tab-content">
+      {#if activeTab === 'featured'}
+        {#if featuredRecipes.length === 0}
+          <div class="empty"><p>No featured recipes yet.</p></div>
+        {:else}
+          {@render recipeTable(filterBySearch(featuredRecipes), '→ Personal', true, false)}
+        {/if}
 
-    {#if publicRecipes.length > 0}
-      {@const [left, right] = splitTwo(publicRecipes)}
-      <section class="recipe-section">
-        <div class="section-header">
-          <h2 class="section-title section-public">Public</h2>
-          <span class="count-badge">{publicRecipes.length}</span>
-        </div>
-        <div class="two-col">
-          {@render recipeTable(left, '→ Personal', true)}
-          {@render recipeTable(right, '→ Personal', true)}
-        </div>
-      </section>
-    {/if}
+      {:else if activeTab === 'community'}
+        {#if communityRecipes.length === 0}
+          <div class="empty"><p>No community recipes yet.</p></div>
+        {:else}
+          {@render recipeTable(filterBySearch(communityRecipes), '→ Personal', true, false)}
+        {/if}
 
-    {#if personalRecipes.length > 0}
-      {@const [left, right] = splitTwo(personalRecipes)}
-      <section class="recipe-section">
-        <div class="section-header">
-          <h2 class="section-title section-personal">Personal</h2>
-          <span class="count-badge">{personalRecipes.length}</span>
-        </div>
-        <div class="two-col">
-          {@render recipeTable(left, '→ Public')}
-          {@render recipeTable(right, '→ Public')}
-        </div>
-      </section>
-    {/if}
-
+      {:else if activeTab === 'mine'}
+        {#if mineRecipes.length === 0}
+          <div class="empty">
+            <p>No recipes yet. Browse models and save them as a recipe from the Cart panel.</p>
+          </div>
+        {:else}
+          {@render recipeTable(filterBySearch(mineRecipes), '→ Public', false, true)}
+        {/if}
+      {/if}
+    </section>
   {/if}
 </div>
 
@@ -262,52 +315,6 @@
     color: var(--color-text-muted);
   }
 
-  .recipe-section {
-    margin-bottom: var(--space-4);
-  }
-
-  .section-header {
-    display: flex;
-    align-items: center;
-    gap: var(--space-1);
-    margin-bottom: var(--space-2);
-    padding-bottom: var(--space-1);
-  }
-
-  .section-title {
-    font-size: var(--text-sm);
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    margin: 0;
-  }
-
-  .section-public  { color: var(--color-dt-int8); }
-  .section-personal { color: var(--color-dt-fp16); }
-
-  .count-badge {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 18px;
-    height: 18px;
-    padding: 0 5px;
-    border-radius: 9px;
-    background: var(--color-primary);
-    color: var(--color-text-on-primary);
-    font-size: 11px;
-    font-weight: 600;
-    font-family: var(--font-mono);
-    letter-spacing: 0;
-    text-transform: none;
-  }
-
-  .two-col {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    align-items: start;
-  }
-
   .table-wrapper {
     overflow: visible;
   }
@@ -338,10 +345,6 @@
     vertical-align: middle;
     white-space: nowrap;
     overflow: hidden;
-  }
-
-  .two-col > :first-child .recipe-row td:last-child {
-    border-right: 1px solid var(--color-border);
   }
 
   /* Name fills remaining space; others are fixed */
@@ -564,16 +567,19 @@
     display: none;
   }
 
-  @media (max-width: 900px) {
-    .two-col {
-      grid-template-columns: 1fr;
-    }
-  }
-
   @media (max-width: 768px) {
     .page-header {
       flex-direction: column;
       align-items: flex-start;
+    }
+
+    .page-header-actions {
+      width: 100%;
+      flex-direction: column;
+    }
+
+    .search-input {
+      width: 100%;
     }
 
     .btn-new-recipe {
@@ -665,5 +671,79 @@
       padding-top: var(--space-1);
       border-top: 1px solid var(--color-border);
     }
+  }
+
+  .page-header-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    flex-shrink: 0;
+  }
+
+  .search-input {
+    font-family: var(--font-ui);
+    font-size: var(--text-sm);
+    padding: 8px var(--space-2);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-base);
+    background: var(--color-surface);
+    color: var(--color-text-primary);
+    width: 200px;
+    transition: border-color var(--transition-base);
+  }
+
+  .search-input:focus-visible {
+    border-color: var(--color-focus-ring);
+    outline: none;
+  }
+
+  .tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--color-border);
+    margin-bottom: var(--space-3);
+  }
+
+  .tab {
+    font-family: var(--font-ui);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    padding: var(--space-2) var(--space-3);
+    border: none;
+    background: none;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: color var(--transition-base), border-color var(--transition-base);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .tab:hover {
+    color: var(--color-text-primary);
+  }
+
+  .tab.active {
+    color: var(--color-text-primary);
+    border-bottom-color: var(--color-primary);
+  }
+
+  .tab-count {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 1px 6px;
+    border-radius: 9px;
+    background: var(--color-surface-sunken);
+    color: var(--color-text-muted);
+  }
+
+  .tab.active .tab-count {
+    background: var(--color-primary);
+    color: var(--color-text-on-primary);
+  }
+
+  .tab-content {
+    min-height: 200px;
   }
 </style>
