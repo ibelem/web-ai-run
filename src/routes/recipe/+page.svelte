@@ -118,7 +118,10 @@
     <div class="card-models">
       {#each recipe.models as m}
         <div class="card-model-row">
-          <span class="card-model-id">{m.hf_model_id}</span>
+          <div class="card-model-info">
+            <span class="card-model-id">{m.hf_model_id}</span>
+            <span class="card-model-file">{m.file_path}</span>
+          </div>
           <span class="dtype-chip" data-dtype={m.data_type}>{m.data_type}</span>
         </div>
       {/each}
@@ -370,14 +373,21 @@
 
   .recipe-grid {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(3, 1fr);
     gap: var(--space-2);
+  }
+
+  @media (max-width: 1100px) {
+    .recipe-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
   }
 
   .recipe-card {
     border: 1px solid var(--color-border);
     border-radius: var(--radius-base);
     padding: var(--space-2);
+    min-width: 0;
     display: flex;
     flex-direction: column;
     gap: var(--space-1);
@@ -497,6 +507,16 @@
     min-width: 0;
   }
 
+  .card-model-info {
+    flex: 1;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: var(--space-1);
+    min-width: 0;
+    overflow: hidden;
+  }
+
   .card-model-id {
     font-family: var(--font-mono);
     font-size: var(--text-xs);
@@ -504,7 +524,16 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    flex: 1;
+    min-width: 0;
+  }
+
+  .card-model-file {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--color-text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
     min-width: 0;
   }
 
