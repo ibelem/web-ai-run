@@ -1,0 +1,4 @@
+[
+  { "hf_model_id": "microsoft/phi-2", "file_path": "phi-2-q4.gguf", "data_type": "int4" },
+  { "hf_model_id": "google/gemma-2b", "file_path": "gemma-2b-fp16.gguf", "data_type": "fp16" }
+]

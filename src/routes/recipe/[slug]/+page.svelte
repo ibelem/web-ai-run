@@ -110,6 +110,26 @@
     </ul>
   </div>
 
+  {#if data.recipe.description || (data.recipe.links && data.recipe.links.length > 0)}
+    <div class="meta-section">
+      {#if data.recipe.description}
+        <p class="recipe-description">{data.recipe.description}</p>
+      {/if}
+      {#if data.recipe.links && data.recipe.links.length > 0}
+        <div class="recipe-links">
+          {#each data.recipe.links as link}
+            <a
+              href={link.url}
+              class="recipe-link"
+              target="_blank"
+              rel="noopener noreferrer"
+            >{link.label || link.url}</a>
+          {/each}
+        </div>
+      {/if}
+    </div>
+  {/if}
+
   {#if data.isOwner}
     <div class="visibility-section">
       <button class="vis-toggle" class:is-public={data.recipe.visibility === 'public'} onclick={toggleVisibility}>
@@ -402,5 +422,45 @@
     }
 
     .model-list { grid-template-columns: 1fr; }
+  }
+
+  .meta-section {
+    margin-bottom: var(--space-3);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+  }
+
+  .recipe-description {
+    font-size: var(--text-sm);
+    color: var(--color-text-secondary);
+    line-height: 1.6;
+    margin: 0;
+    white-space: pre-wrap;
+  }
+
+  .recipe-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .recipe-link {
+    font-family: var(--font-ui);
+    font-size: var(--text-xs);
+    color: var(--color-primary);
+    text-decoration: none;
+    padding: 2px 8px;
+    border: 1px solid var(--color-primary);
+    border-radius: var(--radius-sm);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 240px;
+    transition: background var(--transition-base);
+  }
+
+  .recipe-link:hover {
+    background: var(--color-accent-light);
   }
 </style>

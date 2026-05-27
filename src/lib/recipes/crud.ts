@@ -9,6 +9,8 @@ export interface Recipe {
   visibility: 'personal' | 'public';
   featured: boolean;
   featured_order: number | null;
+  description: string | null;
+  links: { label?: string; url: string }[];
   models: RecipeModel[];
   created_at: string;
   updated_at: string;
@@ -75,7 +77,13 @@ export async function createRecipe(
 
 export async function updateRecipe(
   id: string,
-  updates: { name?: string; models?: RecipeModel[]; visibility?: 'personal' | 'public' }
+  updates: {
+    name?: string;
+    models?: RecipeModel[];
+    visibility?: 'personal' | 'public';
+    description?: string | null;
+    links?: { label?: string; url: string }[];
+  }
 ): Promise<Recipe> {
   const supabase = createClient();
   const { data, error } = await (supabase.from('recipes') as any)

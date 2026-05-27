@@ -19,6 +19,24 @@
   // Current models in the recipe
   let recipeModels = $state<RecipeModel[]>([...data.recipe.models]);
 
+  type LinkRow = { label: string; url: string };
+
+  let description = $state((data.recipe as any).description ?? '');
+  let links = $state<LinkRow[]>(
+    (data.recipe as any).links?.length
+      ? (data.recipe as any).links.map((l: any) => ({ label: l.label ?? '', url: l.url }))
+      : [{ label: '', url: '' }]
+  );
+
+  function addLink() {
+    if (links.length < 10) links = [...links, { label: '', url: '' }];
+  }
+
+  function removeLink(i: number) {
+    links = links.filter((_, idx) => idx !== i);
+    if (links.length === 0) links = [{ label: '', url: '' }];
+  }
+
   // HF search
   let hfSearchQuery = $state('');
   let hfModels = $state<SelectedHFModel[]>([]);
@@ -31,6 +49,10 @@
     hfSearchQuery = '';
     hfModels = [];
     errorMessage = '';
+    description = (data.recipe as any).description ?? '';
+    links = (data.recipe as any).links?.length
+      ? (data.recipe as any).links.map((l: any) => ({ label: l.label ?? '', url: l.url }))
+      : [{ label: '', url: '' }];
   });
 
   const isHFUrl = $derived((() => {
@@ -78,6 +100,11 @@
   const isDirty = $derived(() => {
     if (recipeName !== data.recipe.name) return true;
     if (visibility !== data.recipe.visibility) return true;
+    if (description.trim() !== ((data.recipe as any).description?.trim() ?? '')) return true;
+    const effectiveLinks = links
+      .filter(l => l.url.trim())
+      .map(l => ({ ...(l.label ? { label: l.label } : {}), url: l.url }));
+    if (JSON.stringify(effectiveLinks) !== JSON.stringify((data.recipe as any).links ?? [])) return true;
     if (recipeModels.length !== data.recipe.models.length) return true;
     return recipeModels.some((m, i) => {
       const orig = data.recipe.models[i];
@@ -118,7 +145,15 @@
       if (isEmpty) {
         await deleteRecipe(data.recipe.id);
       } else {
-        await updateRecipe(data.recipe.id, { name: recipeName.trim(), models: recipeModels, visibility });
+        await updateRecipe(data.recipe.id, {
+          name: recipeName.trim(),
+          models: recipeModels,
+          visibility,
+          description: description.trim() || null,
+          links: links
+            .filter(l => l.url.trim())
+            .map(l => ({ ...(l.label ? { label: l.label } : {}), url: l.url })),
+        });
       }
       justSaved = true;
       goto('/recipe');
@@ -255,6 +290,60 @@
     {:else if hfSearchQuery.trim()}
       <HFSearch searchQuery={hfSearchQuery} bind:selectedHFModels={hfModels} />
     {/if}
+  </section>
+
+  <!-- Metadata section -->
+  <section class="zone">
+    <div class="zone-label">Metadata</div>
+
+    <label class="meta-label" for="recipe-description">Description</label>
+    <textarea
+      id="recipe-description"
+      class="meta-textarea"
+      rows="3"
+      placeholder="Describe what this recipe does…"
+      bind:value={description}
+    ></textarea>
+
+    <div class="links-label-row">
+      <span class="meta-label">Links</span>
+      <button
+        type="button"
+        class="btn-add-link"
+        onclick={addLink}
+        disabled={links.length >= 10}
+      >+ Add link</button>
+    </div>
+
+    <div class="links-list">
+      {#each links as link, i (i)}
+        <div class="link-row">
+          <input
+            type="text"
+            class="link-label-input"
+            placeholder="Label (optional)"
+            bind:value={link.label}
+          />
+          <input
+            type="url"
+            class="link-url-input"
+            placeholder="https://…"
+            bind:value={link.url}
+          />
+          <button
+            type="button"
+            class="remove-btn"
+            onclick={() => removeLink(i)}
+            aria-label="Remove link"
+          >
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round">
+              <line x1="18" y1="6" x2="6" y2="18"/>
+              <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+      {/each}
+    </div>
   </section>
 
   {#if errorMessage}
@@ -748,6 +837,111 @@
   .error-text {
     font-size: var(--text-sm);
     color: var(--color-error);
+  }
+
+  .meta-label {
+    display: block;
+    font-size: var(--text-xs);
+    font-weight: 500;
+    color: var(--color-text-muted);
+    margin-bottom: 4px;
+  }
+
+  .meta-textarea {
+    width: 100%;
+    font-family: var(--font-ui);
+    font-size: var(--text-sm);
+    padding: var(--space-1) var(--space-2);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-base);
+    background: var(--color-surface);
+    color: var(--color-text-primary);
+    resize: vertical;
+    transition: border-color var(--transition-base);
+    box-sizing: border-box;
+  }
+
+  .meta-textarea:focus-visible {
+    border-color: var(--color-focus-ring);
+    outline: none;
+  }
+
+  .links-label-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 4px;
+  }
+
+  .btn-add-link {
+    font-family: var(--font-ui);
+    font-size: var(--text-xs);
+    font-weight: 500;
+    padding: 2px 8px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: none;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    transition: border-color var(--transition-base), color var(--transition-base);
+  }
+
+  .btn-add-link:hover:not(:disabled) {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+  }
+
+  .btn-add-link:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .links-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .link-row {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+
+  .link-label-input {
+    width: 130px;
+    flex-shrink: 0;
+    font-family: var(--font-ui);
+    font-size: var(--text-sm);
+    padding: 5px var(--space-1);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-base);
+    background: var(--color-surface);
+    color: var(--color-text-primary);
+    transition: border-color var(--transition-base);
+  }
+
+  .link-label-input:focus-visible {
+    border-color: var(--color-focus-ring);
+    outline: none;
+  }
+
+  .link-url-input {
+    flex: 1;
+    font-family: var(--font-ui);
+    font-size: var(--text-sm);
+    padding: 5px var(--space-1);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-base);
+    background: var(--color-surface);
+    color: var(--color-text-primary);
+    min-width: 0;
+    transition: border-color var(--transition-base);
+  }
+
+  .link-url-input:focus-visible {
+    border-color: var(--color-focus-ring);
+    outline: none;
   }
 
   @media (max-width: 640px) {

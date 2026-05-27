@@ -210,6 +210,7 @@
         bind:value={searchQuery}
         aria-label="Search recipes"
       />
+      <a href="/recipe/import" class="btn-import-recipe">Import</a>
       <a href="/recipe/new" class="btn-new-recipe">New Recipe</a>
     </div>
   </header>
@@ -303,6 +304,26 @@
 
   .btn-new-recipe:hover {
     background: var(--color-accent-light);
+  }
+
+  .btn-import-recipe {
+    font-family: var(--font-ui);
+    font-size: var(--text-base);
+    font-weight: 500;
+    padding: 10px 20px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-base);
+    background: none;
+    color: var(--color-text-secondary);
+    text-decoration: none;
+    white-space: nowrap;
+    flex-shrink: 0;
+    transition: background var(--transition-base), border-color var(--transition-base), color var(--transition-base);
+  }
+
+  .btn-import-recipe:hover {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
   }
 
   .error-banner {
