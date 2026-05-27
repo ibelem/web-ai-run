@@ -61,9 +61,9 @@
   --transition-slow: 250ms ease;
 
   /* Primary accent */
-  --color-primary: rgb(9, 83, 222);
+  --color-primary: rgba(9, 83, 222, 1);
   --color-primary-light: rgb(9, 83, 222, 0.5);
-  --color-primary-hover: rgba(7, 66, 176, 1);
+  --color-primary-hover: rgba(6, 63, 180, 1);
   --color-primary-active: rgba(6, 53, 148, 1);
   --color-accent: rgba(0, 199, 253, 1);
   --color-accent-light: oklch(97.7% 0.013 236.62);
@@ -85,7 +85,7 @@
   --color-text-on-primary: #fff;
 
   /* Focus */
-  --color-focus-ring: rgba(7, 66, 176, 1);
+  --color-focus-ring: rgba(9, 83, 222, 1);
 
   /* Elevation */
   --shadow-dropdown: 0 1px 3px rgba(0, 0, 0, 0.08);
@@ -96,7 +96,7 @@
   --color-nav-border: #E2E8F0;
   --color-nav-item-hover: #F5F7FA;
   --color-nav-item-active: #E6F9FF;
-  --color-nav-active-border: rgba(7, 66, 176, 1);
+  --color-nav-active-border: rgba(9, 83, 222, 1);
 
   /* Backend colors */
   --color-backend-wasm-1: #38A169;
@@ -224,6 +224,43 @@
   /* Logo */
   --color-logo-stroke: #00C7FD;
   --color-logo-node-fill: #0A0F1A;
+}
+
+/* ── Global input baseline ───────────────────────────────────────────── */
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+textarea,
+select {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-base);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  transition: border-color var(--transition-base);
+  box-sizing: border-box;
+}
+
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+select {
+  height: 32px;
+}
+
+
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  border-color: var(--color-focus-ring);
+  outline: none;
+}
+
+/* iOS Safari: prevent auto-zoom on focus (requires font-size >= 16px on mobile) */
+@media (max-width: 768px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+  textarea,
+  select {
+    font-size: var(--text-base);
+  }
 }
 
 /* Checkbox accent */
@@ -374,6 +411,55 @@ body {
   text-align: center;
   padding: var(--space-5) var(--space-2);
   color: var(--color-text-muted);
+}
+
+/* ── Dtype chip & size chip — shared across all pages ───────────────── */
+.dtype-chip {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  border: 1px solid;
+  line-height: 1.4;
+  white-space: nowrap;
+  display: inline-block;
+  vertical-align: middle;
+  flex-shrink: 0;
+  min-width: 48px;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.dtype-chip[data-dtype="fp32"]      { color: var(--color-dt-fp32);      border-color: var(--color-dt-fp32); }
+.dtype-chip[data-dtype="fp16"]      { color: var(--color-dt-fp16);      border-color: var(--color-dt-fp16); }
+.dtype-chip[data-dtype="bf16"]      { color: var(--color-dt-bf16);      border-color: var(--color-dt-bf16); }
+.dtype-chip[data-dtype="fp8"]       { color: var(--color-dt-fp8);       border-color: var(--color-dt-fp8); }
+.dtype-chip[data-dtype="int8"]      { color: var(--color-dt-int8);      border-color: var(--color-dt-int8); }
+.dtype-chip[data-dtype="uint8"]     { color: var(--color-dt-uint8);     border-color: var(--color-dt-uint8); }
+.dtype-chip[data-dtype="int4"]      { color: var(--color-dt-int4);      border-color: var(--color-dt-int4); }
+.dtype-chip[data-dtype="uint4"]     { color: var(--color-dt-uint4);     border-color: var(--color-dt-uint4); }
+.dtype-chip[data-dtype="q4"]        { color: var(--color-dt-q4);        border-color: var(--color-dt-q4); }
+.dtype-chip[data-dtype="q4f16"]     { color: var(--color-dt-q4f16);     border-color: var(--color-dt-q4f16); }
+.dtype-chip[data-dtype="bnb4"]      { color: var(--color-dt-bnb4);      border-color: var(--color-dt-bnb4); }
+.dtype-chip[data-dtype="quantized"] { color: var(--color-dt-quantized); border-color: var(--color-dt-quantized); }
+
+.size-chip {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  line-height: 1.4;
+  white-space: nowrap;
+  display: inline-block;
+  vertical-align: middle;
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+  min-width: 48px;
+  text-align: center;
+  box-sizing: border-box;
 }
 
 /* Primary button */

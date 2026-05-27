@@ -137,7 +137,7 @@
 
   <!-- Community (unfeatured public) section -->
   <section class="curation-section">
-    <h2>Community <span class="count-badge">{unfeaturedList.length}</span></h2>
+    <h2>Community <span class="count-badge">{filteredUnfeatured.length}</span></h2>
     <input
       type="search"
       class="search-input"

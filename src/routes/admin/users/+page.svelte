@@ -20,8 +20,11 @@
 
 <div class="admin-page">
   <header class="page-header">
-    <h1>User Management</h1>
-    <p>{data.users.length} registered users</p>
+    <div class="page-header-text">
+      <h1>User Management</h1>
+      <p>{data.users.length} registered users</p>
+    </div>
+    <a href="/admin/export" class="btn-export" download>Export SQL</a>
   </header>
 
   {#if form?.error}
@@ -95,6 +98,45 @@
 <style>
   .admin-page {
     max-width: 100%;
+  }
+
+  .page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    margin-bottom: var(--space-3);
+  }
+
+  .page-header h1 {
+    font-size: var(--text-xl);
+    font-weight: 600;
+    margin: 0;
+  }
+
+  .page-header p {
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+    margin: 2px 0 0;
+  }
+
+  .btn-export {
+    font-family: var(--font-ui);
+    font-size: var(--text-base);
+    font-weight: 500;
+    padding: 10px 20px;
+    border: none;
+    border-radius: var(--radius-base);
+    background: var(--color-primary);
+    color: var(--color-text-on-primary);
+    text-decoration: none;
+    white-space: nowrap;
+    flex-shrink: 0;
+    transition: background var(--transition-base);
+  }
+
+  .btn-export:hover {
+    background: var(--color-primary-hover);
   }
   
   .error-banner {
@@ -172,21 +214,7 @@
   }
 
   select {
-    font-family: var(--font-ui);
-    font-size: inherit;
-    padding: 4px 8px;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-sm);
-    background: var(--color-surface);
-    color: var(--color-text-primary);
     cursor: pointer;
-  }
-
-  select:focus {
-    border-color: var(--color-primary);
-    outline: 2px solid var(--color-focus-ring);
-    outline-offset: 0;
-    opacity: 0.3;
   }
 
   .pagination {

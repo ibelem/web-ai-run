@@ -167,6 +167,7 @@ export interface SharedRunConfig {
   os?: string;
   ort?: string;
   litert?: string;
+  webnn_ep?: string;
 }
 
 export interface BenchmarkMetrics {

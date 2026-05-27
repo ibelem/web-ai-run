@@ -316,15 +316,7 @@
 
   .field-input {
     width: 100%;
-    font-family: var(--font-ui);
-    font-size: var(--text-sm);
-    padding: var(--space-2);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-base);
-    background: var(--color-surface);
-    color: var(--color-text-primary);
     margin-bottom: var(--space-2);
-    transition: border-color var(--transition-base);
   }
 
   .field-input:focus-visible {

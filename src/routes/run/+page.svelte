@@ -40,7 +40,22 @@
   const VALID_BACKENDS: Backend[] = ['wasm_1', 'wasm_n', 'webgpu', 'webnn_cpu', 'webnn_gpu', 'webnn_npu'];
   const VALID_ITERATIONS = [1, 10, 20, 50, 100, 500, 1000, 10000];
 
-  function parseHash(): { models: ModelEntry[]; backends: Backend[]; iterations: number; upload: boolean; cpu: string; ort: string; litert: string } {
+  const WEBNN_EP_OPTIONS = [
+    { value: '', label: 'Default / Unknown' },
+    { value: 'openvino', label: 'ORT - OpenVINO EP' },
+    { value: 'webgpu', label: 'ORT - WebGPU EP' },
+    { value: 'coreml', label: 'CoreML' },
+    { value: 'litert', label: 'LiteRT' },
+    { value: 'tflite', label: 'TFLite' },
+    { value: 'cpu', label: 'ORT - CPU EP' },
+    { value: 'dml', label: 'ORT - DML EP' },
+    { value: 'qnn', label: 'ORT - QNN EP' },
+    { value: 'nvtensorrtrtx', label: 'ORT - NvTensorRTRTX EP' },
+    { value: 'migraphx', label: 'ORT - MIGraphX EP' },
+    { value: 'vitisai', label: 'ORT - VitisAI EP' },
+  ] as const;
+
+  function parseHash(): { models: ModelEntry[]; backends: Backend[]; iterations: number; upload: boolean; cpu: string; ort: string; litert: string; webnnEp: string } {
     const hash = new URLSearchParams(location.hash.slice(1));
 
     const models: ModelEntry[] = (hash.get('models') ?? '')
@@ -69,6 +84,7 @@
       os: hash.get('os') ?? '',
       ort: hash.get('ort') ?? '',
       litert: hash.get('litert') ?? '',
+      webnnEp: hash.get('webnn_ep') ?? '',
     };
   }
 
@@ -86,6 +102,7 @@
 
     if (usesOnnx && ortVersion) params.set('ort', ortVersion);
     if (usesLitert && litertVersion) params.set('litert', litertVersion);
+    if (webnnEp) params.set('webnn_ep', webnnEp);
     history.replaceState(null, '', `#${params}`);
   }
 
@@ -110,6 +127,7 @@
   let litertVersion = $state('');
   let litertDevVersions = $state<string[]>([]);
   let litertStableVersions = $state<string[]>([]);
+  let webnnEp = $state('');
   let mounted = $state(false);
   let queueFlushTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -131,6 +149,28 @@
   const nextItem = $derived(queue.find(i => i.status === 'pending'));
 
   const RUN_MODELS_KEY = 'run_models';
+  const RUN_PREFS_KEY = 'run_prefs';
+
+  interface RunPrefs {
+    cpu?: string;
+    os?: string;
+    webnnEp?: string;
+    ort?: string;
+    litert?: string;
+  }
+
+  function loadPrefs(): RunPrefs {
+    try {
+      return JSON.parse(localStorage.getItem(RUN_PREFS_KEY) ?? '{}');
+    } catch { return {}; }
+  }
+
+  function savePrefs() {
+    try {
+      const prefs: RunPrefs = { cpu: cpuModel, os: osModel, webnnEp, ort: ortVersion, litert: litertVersion };
+      localStorage.setItem(RUN_PREFS_KEY, JSON.stringify(prefs));
+    } catch {}
+  }
 
   $effect(() => {
     if (!mounted) return;
@@ -143,7 +183,9 @@
     void hashModels;
     void ortVersion;
     void litertVersion;
+    void webnnEp;
     writeHash();
+    savePrefs();
     shareUrl = '';
     shareId = '';
     // Persist current model selection so navigation away doesn't lose it
@@ -179,26 +221,28 @@
     selectedBackends = parsed.backends;
     iterations = parsed.iterations;
     saveResults = parsed.upload;
-    cpuModel = parsed.cpu;
-    osModel = parsed.os;
 
+    const prefs = loadPrefs();
+    cpuModel = parsed.cpu || prefs.cpu || '';
+    osModel = parsed.os || prefs.os || '';
+    webnnEp = parsed.webnnEp || prefs.webnnEp || '';
 
     availableBackends = await detectAvailableBackends();
     environment = await detectEnvironment();
     useWorker = isWorkerSupported();
 
-    // Fetch latest runtime versions from npm, then apply hash overrides
+    // Fetch latest runtime versions from npm, then apply hash > prefs > default order
     try {
       const v = await fetchRuntimeVersions();
       ortDevVersions = v.ort.dev;
       ortStableVersions = v.ort.stable;
       litertDevVersions = v.litert.dev;
       litertStableVersions = v.litert.stable;
-      ortVersion = parsed.ort || v.ort.dev[0] || v.ort.stable[0] || '';
-      litertVersion = parsed.litert || v.litert.dev[0] || v.litert.stable[0] || '';
+      ortVersion = parsed.ort || prefs.ort || v.ort.dev[0] || v.ort.stable[0] || '';
+      litertVersion = parsed.litert || prefs.litert || v.litert.dev[0] || v.litert.stable[0] || '';
     } catch {
-      ortVersion = parsed.ort || '';
-      litertVersion = parsed.litert || '';
+      ortVersion = parsed.ort || prefs.ort || '';
+      litertVersion = parsed.litert || prefs.litert || '';
     }
 
     mounted = true;
@@ -248,6 +292,7 @@
         },
         ortVersion,
         litertVersion,
+        webnnEp,
       );
     }
 
@@ -325,6 +370,7 @@
         os: osModel.trim() || undefined,
         ort: usesOnnx && ortVersion ? ortVersion : undefined,
         litert: usesLitert && litertVersion ? litertVersion : undefined,
+        webnn_ep: webnnEp || undefined,
       };
       const res = await fetch('/api/shared-config', {
         method: 'POST',
@@ -448,8 +494,10 @@
   </header>
 
   <section class="config-section">
-    <BackendSelector bind:selected={selectedBackends} available={availableBackends} />
-    <RunConfigCmp bind:iterations />
+    <div class="top-config-grid">
+      <BackendSelector bind:selected={selectedBackends} available={availableBackends} />
+      <RunConfigCmp bind:iterations />
+    </div>
 
     {#if saveResults || environment}
       <div class="env-rows">
@@ -499,6 +547,14 @@
             <span class="env-value">{environment.browser} {environment.browser_version}</span>
           </div>
         {/if}
+        <div class="env-row">
+          <span class="env-label">WebNN EP</span>
+          <select class="version-select" bind:value={webnnEp}>
+            {#each WEBNN_EP_OPTIONS as opt}
+              <option value={opt.value}>{opt.label}</option>
+            {/each}
+          </select>
+        </div>
         {#if usesOnnx && ortVersion}
           <div class="env-row">
             <span class="env-label">ORT Web</span>
@@ -545,6 +601,7 @@
     {/if}
 
     {#if hashModels.length > 0}
+      <span class="models-label">Models <span class="models-count">{totalModels}</span></span>
       <ul class="model-list">
         {#each hashModels as m}
           {@const ext = m.file_path.endsWith('.litertlm') ? 'litertlm' : m.file_path.endsWith('.tflite') ? 'tflite' : 'onnx'}
@@ -553,14 +610,14 @@
               <div class="model-item-top">
                 <span class="model-item-repo">{m.hf_model_id}</span>
                 {#if m.data_type}
-                  <span class="model-item-dtype" data-dtype={m.data_type}>{m.data_type === 'quantized' ? 'quant' : m.data_type}</span>
+                  <span class="dtype-chip" data-dtype={m.data_type}>{m.data_type === 'quantized' ? 'quant' : m.data_type}</span>
                 {/if}
               </div>
               <div class="model-item-bottom">
                 <FormatIcon format={ext} size={14} />
                 <span class="model-item-name">{m.file_path}</span>
                 {#if m.size_bytes}
-                  <span class="model-item-size">{formatSize(m.size_bytes)}</span>
+                  <span class="size-chip">{formatSize(m.size_bytes)}</span>
                 {/if}
               </div>
             </div>
@@ -655,7 +712,7 @@
     flex-direction: column;
     gap: var(--space-2);
     margin-bottom: var(--space-3);
-    padding: var(--space-4) 0;
+    padding: 0 0 var(--space-4) 0;
   }
 
   .actions {
@@ -872,25 +929,32 @@
     margin-bottom: var(--space-3);
   }
 
+  .top-config-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-2);
+  }
+
   .env-rows {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-1);
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--space-2);
   }
 
   .env-row {
     display: flex;
-    align-items: center;
-    gap: var(--space-2);
+    flex-direction: column;
+    gap: 4px;
     min-width: 0;
   }
 
   .env-label {
-    font-size: var(--text-sm);
-    color: var(--color-text-secondary);
+    font-size: var(--text-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--color-text-muted);
     white-space: nowrap;
-    width: 77px;
-    flex-shrink: 0;
   }
 
   .env-value {
@@ -901,24 +965,38 @@
     overflow: hidden;
     text-overflow: ellipsis;
     min-width: 0;
+    padding: var(--space-half) 0;
   }
 
   .cpu-input {
-    font-family: var(--font-ui);
-    font-size: var(--text-sm);
-    padding: var(--space-half) var(--space-1);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-base);
-    background: var(--color-surface);
-    color: var(--color-text-primary);
-    transition: border-color var(--transition-base);
-    width: 260px;
-    max-width: 100%;
+    width: 100%;
     min-width: 0;
   }
 
-  .cpu-input:focus-visible {
-    border-color: var(--color-focus-ring);
+  .models-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: var(--text-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--color-text-muted);
+  }
+
+  .models-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 9px;
+    background: var(--color-primary);
+    color: var(--color-text-on-primary);
+    font-size: 11px;
+    letter-spacing: 0;
+    text-transform: none;
   }
 
   .model-list {
@@ -997,60 +1075,17 @@
   }
 
 
-  .model-item-dtype {
-    font-family: var(--font-mono);
-    font-size: 11px;
-    font-weight: 600;
-    padding: 1px 7px;
-    border-radius: var(--radius-sm);
-    border: 1px solid;
-    white-space: nowrap;
-    flex-shrink: 0;
-    line-height: 1.4;
-    margin-left: auto;
-  }
-
-  .model-item-size {
-    font-family: var(--font-mono);
-    font-size: 11px;
-    font-weight: 600;
-    padding: 1px 7px;
-    border-radius: var(--radius-sm);
-    border: 1px solid var(--color-border);
-    color: var(--color-text-muted);
-    white-space: nowrap;
-    flex-shrink: 0;
-    line-height: 1.4;
-    margin-left: auto;
-  }
-
-  .model-item-dtype[data-dtype="fp32"]      { color: var(--color-dt-fp32);      border-color: var(--color-dt-fp32); }
-  .model-item-dtype[data-dtype="fp16"]      { color: var(--color-dt-fp16);      border-color: var(--color-dt-fp16); }
-  .model-item-dtype[data-dtype="bf16"]      { color: var(--color-dt-bf16);      border-color: var(--color-dt-bf16); }
-  .model-item-dtype[data-dtype="fp8"]       { color: var(--color-dt-fp8);       border-color: var(--color-dt-fp8); }
-  .model-item-dtype[data-dtype="int8"]      { color: var(--color-dt-int8);      border-color: var(--color-dt-int8); }
-  .model-item-dtype[data-dtype="uint8"]     { color: var(--color-dt-uint8);     border-color: var(--color-dt-uint8); }
-  .model-item-dtype[data-dtype="int4"]      { color: var(--color-dt-int4);      border-color: var(--color-dt-int4); }
-  .model-item-dtype[data-dtype="uint4"]     { color: var(--color-dt-uint4);     border-color: var(--color-dt-uint4); }
-  .model-item-dtype[data-dtype="q4"]        { color: var(--color-dt-q4);        border-color: var(--color-dt-q4); }
-  .model-item-dtype[data-dtype="q4f16"]     { color: var(--color-dt-q4f16);     border-color: var(--color-dt-q4f16); }
-  .model-item-dtype[data-dtype="bnb4"]      { color: var(--color-dt-bnb4);      border-color: var(--color-dt-bnb4); }
-  .model-item-dtype[data-dtype="quantized"] { color: var(--color-dt-quantized); border-color: var(--color-dt-quantized); }
+  /* dtype-chip and size-chip use global styles from app.css */
+  .dtype-chip, .size-chip { margin-left: auto; }
 
   .version-select {
-    font-family: var(--font-mono);
-    font-size: var(--text-sm);
     color: var(--color-text-secondary);
-    background: var(--color-surface);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-base);
-    padding: var(--space-half) var(--space-1);
     cursor: pointer;
-    transition: border-color var(--transition-base);
+    width: 100%;
   }
 
-  .version-select:focus-visible {
-    border-color: var(--color-focus-ring);
+  @media (max-width: 768px) {
+    .env-rows { grid-template-columns: repeat(2, 1fr); }
   }
 
   @media (max-width: 640px) {
@@ -1070,13 +1105,8 @@
       font-size: var(--text-sm);
     }
 
-    .env-label {
-      width: 70px;
-    }
-
-    .cpu-input {
-      width: 100%;
-    }
+    .env-rows { grid-template-columns: 1fr; }
+    .top-config-grid { grid-template-columns: 1fr; }
 
     .actions {
       flex-direction: column;

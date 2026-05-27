@@ -751,17 +751,6 @@
     color: var(--color-error);
   }
 
-  .text-input {
-    font-family: var(--font-ui);
-    font-size: var(--text-sm);
-    padding: var(--space-1) var(--space-2);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-base);
-    background: var(--color-surface);
-    color: var(--color-text-primary);
-    transition: border-color var(--transition-base);
-  }
-
   .text-input:focus-visible {
     border-color: var(--color-focus-ring);
     outline: none;
@@ -798,16 +787,7 @@
 
   .meta-textarea {
     width: 100%;
-    font-family: var(--font-ui);
-    font-size: var(--text-sm);
-    padding: var(--space-1) var(--space-2);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-base);
-    background: var(--color-surface);
-    color: var(--color-text-primary);
     resize: vertical;
-    transition: border-color var(--transition-base);
-    box-sizing: border-box;
   }
 
   .meta-textarea:focus-visible {
@@ -859,14 +839,6 @@
   .link-label-input {
     width: 130px;
     flex-shrink: 0;
-    font-family: var(--font-ui);
-    font-size: var(--text-sm);
-    padding: 5px var(--space-1);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-base);
-    background: var(--color-surface);
-    color: var(--color-text-primary);
-    transition: border-color var(--transition-base);
   }
 
   .link-label-input:focus-visible {
@@ -876,15 +848,7 @@
 
   .link-url-input {
     flex: 1;
-    font-family: var(--font-ui);
-    font-size: var(--text-sm);
-    padding: 5px var(--space-1);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-base);
-    background: var(--color-surface);
-    color: var(--color-text-primary);
     min-width: 0;
-    transition: border-color var(--transition-base);
   }
 
   .link-url-input:focus-visible {
@@ -894,16 +858,8 @@
 
   /* Recipe select */
   .recipe-select {
-    font-family: var(--font-ui);
-    font-size: var(--text-sm);
-    padding: var(--space-1) var(--space-2);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-base);
-    background: var(--color-surface);
-    color: var(--color-text-primary);
     width: 100%;
     max-width: 400px;
-    transition: border-color var(--transition-base);
   }
 
   .recipe-select:focus-visible {

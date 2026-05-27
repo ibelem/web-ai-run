@@ -196,7 +196,7 @@
     font-family: var(--font-mono);
     font-size: 11px;
     font-weight: 600;
-    padding: 1px 7px;
+    padding: 1px 6px;
     border-radius: var(--radius-sm);
     border: 1px solid;
     background: none;
@@ -204,6 +204,9 @@
     transition: opacity 0.12s, transform 0.12s;
     user-select: none;
     line-height: 1.4;
+    min-width: 48px;
+    text-align: center;
+    box-sizing: border-box;
   }
 
   .chip:hover {

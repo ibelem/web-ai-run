@@ -100,10 +100,10 @@
             </div>
           </div>
           {#if m.size_bytes}
-            <span class="model-item-size">{formatSize(m.size_bytes)}</span>
+            <span class="size-chip">{formatSize(m.size_bytes)}</span>
           {/if}
           {#if m.data_type}
-            <span class="model-item-dtype" data-dtype={m.data_type}>{m.data_type === 'quantized' ? 'quant' : m.data_type}</span>
+            <span class="dtype-chip" data-dtype={m.data_type}>{m.data_type === 'quantized' ? 'quant' : m.data_type}</span>
           {/if}
         </li>
       {/each}
@@ -328,41 +328,7 @@
     min-width: 0;
   }
 
-  .model-item-size {
-    font-family: var(--font-mono);
-    font-size: 11px;
-    color: var(--color-text-muted);
-    padding: 1px 7px;
-    border-radius: var(--radius-sm);
-    border: 1px solid var(--color-border);
-    white-space: nowrap;
-    flex-shrink: 0;
-  }
-
-  .model-item-dtype {
-    font-family: var(--font-mono);
-    font-size: 11px;
-    font-weight: 600;
-    padding: 1px 7px;
-    border-radius: var(--radius-sm);
-    border: 1px solid;
-    white-space: nowrap;
-    flex-shrink: 0;
-    line-height: 1.4;
-  }
-
-  .model-item-dtype[data-dtype="fp32"]      { color: var(--color-dt-fp32);      border-color: var(--color-dt-fp32); }
-  .model-item-dtype[data-dtype="fp16"]      { color: var(--color-dt-fp16);      border-color: var(--color-dt-fp16); }
-  .model-item-dtype[data-dtype="bf16"]      { color: var(--color-dt-bf16);      border-color: var(--color-dt-bf16); }
-  .model-item-dtype[data-dtype="fp8"]       { color: var(--color-dt-fp8);       border-color: var(--color-dt-fp8); }
-  .model-item-dtype[data-dtype="int8"]      { color: var(--color-dt-int8);      border-color: var(--color-dt-int8); }
-  .model-item-dtype[data-dtype="uint8"]     { color: var(--color-dt-uint8);     border-color: var(--color-dt-uint8); }
-  .model-item-dtype[data-dtype="int4"]      { color: var(--color-dt-int4);      border-color: var(--color-dt-int4); }
-  .model-item-dtype[data-dtype="uint4"]     { color: var(--color-dt-uint4);     border-color: var(--color-dt-uint4); }
-  .model-item-dtype[data-dtype="q4"]        { color: var(--color-dt-q4);        border-color: var(--color-dt-q4); }
-  .model-item-dtype[data-dtype="q4f16"]     { color: var(--color-dt-q4f16);     border-color: var(--color-dt-q4f16); }
-  .model-item-dtype[data-dtype="bnb4"]      { color: var(--color-dt-bnb4);      border-color: var(--color-dt-bnb4); }
-  .model-item-dtype[data-dtype="quantized"] { color: var(--color-dt-quantized); border-color: var(--color-dt-quantized); }
+  /* dtype-chip and size-chip use global styles from app.css */
 
   .visibility-section {
     margin-bottom: var(--space-3);

@@ -17,10 +17,6 @@ export const load: PageServerLoad = async ({ locals, params }) => {
     throw error(404, 'Recipe not found');
   }
 
-  if (recipe.visibility === 'personal' && recipe.owner_id !== userId) {
-    throw error(404, 'Recipe not found');
-  }
-
   return {
     recipe,
     userId,

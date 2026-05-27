@@ -261,7 +261,7 @@
   }
 
   .models-table td {
-    padding: 8px var(--space-2);
+    padding: 2px var(--space-2);
     border-bottom: 1px solid var(--color-border);
     vertical-align: middle;
   }

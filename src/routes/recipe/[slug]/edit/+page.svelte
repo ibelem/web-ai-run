@@ -249,7 +249,7 @@
               <span class="model-item-size">{formatSize(m.size_bytes)}</span>
             {/if}
             {#if m.data_type}
-              <span class="model-item-dtype" data-dtype={m.data_type}>{m.data_type === 'quantized' ? 'quant' : m.data_type}</span>
+              <span class="dtype-chip" data-dtype={m.data_type}>{m.data_type === 'quantized' ? 'quant' : m.data_type}</span>
             {/if}
             <button class="remove-btn" onclick={() => removeModel(i)} aria-label="Remove">
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round">
@@ -498,14 +498,6 @@
 
   .name-input {
     flex: 1;
-    font-family: var(--font-ui);
-    font-size: var(--text-sm);
-    padding: var(--space-1) var(--space-2);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-base);
-    background: var(--color-surface);
-    color: var(--color-text-primary);
-    transition: border-color var(--transition-base);
   }
 
   .name-input:focus-visible {
@@ -660,30 +652,7 @@
     flex-shrink: 0;
   }
 
-  .model-item-dtype {
-    font-family: var(--font-mono);
-    font-size: 11px;
-    font-weight: 600;
-    padding: 1px 7px;
-    border-radius: var(--radius-sm);
-    border: 1px solid;
-    white-space: nowrap;
-    flex-shrink: 0;
-    line-height: 1.4;
-  }
-
-  .model-item-dtype[data-dtype="fp32"]      { color: var(--color-dt-fp32);      border-color: var(--color-dt-fp32); }
-  .model-item-dtype[data-dtype="fp16"]      { color: var(--color-dt-fp16);      border-color: var(--color-dt-fp16); }
-  .model-item-dtype[data-dtype="bf16"]      { color: var(--color-dt-bf16);      border-color: var(--color-dt-bf16); }
-  .model-item-dtype[data-dtype="fp8"]       { color: var(--color-dt-fp8);       border-color: var(--color-dt-fp8); }
-  .model-item-dtype[data-dtype="int8"]      { color: var(--color-dt-int8);      border-color: var(--color-dt-int8); }
-  .model-item-dtype[data-dtype="uint8"]     { color: var(--color-dt-uint8);     border-color: var(--color-dt-uint8); }
-  .model-item-dtype[data-dtype="int4"]      { color: var(--color-dt-int4);      border-color: var(--color-dt-int4); }
-  .model-item-dtype[data-dtype="uint4"]     { color: var(--color-dt-uint4);     border-color: var(--color-dt-uint4); }
-  .model-item-dtype[data-dtype="q4"]        { color: var(--color-dt-q4);        border-color: var(--color-dt-q4); }
-  .model-item-dtype[data-dtype="q4f16"]     { color: var(--color-dt-q4f16);     border-color: var(--color-dt-q4f16); }
-  .model-item-dtype[data-dtype="bnb4"]      { color: var(--color-dt-bnb4);      border-color: var(--color-dt-bnb4); }
-  .model-item-dtype[data-dtype="quantized"] { color: var(--color-dt-quantized); border-color: var(--color-dt-quantized); }
+  /* dtype-chip uses global styles from app.css */
 
   .remove-btn {
     display: flex;
@@ -733,14 +702,7 @@
 
   .search-input {
     width: 100%;
-    font-family: var(--font-ui);
-    font-size: var(--text-sm);
     padding: var(--space-1) 32px;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-base);
-    background: var(--color-surface);
-    color: var(--color-text-primary);
-    transition: border-color var(--transition-base);
   }
 
   .search-input:focus-visible {
@@ -849,16 +811,7 @@
 
   .meta-textarea {
     width: 100%;
-    font-family: var(--font-ui);
-    font-size: var(--text-sm);
-    padding: var(--space-1) var(--space-2);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-base);
-    background: var(--color-surface);
-    color: var(--color-text-primary);
     resize: vertical;
-    transition: border-color var(--transition-base);
-    box-sizing: border-box;
   }
 
   .meta-textarea:focus-visible {
@@ -911,14 +864,6 @@
   .link-label-input {
     width: 130px;
     flex-shrink: 0;
-    font-family: var(--font-ui);
-    font-size: var(--text-sm);
-    padding: 5px var(--space-1);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-base);
-    background: var(--color-surface);
-    color: var(--color-text-primary);
-    transition: border-color var(--transition-base);
   }
 
   .link-label-input:focus-visible {
@@ -928,15 +873,7 @@
 
   .link-url-input {
     flex: 1;
-    font-family: var(--font-ui);
-    font-size: var(--text-sm);
-    padding: 5px var(--space-1);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-base);
-    background: var(--color-surface);
-    color: var(--color-text-primary);
     min-width: 0;
-    transition: border-color var(--transition-base);
   }
 
   .link-url-input:focus-visible {

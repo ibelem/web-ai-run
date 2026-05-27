@@ -714,18 +714,7 @@
   }
 
   .field input {
-    font-family: var(--font-ui);
-    font-size: var(--text-base);
-    padding: var(--space-1);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-base);
-    background: var(--color-surface);
-    color: var(--color-text-primary);
-    transition: border-color var(--transition-base);
-  }
-
-  .field input:focus-visible {
-    border-color: var(--color-focus-ring);
+    width: 100%;
   }
 
   .field input:disabled {

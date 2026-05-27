@@ -289,7 +289,7 @@
     flex-direction: column;
     gap: var(--space-2);
     margin-bottom: var(--space-3);
-    padding: var(--space-4) 0;
+    padding: 0 0 var(--space-4) 0;
   }
 
   .iterations-field {

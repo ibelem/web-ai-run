@@ -300,7 +300,7 @@
             </div>
             <div class="model-badges">
               <FormatIcon format={inferFormat(model.file_path)} size={16} />
-              <span class="badge badge-dtype" data-dtype={model.data_type}>{model.data_type === 'quantized' ? 'quant' : model.data_type}</span>
+              <span class="dtype-chip" data-dtype={model.data_type}>{model.data_type === 'quantized' ? 'quant' : model.data_type}</span>
             </div>
             <span class="model-synced">{formatRelative(model.last_synced)}</span>
           </a>
@@ -769,7 +769,7 @@
     border: 1px solid var(--color-border);
     border-radius: var(--radius-base);
     background: var(--color-surface-raised);
-    padding: 0 5px 0 10px;
+    padding: 0 0 0 10px;
     transition: border-color var(--transition-base), box-shadow var(--transition-base);
   }
 
@@ -786,7 +786,7 @@
 
   .hf-home-input {
     flex: 1;
-    border: none;
+    border: none !important;
     background: none;
     outline: none; /* parent .hf-home-search-wrap provides focus-within ring */
     font-family: var(--font-ui);
@@ -821,6 +821,11 @@
     font-weight: 500;
     padding: 10px 20px;
     border-radius: var(--radius-base);
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+    border-top-width: 0 !important;
+    border-bottom-width: 0 !important;
+    border-right-width: 0 !important;
     white-space: nowrap;
     text-decoration: none;
     cursor: pointer;
@@ -834,9 +839,8 @@
   }
 
   .hf-home-btn-secondary:hover {
-    border-color: var(--color-primary);
-    color: var(--color-primary);
-    background: var(--color-accent-light);
+    color: var(--color-text-on-primary);
+    background: var(--color-primary);
   }
 
   .hf-home-btn-primary {
@@ -1007,31 +1011,6 @@
     flex-shrink: 0;
   }
 
-  .badge {
-    font-family: var(--font-mono);
-    font-size: 11px;
-    padding: 1px 7px;
-    border-radius: var(--radius-sm);
-    border: 1px solid var(--color-border);
-    color: var(--color-text-secondary);
-    white-space: nowrap;
-    text-align: center;
-  }
-
-  .badge-dtype { width: 48px; }
-
-  .badge-dtype[data-dtype="fp32"]      { color: var(--color-dt-fp32);      border-color: var(--color-dt-fp32); }
-  .badge-dtype[data-dtype="fp16"]      { color: var(--color-dt-fp16);      border-color: var(--color-dt-fp16); }
-  .badge-dtype[data-dtype="bf16"]      { color: var(--color-dt-bf16);      border-color: var(--color-dt-bf16); }
-  .badge-dtype[data-dtype="fp8"]       { color: var(--color-dt-fp8);       border-color: var(--color-dt-fp8); }
-  .badge-dtype[data-dtype="int8"]      { color: var(--color-dt-int8);      border-color: var(--color-dt-int8); }
-  .badge-dtype[data-dtype="uint8"]     { color: var(--color-dt-uint8);     border-color: var(--color-dt-uint8); }
-  .badge-dtype[data-dtype="int4"]      { color: var(--color-dt-int4);      border-color: var(--color-dt-int4); }
-  .badge-dtype[data-dtype="uint4"]     { color: var(--color-dt-uint4);     border-color: var(--color-dt-uint4); }
-  .badge-dtype[data-dtype="q4"]        { color: var(--color-dt-q4);        border-color: var(--color-dt-q4); }
-  .badge-dtype[data-dtype="q4f16"]     { color: var(--color-dt-q4f16);     border-color: var(--color-dt-q4f16); }
-  .badge-dtype[data-dtype="bnb4"]      { color: var(--color-dt-bnb4);      border-color: var(--color-dt-bnb4); }
-  .badge-dtype[data-dtype="quantized"] { color: var(--color-dt-quantized); border-color: var(--color-dt-quantized); }
 
   .model-synced {
     font-family: var(--font-mono);

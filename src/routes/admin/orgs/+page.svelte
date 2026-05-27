@@ -26,7 +26,7 @@
         <h1>Org Management</h1>
         <p>HuggingFace orgs to sync models from. Changes take effect on the next sync.</p>
       </div>
-      <button class="btn-add" onclick={() => { adding = !adding; newName = ''; }}>
+      <button class="btn-primary" onclick={() => { adding = !adding; newName = ''; }}>
         {adding ? 'Cancel' : '+ Add Org'}
       </button>
     </div>
@@ -55,56 +55,42 @@
     </form>
   {/if}
 
-  <div class="table-wrapper">
-    <table class="orgs-table">
-      <thead>
-        <tr>
-          <th>Org Name</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        {#each data.orgs as org (org.id)}
-          {#if editingId === org.id}
-            <tr class="editing-row">
-              <td colspan="2">
-                <input class="input input-inline" bind:value={editName} />
-              </td>
-              <td class="row-actions">
-                <form method="POST" action="?/update" use:enhance={() => {
-                  return ({ result, update }) => {
-                    if (result.type === 'success') cancelEdit();
-                    update();
-                  };
-                }}>
-                  <input type="hidden" name="id" value={org.id} />
-                  <input type="hidden" name="name" value={editName} />
-                  <button type="submit" class="btn-primary" disabled={!editName.trim()}>Save</button>
-                </form>
-                <button class="btn-cancel" onclick={cancelEdit}>Cancel</button>
-              </td>
-            </tr>
-          {:else}
-            <tr>
-              <td class="mono">{org.name}</td>
-              <td class="row-actions">
-                <button class="btn-edit" onclick={() => startEdit(org)}>Edit</button>
-                <form method="POST" action="?/remove" use:enhance>
-                  <input type="hidden" name="id" value={org.id} />
-                  <button
-                    type="submit"
-                    class="btn-remove"
-                    onclick={(e) => { if (!confirm(`Remove "${org.name}"? This won't delete existing synced models.`)) e.preventDefault(); }}
-                  >
-                    Remove
-                  </button>
-                </form>
-              </td>
-            </tr>
-          {/if}
-        {/each}
-      </tbody>
-    </table>
+  <div class="orgs-grid">
+    {#each data.orgs as org (org.id)}
+      <div class="org-card" class:editing={editingId === org.id}>
+        {#if editingId === org.id}
+          <input class="input input-inline" bind:value={editName} />
+          <div class="card-actions">
+            <form method="POST" action="?/update" use:enhance={() => {
+              return ({ result, update }) => {
+                if (result.type === 'success') cancelEdit();
+                update();
+              };
+            }}>
+              <input type="hidden" name="id" value={org.id} />
+              <input type="hidden" name="name" value={editName} />
+              <button type="submit" class="btn-edit" disabled={!editName.trim()}>Save</button>
+            </form>
+            <button class="btn-cancel" onclick={cancelEdit}>Cancel</button>
+          </div>
+        {:else}
+          <span class="org-name">{org.name}</span>
+          <div class="card-actions">
+            <button class="btn-edit" onclick={() => startEdit(org)}>Edit</button>
+            <form method="POST" action="?/remove" use:enhance>
+              <input type="hidden" name="id" value={org.id} />
+              <button
+                type="submit"
+                class="btn-remove"
+                onclick={(e) => { if (!confirm(`Remove "${org.name}"? This won't delete existing synced models.`)) e.preventDefault(); }}
+              >
+                Remove
+              </button>
+            </form>
+          </div>
+        {/if}
+      </div>
+    {/each}
   </div>
 </div>
 
@@ -147,67 +133,54 @@
   .input:focus-visible { border-color: var(--color-focus-ring); }
   .input[name="name"] { flex: 1; min-width: 200px; }
 
-  .btn-add {
-    font-family: var(--font-ui);
-    font-size: var(--text-sm);
-    font-weight: 500;
-    padding: var(--space-1) var(--space-2);
-    border: 1px solid var(--color-primary);
-    border-radius: var(--radius-base);
-    background: none;
-    color: var(--color-primary);
-    cursor: pointer;
-    white-space: nowrap;
-    transition: background var(--transition-base);
-  }
-
-  .btn-add:hover { background:var(--color-accent-light); }
-
   .btn-primary {
     white-space: nowrap;
   }
 
-  .table-wrapper {
-    overflow-x: auto;
+  .orgs-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--space-2);
+  }
+
+  .org-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    padding: var(--space-2);
     border: 1px solid var(--color-border);
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius-base);
     background: var(--color-surface);
+    transition: border-color var(--transition-base);
   }
 
-  .orgs-table {
-    width: 100%;
-    border-collapse: collapse;
+  .org-card:hover { border-color: var(--color-border-strong); }
+  .org-card.editing { border-color: var(--color-primary); background: var(--color-accent-light); }
+
+  .org-name {
+    font-family: var(--font-mono);
     font-size: var(--text-sm);
+    color: var(--color-text-primary);
+    word-break: break-all;
   }
 
-  .orgs-table th {
-    text-align: left;
-    padding: 10px var(--space-2);
-    font-size: var(--text-xs);
-    font-weight: 500;
-    color: var(--color-text-secondary);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    border-bottom: 1px solid var(--color-border);
-    background: var(--color-surface-sunken);
-    white-space: nowrap;
-  }
-
-  .orgs-table td {
-    padding: 8px var(--space-2);
-    border-bottom: 1px solid var(--color-border);
-    vertical-align: middle;
-  }
-
-  .orgs-table tr:last-child td { border-bottom: none; }
-  .orgs-table tr:hover td { background:var(--color-accent-light); }
-
-  .mono { font-family: var(--font-mono); font-size: var(--text-sm); }
-
-  .row-actions {
+  .card-actions {
     display: flex;
     gap: var(--space-half);
     align-items: center;
+    flex-wrap: wrap;
+  }
+
+  @media (max-width: 1024px) {
+    .orgs-grid { grid-template-columns: repeat(3, 1fr); }
+  }
+
+  @media (max-width: 640px) {
+    .orgs-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  @media (max-width: 400px) {
+    .orgs-grid { grid-template-columns: 1fr; }
   }
 
   .btn-edit {
@@ -258,8 +231,6 @@
     width: 100%;
   }
 
-  .editing-row td { background:var(--color-accent-light); }
-
   @media (max-width: 640px) {
     .input[name="name"] {
       min-width: 0;
@@ -269,10 +240,6 @@
     .add-form {
       flex-direction: column;
       align-items: stretch;
-    }
-
-    .row-actions {
-      flex-wrap: wrap;
     }
   }
 </style>

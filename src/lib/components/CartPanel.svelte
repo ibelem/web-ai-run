@@ -149,16 +149,18 @@
           {#each cartModels as m (`${m.hf_model_id}::${m.file_path}`)}
             <li class="model-row">
               <div class="model-info">
-                <span class="model-name" title={m.hf_model_id}>{m.hf_model_id}</span>
-                <span class="model-meta" title={m.file_path}>{m.file_path}</span>
-              </div>
-              <div class="model-tags">
-                {#if m.size_bytes}
-                  <span class="tag tag-size">{formatSize(m.size_bytes)}</span>
-                {/if}
-                {#if m.data_type}
-                  <span class="tag tag-dtype" data-dtype={m.data_type}>{m.data_type === 'quantized' ? 'quant' : m.data_type}</span>
-                {/if}
+                <div class="model-top-row">
+                  <span class="model-name" title={m.hf_model_id}>{m.hf_model_id}</span>
+                  {#if m.data_type}
+                    <span class="dtype-chip" data-dtype={m.data_type}>{m.data_type === 'quantized' ? 'quant' : m.data_type}</span>
+                  {/if}
+                </div>
+                <div class="model-bottom-row">
+                  <span class="model-meta" title={m.file_path}>{m.file_path}</span>
+                  {#if m.size_bytes}
+                    <span class="size-chip">{formatSize(m.size_bytes)}</span>
+                  {/if}
+                </div>
               </div>
               <button
                 class="deselect-btn"
@@ -375,7 +377,7 @@
 
   .model-row {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: var(--space-1);
     padding: 5px 7px;
     border-radius: var(--radius-base);
@@ -393,7 +395,15 @@
     min-width: 0;
     display: flex;
     flex-direction: column;
-    gap: 1px;
+    gap: 2px;
+  }
+
+  .model-top-row,
+  .model-bottom-row {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    min-width: 0;
   }
 
   .model-name {
@@ -403,21 +413,19 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    flex: 1;
+    min-width: 0;
   }
 
   .model-meta {
+    font-family: var(--font-mono);
     font-size: var(--text-xs);
     color: var(--color-text-muted);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-  }
-
-  .model-tags {
-    display: flex;
-    align-items: center;
-    gap: 3px;
-    flex-shrink: 0;
+    flex: 1;
+    min-width: 0;
   }
 
   .deselect-btn {
@@ -602,22 +610,5 @@
     flex-shrink: 0;
   }
 
-  .tag-size {
-    color: var(--color-text-muted);
-    border-color: var(--color-border);
-  }
-
-  /* dtype colors */
-  .tag-dtype[data-dtype="fp32"]      { color: var(--color-dt-fp32); border-color: var(--color-dt-fp32); }
-  .tag-dtype[data-dtype="fp16"]      { color: var(--color-dt-fp16); border-color: var(--color-dt-fp16); }
-  .tag-dtype[data-dtype="bf16"]      { color: var(--color-dt-bf16); border-color: var(--color-dt-bf16); }
-  .tag-dtype[data-dtype="fp8"]       { color: var(--color-dt-fp8); border-color: var(--color-dt-fp8); }
-  .tag-dtype[data-dtype="int8"]      { color: var(--color-dt-int8); border-color: var(--color-dt-int8); }
-  .tag-dtype[data-dtype="uint8"]     { color: var(--color-dt-uint8); border-color: var(--color-dt-uint8); }
-  .tag-dtype[data-dtype="int4"]      { color: var(--color-dt-int4); border-color: var(--color-dt-int4); }
-  .tag-dtype[data-dtype="uint4"]     { color: var(--color-dt-uint4); border-color: var(--color-dt-uint4); }
-  .tag-dtype[data-dtype="q4"]        { color: var(--color-dt-q4); border-color: var(--color-dt-q4); }
-  .tag-dtype[data-dtype="q4f16"]     { color: var(--color-dt-q4f16); border-color: var(--color-dt-q4f16); }
-  .tag-dtype[data-dtype="bnb4"]      { color: var(--color-dt-bnb4); border-color: var(--color-dt-bnb4); }
-  .tag-dtype[data-dtype="quantized"] { color: var(--color-dt-quantized); border-color: var(--color-dt-quantized); }
+  /* dtype-chip and size-chip use global styles from app.css */
 </style>

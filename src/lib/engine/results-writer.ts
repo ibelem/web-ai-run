@@ -8,14 +8,16 @@ export class ResultsWriter {
   private environment: EnvironmentInfo;
   private ortVersion: string;
   private litertVersion: string;
+  private webnnEp: string;
   private resultIds = new Map<string, string>();
 
-  constructor(userId: string, environment: EnvironmentInfo, ortVersion: string, litertVersion: string) {
+  constructor(userId: string, environment: EnvironmentInfo, ortVersion: string, litertVersion: string, webnnEp: string = '') {
     this.runId = crypto.randomUUID();
     this.userId = userId;
     this.environment = environment;
     this.ortVersion = ortVersion;
     this.litertVersion = litertVersion;
+    this.webnnEp = webnnEp;
   }
 
   async createResult(item: TestItem, iterations: number): Promise<string | null> {
@@ -35,6 +37,7 @@ export class ResultsWriter {
       browser_version: this.environment.browser_version,
       ort_version: item.runtime === 'onnx' ? this.ortVersion : '',
       litert_version: item.runtime === 'litert' ? this.litertVersion : '',
+      webnn_ep: this.webnnEp || 'Default / Unknown',
       iterations,
     };
 
@@ -70,6 +73,7 @@ export class ResultsWriter {
       p90_ms:             m?.p90_ms             ?? null,
       throughput_fps:     m?.throughput_fps     ?? null,
       inference_times:    result.inference_times ?? [],
+      logs:               result.logs ?? [],
     };
 
     await (this.supabase.from('results') as any).update(update).eq('id', dbId);
@@ -83,6 +87,7 @@ export class ResultsWriter {
       status: 'timeout',
       timeout_phase: phase,
       completed_at: new Date().toISOString(),
+      logs: [`[timeout] phase=${phase}`],
     };
 
     await (this.supabase.from('results') as any).update(update).eq('id', dbId);

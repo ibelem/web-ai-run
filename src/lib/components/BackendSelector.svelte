@@ -45,27 +45,29 @@
 <style>
   .backend-selector {
     display: flex;
-    align-items: flex-start;
-    gap: var(--space-1);
-    flex-wrap: wrap;
+    flex-direction: column;
+    gap: 4px;
   }
 
   .config-label {
-    font-size: var(--text-sm);
-    color: var(--color-text-secondary);
+    font-size: var(--text-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--color-text-muted);
     white-space: nowrap;
-    min-width: 80px;
   }
 
   .backend-btns {
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
     gap: var(--space-half);
   }
 
   .backend-btn {
-    display: inline-flex;
+    display: flex;
     align-items: center;
+    justify-content: center;
     gap: 5px;
     font-family: var(--font-mono);
     font-size: var(--text-xs);
@@ -77,10 +79,19 @@
     color: var(--color-text-secondary);
     cursor: pointer;
     transition: all var(--transition-base);
+    width: 100%;
   }
 
   @media (pointer: coarse) {
-    .backend-btn { min-height: 44px; padding: var(--space-1) var(--space-2); }
+    .backend-btn { min-height: 28px; padding: var(--space-1) var(--space-2); }
+  }
+
+  @media (max-width: 640px) {
+    .backend-btns { grid-template-columns: repeat(3, 1fr); }
+  }
+
+  @media (max-width: 360px) {
+    .backend-btns { grid-template-columns: repeat(2, 1fr); }
   }
 
   .backend-btn:hover:not(:disabled) {

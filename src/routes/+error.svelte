@@ -73,7 +73,7 @@
 
     .error-link {
       text-align: center;
-      min-height: 44px;
+      min-height: 28px;
       display: flex;
       align-items: center;
       justify-content: center;

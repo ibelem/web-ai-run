@@ -25,6 +25,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
   if (config.os) hash.set('os', config.os);
   if (config.ort) hash.set('ort', config.ort);
   if (config.litert) hash.set('litert', config.litert);
+  if (config.webnn_ep) hash.set('webnn_ep', config.webnn_ep);
 
   throw redirect(302, `/run#${hash}`);
 };

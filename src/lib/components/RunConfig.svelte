@@ -30,28 +30,28 @@
 <style>
   .run-config {
     display: flex;
-    align-items: center;
-    gap: var(--space-3);
-    flex-wrap: wrap;
+    flex-direction: column;
+    gap: var(--space-1);
   }
 
   .config-row {
     display: flex;
-    align-items: center;
-    gap: var(--space-1);
-    flex-wrap: wrap;
+    flex-direction: column;
+    gap: 4px;
   }
 
   .config-label {
-    font-size: var(--text-sm);
-    color: var(--color-text-secondary);
+    font-size: var(--text-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--color-text-muted);
     white-space: nowrap;
-    min-width: 80px;
   }
 
   .iter-group {
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
     gap: var(--space-half);
   }
 
@@ -67,10 +67,20 @@
     cursor: pointer;
     transition: all var(--transition-base);
     white-space: nowrap;
+    width: 100%;
+    text-align: center;
   }
 
   @media (pointer: coarse) {
-    .iter-btn { min-height: 44px; padding: var(--space-1) var(--space-2); }
+    .iter-btn { min-height: 28px; padding: var(--space-1) var(--space-2); }
+  }
+
+  @media (max-width: 640px) {
+    .iter-group { grid-template-columns: repeat(4, 1fr); }
+  }
+
+  @media (max-width: 360px) {
+    .iter-group { grid-template-columns: repeat(4, 1fr); }
   }
 
   .iter-btn:hover {

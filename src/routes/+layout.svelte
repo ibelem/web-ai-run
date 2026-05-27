@@ -55,9 +55,12 @@
 
   let showUserMenu = $state(false);
   let showMobileMenu = $state(false);
+  let showAdminMenu = $state(false);
+  let showMobileAdmin = $state(false);
 
   function closeMobileMenu() {
     showMobileMenu = false;
+    showMobileAdmin = false;
   }
 
   const navItems = $derived([
@@ -85,7 +88,7 @@
         <line x1="3" y1="18" x2="21" y2="18"/>
       </svg>
     </button>
-    <a href="/" class="logo">
+    <a href="/" class="logo" aria-label="Web AI Benchmark home">
       <svg class="logo-icon" height="32" viewBox="0 0 642 160" fill="none" xmlns="http://www.w3.org/2000/svg">
         <path d="M15 80L33 59" stroke="none" stroke-width="6" stroke-linecap="round"/>
         <path d="M63 73L44 58" stroke="none" stroke-width="6" stroke-linecap="round"/>
@@ -140,13 +143,29 @@
         {/if}
       {/each}
       {#if $auth.role === 'admin'}
-        <a
-          href="/admin/users"
-          class="nav-item"
-          class:active={$page.url.pathname.startsWith('/admin')}
-        >
-          Admin
-        </a>
+        <div class="admin-menu-wrapper">
+          <button
+            class="nav-item admin-trigger"
+            class:active={$page.url.pathname.startsWith('/admin')}
+            onclick={() => showAdminMenu = !showAdminMenu}
+            aria-expanded={showAdminMenu}
+          >
+            Admin
+            <svg class="admin-chevron" class:open={showAdminMenu} width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
+          </button>
+          {#if showAdminMenu}
+            <!-- svelte-ignore a11y_no_static_element_interactions -->
+            <div class="admin-overlay" onclick={() => showAdminMenu = false} onkeydown={() => {}}></div>
+            <div class="admin-dropdown">
+              <a href="/admin/users" class="dropdown-item" onclick={() => showAdminMenu = false}>Users</a>
+              <a href="/admin/orgs" class="dropdown-item" onclick={() => showAdminMenu = false}>Orgs</a>
+              <a href="/admin/models" class="dropdown-item" onclick={() => showAdminMenu = false}>Models</a>
+              <a href="/admin/recipes" class="dropdown-item" onclick={() => showAdminMenu = false}>Recipes</a>
+            </div>
+          {/if}
+        </div>
       {/if}
     </div>
   </div>
@@ -249,14 +268,23 @@
       {/if}
     {/each}
     {#if $auth.role === 'admin'}
-      <a
-        href="/admin/users"
-        class="mobile-menu-item"
+      <button
+        class="mobile-menu-item mobile-admin-toggle"
         class:active={$page.url.pathname.startsWith('/admin')}
-        onclick={closeMobileMenu}
+        onclick={() => showMobileAdmin = !showMobileAdmin}
+        aria-expanded={showMobileAdmin}
       >
         Admin
-      </a>
+        <svg class="admin-chevron" class:open={showMobileAdmin} width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+          <polyline points="6 9 12 15 18 9"/>
+        </svg>
+      </button>
+      {#if showMobileAdmin}
+        <a href="/admin/users" class="mobile-menu-item mobile-admin-item" onclick={closeMobileMenu}>Users</a>
+        <a href="/admin/orgs" class="mobile-menu-item mobile-admin-item" onclick={closeMobileMenu}>Orgs</a>
+        <a href="/admin/models" class="mobile-menu-item mobile-admin-item" onclick={closeMobileMenu}>Models</a>
+        <a href="/admin/recipes" class="mobile-menu-item mobile-admin-item" onclick={closeMobileMenu}>Recipes</a>
+      {/if}
     {/if}
   </div>
 {/if}
@@ -397,6 +425,44 @@
     font-size: 11px;
     font-weight: 600;
     line-height: 1;
+  }
+
+  .admin-menu-wrapper {
+    position: relative;
+  }
+
+  .admin-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .admin-chevron {
+    transition: transform var(--transition-base);
+  }
+
+  .admin-chevron.open {
+    transform: rotate(180deg);
+  }
+
+  .admin-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: calc(var(--z-dropdown) - 1);
+  }
+
+  .admin-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    margin-top: 4px;
+    min-width: 140px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-dropdown);
+    z-index: var(--z-dropdown);
+    padding: 4px 0;
   }
 
   .user-menu-wrapper {
@@ -547,6 +613,23 @@
     .mobile-menu-item.active {
       color: var(--color-primary);
       background: var(--color-nav-item-active);
+    }
+
+    .mobile-admin-toggle {
+      width: 100%;
+      text-align: left;
+      border: none;
+      background: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .mobile-admin-item {
+      padding-left: calc(var(--space-3) + 12px);
+      font-size: var(--text-sm);
+      color: var(--color-text-muted);
     }
 
     main {
