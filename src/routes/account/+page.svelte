@@ -312,7 +312,10 @@
               >
                 {#if uploadedAvatarUrl}
                   <img src={uploadedAvatarUrl} alt="Avatar" class="avatar" loading="lazy" crossorigin="anonymous" />
-                {:else if !hasOAuthPhoto && data.profile.email && !gravatarFailedAccount}
+                {:else if hasOAuthPhoto}
+                  {@const oauthAvatar = data.session?.user?.user_metadata?.avatar_url ?? data.session?.user?.user_metadata?.picture}
+                  <img src={oauthAvatar} alt="Avatar" class="avatar" loading="lazy" crossorigin="anonymous" />
+                {:else if data.profile.email && !gravatarFailedAccount}
                   <img
                     src={gravatarUrl(data.profile.email, 256)}
                     alt="Avatar"

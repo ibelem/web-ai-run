@@ -71,9 +71,22 @@
   }
 
   function parseJson(text: string): ParsedModel[] {
-    const arr = JSON.parse(text);
-    if (!Array.isArray(arr)) throw new Error('JSON must be an array of model objects.');
-    return arr.map((item: any) => ({
+    const parsed = JSON.parse(text);
+    // Enriched export format: { name, description?, links?, models: [...] }
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed) && Array.isArray(parsed.models)) {
+      if (parsed.name) recipeName = parsed.name;
+      if (parsed.description) description = parsed.description;
+      if (Array.isArray(parsed.links) && parsed.links.length > 0) {
+        links = parsed.links.map((l: any) => ({ label: l.label ?? '', url: l.url ?? '' }));
+      }
+      return parsed.models.map((item: any) => ({
+        hf_model_id: String(item.hf_model_id ?? ''),
+        file_path: String(item.file_path ?? ''),
+        data_type: String(item.data_type ?? ''),
+      }));
+    }
+    if (!Array.isArray(parsed)) throw new Error('JSON must be an array of model objects or a recipe export object.');
+    return parsed.map((item: any) => ({
       hf_model_id: String(item.hf_model_id ?? ''),
       file_path: String(item.file_path ?? ''),
       data_type: String(item.data_type ?? ''),

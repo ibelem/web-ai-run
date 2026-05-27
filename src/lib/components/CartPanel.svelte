@@ -22,11 +22,23 @@
 
   // --- Recipe section ---
   type RecipeMode = 'new' | 'append';
+  type LinkRow = { label: string; url: string };
   let recipeMode = $state<RecipeMode>('new');
   let recipeName = $state('');
   let recipeVisibility = $state<'personal' | 'public'>('personal');
+  let recipeDescription = $state('');
+  let recipeLinks = $state<LinkRow[]>([{ label: '', url: '' }]);
   let saving = $state(false);
   let saveError = $state('');
+
+  function addLink() {
+    if (recipeLinks.length < 10) recipeLinks = [...recipeLinks, { label: '', url: '' }];
+  }
+
+  function removeLink(i: number) {
+    recipeLinks = recipeLinks.filter((_, idx) => idx !== i);
+    if (recipeLinks.length === 0) recipeLinks = [{ label: '', url: '' }];
+  }
   let existingRecipes = $state<Recipe[]>([]);
   let selectedRecipeId = $state('');
   let loadingRecipes = $state(false);
@@ -86,7 +98,14 @@
     try {
       if (recipeMode === 'new') {
         if (!recipeName.trim()) return;
-        await createRecipe(authState.user.id, recipeName.trim(), recipeModels, recipeVisibility);
+        await createRecipe(
+          authState.user.id,
+          recipeName.trim(),
+          recipeModels,
+          recipeVisibility,
+          recipeDescription.trim() || null,
+          recipeLinks.filter(l => l.url.trim()).map(l => ({ ...(l.label ? { label: l.label } : {}), url: l.url }))
+        );
         cart.clear();
         onclose?.();
         setTimeout(() => goto('/recipe'), 300);
@@ -217,6 +236,34 @@
               class:active={recipeVisibility === 'public'}
               onclick={() => { recipeVisibility = 'public'; }}
             >Public</button>
+          </div>
+
+          <label class="meta-label" for="cart-recipe-desc">Description</label>
+          <textarea
+            id="cart-recipe-desc"
+            class="recipe-input meta-textarea"
+            rows="2"
+            placeholder="Describe what this recipe does…"
+            bind:value={recipeDescription}
+          ></textarea>
+
+          <div class="links-label-row">
+            <span class="meta-label">Links</span>
+            <button type="button" class="btn-add-link" onclick={addLink} disabled={recipeLinks.length >= 10}>+ Add link</button>
+          </div>
+          <div class="links-list">
+            {#each recipeLinks as link, i (i)}
+              <div class="link-row">
+                <input type="text" class="link-label-input" placeholder="Label (optional)" bind:value={link.label} />
+                <input type="url" class="link-url-input" placeholder="https://…" bind:value={link.url} />
+                <button type="button" class="remove-link-btn" onclick={() => removeLink(i)} aria-label="Remove link">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round">
+                    <line x1="18" y1="6" x2="6" y2="18"/>
+                    <line x1="6" y1="6" x2="18" y2="18"/>
+                  </svg>
+                </button>
+              </div>
+            {/each}
           </div>
         {:else}
           {#if loadingRecipes}
@@ -510,19 +557,89 @@
   .recipe-input,
   .recipe-select {
     width: 100%;
-    font-family: var(--font-ui);
-    font-size: var(--text-base);
-    padding: var(--space-2) var(--space-2);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-base);
-    background: var(--color-surface);
-    color: var(--color-text-primary);
-    transition: border-color var(--transition-base);
+    color: var(--color-text-secondary);
   }
 
-  .recipe-input:focus-visible,
-  .recipe-select:focus-visible {
-    border-color: var(--color-focus-ring);
+  .meta-textarea {
+    resize: vertical;
+    height: auto;
+  }
+
+  .meta-label {
+    display: block;
+    font-size: var(--text-xs);
+    font-weight: 500;
+    color: var(--color-text-muted);
+    margin-bottom: 4px;
+  }
+
+  .links-label-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 4px;
+  }
+
+  .btn-add-link {
+    font-family: var(--font-ui);
+    font-size: var(--text-xs);
+    font-weight: 500;
+    padding: 2px 8px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: none;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    transition: border-color var(--transition-base), color var(--transition-base);
+  }
+
+  .btn-add-link:hover:not(:disabled) {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+  }
+
+  .btn-add-link:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .links-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .link-row {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+  }
+
+  .link-label-input {
+    width: 90px;
+    flex-shrink: 0;
+  }
+
+  .link-url-input {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .remove-link-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+    border: none;
+    border-radius: var(--radius-base);
+    background: none;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    transition: background var(--transition-base), color var(--transition-base);
+  }
+
+  .remove-link-btn:hover {
+    background: var(--color-surface-sunken);
+    color: var(--color-text-primary);
   }
 
   .hint {

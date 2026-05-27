@@ -239,18 +239,18 @@
             <div class="model-item-left">
               <div class="model-item-top">
                 <span class="model-item-repo">{m.hf_model_id}</span>
+                {#if m.data_type}
+                  <span class="dtype-chip" data-dtype={m.data_type}>{m.data_type === 'quantized' ? 'quant' : m.data_type}</span>
+                {/if}
               </div>
               <div class="model-item-bottom">
                 <FormatIcon format={ext} size={14} />
                 <span class="model-item-name">{m.file_path}</span>
+                {#if m.size_bytes}
+                  <span class="model-item-size">{formatSize(m.size_bytes)}</span>
+                {/if}
               </div>
             </div>
-            {#if m.size_bytes}
-              <span class="model-item-size">{formatSize(m.size_bytes)}</span>
-            {/if}
-            {#if m.data_type}
-              <span class="dtype-chip" data-dtype={m.data_type}>{m.data_type === 'quantized' ? 'quant' : m.data_type}</span>
-            {/if}
             <button class="remove-btn" onclick={() => removeModel(i)} aria-label="Remove">
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round">
                 <line x1="18" y1="6" x2="6" y2="18"/>
@@ -620,6 +620,12 @@
     min-width: 0;
   }
 
+  .model-item-top :global(.dtype-chip),
+  .model-item-bottom .model-item-size {
+    margin-left: auto;
+    flex-shrink: 0;
+  }
+
   .model-item-repo {
     font-family: var(--font-mono);
     font-size: var(--text-sm);
@@ -650,6 +656,9 @@
     border: 1px solid var(--color-border);
     white-space: nowrap;
     flex-shrink: 0;
+    min-width: 48px;
+    text-align: center;
+    box-sizing: border-box;
   }
 
   /* dtype-chip uses global styles from app.css */
@@ -702,7 +711,8 @@
 
   .search-input {
     width: 100%;
-    padding: var(--space-1) 32px;
+    height: auto !important;
+    padding: var(--space-1) 32px !important;
   }
 
   .search-input:focus-visible {

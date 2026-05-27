@@ -55,7 +55,9 @@ export async function createRecipe(
   ownerId: string,
   name: string,
   models: RecipeModel[],
-  visibility: 'personal' | 'public' = 'personal'
+  visibility: 'personal' | 'public' = 'personal',
+  description?: string | null,
+  links?: { label?: string; url: string }[]
 ): Promise<Recipe> {
   const supabase = createClient();
   const slug = `${slugify(name)}-${Date.now().toString(36)}`;
@@ -67,6 +69,8 @@ export async function createRecipe(
       slug,
       visibility,
       models,
+      ...(description ? { description } : {}),
+      ...(links?.length ? { links } : {}),
     })
     .select('*')
     .single();

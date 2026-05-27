@@ -4,6 +4,8 @@
 
   let { data } = $props();
 
+  let recipes = $state<Recipe[]>(data.recipes);
+
   function runRecipe(recipe: Recipe) {
     try {
       sessionStorage.setItem('hf_ext_models', JSON.stringify(
@@ -21,13 +23,13 @@
   async function handleDelete(recipe: Recipe) {
     if (!confirm(`Delete "${recipe.name}"?`)) return;
     await deleteRecipe(recipe.id);
-    data.recipes = data.recipes.filter((r) => r.id !== recipe.id);
+    recipes = recipes.filter((r) => r.id !== recipe.id);
   }
 
   async function toggleVisibility(recipe: Recipe) {
     const next = recipe.visibility === 'public' ? 'personal' : 'public';
     await updateRecipe(recipe.id, { visibility: next });
-    data.recipes = data.recipes.map((r) =>
+    recipes = recipes.map((r) =>
       r.id === recipe.id ? { ...r, visibility: next } : r
     );
   }
@@ -64,7 +66,7 @@
   }
 
   const featuredRecipes = $derived(
-    data.recipes
+    recipes
       .filter((r: any) => r.visibility === 'public' && r.featured)
       .sort((a: any, b: any) => {
         const ao = a.featured_order ?? Infinity;
@@ -75,13 +77,13 @@
   );
 
   const communityRecipes = $derived(
-    data.recipes
+    recipes
       .filter((r: any) => r.visibility === 'public' && !r.featured)
       .sort((a: any, b: any) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
   );
 
   const mineRecipes = $derived(
-    data.recipes
+    recipes
       .filter((r: any) => r.owner_id === data.userId)
       .sort((a: any, b: any) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
   );
@@ -129,7 +131,7 @@
       {#if showOwnerActions && data.userId === recipe.owner_id}
         <button class="action-btn action-vis" onclick={() => toggleVisibility(recipe)}>{visLabel}</button>
         <a href="/recipe/{recipe.slug}/edit" class="action-btn action-edit">Edit</a>
-        <button class="action-btn action-delete" onclick={() => handleDelete(recipe)}>Del</button>
+        <button class="action-btn action-delete" onclick={() => handleDelete(recipe)}>Delete</button>
       {/if}
     </div>
   </div>
@@ -512,8 +514,6 @@
     display: flex;
     flex-wrap: wrap;
     gap: 4px;
-    padding-top: var(--space-1);
-    border-top: 1px solid var(--color-border);
     margin-top: auto;
   }
 
@@ -530,19 +530,23 @@
     cursor: pointer;
     text-decoration: none;
     white-space: nowrap;
-    display: inline-block;
-    vertical-align: middle;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    text-align: center;
     transition: color var(--transition-base), border-color var(--transition-base), background var(--transition-base);
   }
 
-  .action-run    { width: 34px;  text-align: center; border-color: var(--color-primary); color: var(--color-primary); }
-  .action-share  { width: 40px;  text-align: center; }
-  .action-vis    { width: 96px;  text-align: center; }
-  .action-edit   { width: 40px;  text-align: center; }
-  .action-delete { width: 34px;  text-align: center; }
+  .action-run    { border-color: var(--color-primary); background: var(--color-primary); color: var(--color-text-on-primary); }
+  .action-share  {}
+  .action-vis    {}
+  .action-edit   {}
+  .action-delete {}
 
   .action-run:hover {
-    background: var(--color-primary);
+    background: var(--color-primary-hover);
+    border-color: var(--color-primary-hover);
     color: var(--color-text-on-primary);
   }
 

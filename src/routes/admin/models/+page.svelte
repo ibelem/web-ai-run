@@ -181,13 +181,6 @@
   .search-input {
     flex: 1;
     max-width: 400px;
-    font-family: var(--font-ui);
-    font-size: var(--text-sm);
-    padding: var(--space-1) var(--space-2);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-base);
-    background: var(--color-surface);
-    color: var(--color-text-primary);
     transition: border-color var(--transition-base);
   }
 

@@ -201,11 +201,11 @@
   }
 
   h2 {
-    font-size: var(--text-base);
-    font-weight: 700;
+    font-size: var(--text-xs);
+    font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--color-text-secondary);
+    letter-spacing: 0.07em;
+    color: var(--color-text-muted);
     margin: 0 0 var(--space-2);
     display: flex;
     align-items: center;
@@ -230,13 +230,6 @@
   }
 
   .search-input {
-    font-family: var(--font-ui);
-    font-size: var(--text-sm);
-    padding: 6px var(--space-2);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-base);
-    background: var(--color-surface);
-    color: var(--color-text-primary);
     width: 280px;
     margin-bottom: var(--space-2);
     transition: border-color var(--transition-base);
@@ -256,7 +249,7 @@
 
   .curation-table th {
     text-align: left;
-    padding: var(--space-1);
+    padding: 0px var(--space-1);
     font-size: var(--text-xs);
     font-weight: 500;
     color: var(--color-text-muted);
@@ -283,14 +276,10 @@
   .col-action { width: 100px; text-align: right; }
 
   .order-input {
-    font-family: var(--font-mono);
-    font-size: var(--text-sm);
     width: 60px;
-    padding: 2px 6px;
-    border: 1px solid var(--color-border);
+    padding: 2px 6px !important;
+    height: auto !important;
     border-radius: var(--radius-sm);
-    background: var(--color-surface);
-    color: var(--color-text-primary);
     text-align: center;
   }
 
@@ -345,6 +334,8 @@
     background: none;
     cursor: pointer;
     white-space: nowrap;
+    min-width: 80px;
+    text-align: center;
     transition: color var(--transition-base), border-color var(--transition-base);
   }
 

@@ -15,6 +15,19 @@
 
   let recipeModels = $state<RecipeModel[]>([]);
 
+  type LinkRow = { label: string; url: string };
+  let description = $state('');
+  let links = $state<LinkRow[]>([{ label: '', url: '' }]);
+
+  function addLink() {
+    if (links.length < 10) links = [...links, { label: '', url: '' }];
+  }
+
+  function removeLink(i: number) {
+    links = links.filter((_, idx) => idx !== i);
+    if (links.length === 0) links = [{ label: '', url: '' }];
+  }
+
   let hfSearchQuery = $state('');
   let hfModels = $state<SelectedHFModel[]>([]);
 
@@ -55,7 +68,14 @@
     saving = true;
     errorMessage = '';
     try {
-      await createRecipe(data.userId, recipeName.trim(), recipeModels, visibility);
+      await createRecipe(
+        data.userId,
+        recipeName.trim(),
+        recipeModels,
+        visibility,
+        description.trim() || null,
+        links.filter(l => l.url.trim()).map(l => ({ ...(l.label ? { label: l.label } : {}), url: l.url }))
+      );
       goto('/recipe');
     } catch (e: any) {
       errorMessage = e.message ?? 'Failed to create recipe.';
@@ -140,15 +160,18 @@
               <div class="model-item-left">
                 <div class="model-item-top">
                   <span class="model-item-repo">{m.hf_model_id}</span>
+                  {#if m.data_type}
+                    <span class="dtype-chip" data-dtype={m.data_type}>{m.data_type === 'quantized' ? 'quant' : m.data_type}</span>
+                  {/if}
                 </div>
                 <div class="model-item-bottom">
                   <FormatIcon format={ext} size={14} />
                   <span class="model-item-name">{m.file_path}</span>
+                  {#if m.size_bytes}
+                    <span class="model-item-size">{formatSize(m.size_bytes)}</span>
+                  {/if}
                 </div>
               </div>
-              {#if m.data_type}
-                <span class="dtype-chip" data-dtype={m.data_type}>{m.data_type === 'quantized' ? 'quant' : m.data_type}</span>
-              {/if}
               <button class="remove-btn" onclick={() => removeModel(i)} aria-label="Remove">
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round">
                   <line x1="18" y1="6" x2="6" y2="18"/>
@@ -188,6 +211,60 @@
       {:else if hfSearchQuery.trim()}
         <HFSearch searchQuery={hfSearchQuery} bind:selectedHFModels={hfModels} />
       {/if}
+    </section>
+
+    <!-- Metadata section -->
+    <section class="zone">
+      <div class="zone-label">Metadata</div>
+
+      <label class="meta-label" for="recipe-description">Description</label>
+      <textarea
+        id="recipe-description"
+        class="meta-textarea"
+        rows="3"
+        placeholder="Describe what this recipe does…"
+        bind:value={description}
+      ></textarea>
+
+      <div class="links-label-row">
+        <span class="meta-label">Links</span>
+        <button
+          type="button"
+          class="btn-add-link"
+          onclick={addLink}
+          disabled={links.length >= 10}
+        >+ Add link</button>
+      </div>
+
+      <div class="links-list">
+        {#each links as link, i (i)}
+          <div class="link-row">
+            <input
+              type="text"
+              class="link-label-input"
+              placeholder="Label (optional)"
+              bind:value={link.label}
+            />
+            <input
+              type="url"
+              class="link-url-input"
+              placeholder="https://…"
+              bind:value={link.url}
+            />
+            <button
+              type="button"
+              class="remove-btn"
+              onclick={() => removeLink(i)}
+              aria-label="Remove link"
+            >
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+          </div>
+        {/each}
+      </div>
     </section>
 
     {#if errorMessage}
@@ -465,6 +542,12 @@
     min-width: 0;
   }
 
+  .model-item-top :global(.dtype-chip),
+  .model-item-bottom .model-item-size {
+    margin-left: auto;
+    flex-shrink: 0;
+  }
+
   .model-item-repo {
     font-family: var(--font-mono);
     font-size: var(--text-sm);
@@ -485,6 +568,19 @@
     min-width: 0;
   }
 
+  .model-item-size {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--color-text-muted);
+    padding: 1px 7px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--color-border);
+    white-space: nowrap;
+    flex-shrink: 0;
+    min-width: 48px;
+    text-align: center;
+    box-sizing: border-box;
+  }
 
   /* dtype-chip uses global styles from app.css */
 
@@ -523,14 +619,8 @@
 
   .search-input {
     width: 100%;
-    font-family: var(--font-ui);
-    font-size: var(--text-sm);
-    padding: var(--space-1) 32px;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-base);
-    background: var(--color-surface);
-    color: var(--color-text-primary);
-    transition: border-color var(--transition-base);
+    height: auto !important;
+    padding: var(--space-1) 32px !important;
   }
 
   .search-input:focus-visible { border-color: var(--color-focus-ring); }
@@ -613,6 +703,76 @@
   .error-text {
     font-size: var(--text-sm);
     color: var(--color-error);
+  }
+
+  .meta-label {
+    display: block;
+    font-size: var(--text-xs);
+    font-weight: 500;
+    color: var(--color-text-muted);
+    margin-bottom: 4px;
+  }
+
+  .meta-textarea {
+    width: 100%;
+    resize: vertical;
+  }
+
+  .meta-textarea:focus-visible {
+    border-color: var(--color-focus-ring);
+    outline: none;
+  }
+
+  .links-label-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 4px;
+  }
+
+  .btn-add-link {
+    font-family: var(--font-ui);
+    font-size: var(--text-xs);
+    font-weight: 500;
+    padding: 2px 8px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: none;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    transition: border-color var(--transition-base), color var(--transition-base);
+  }
+
+  .btn-add-link:hover:not(:disabled) {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+  }
+
+  .btn-add-link:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .links-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .link-row {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+
+  .link-label-input {
+    width: 130px;
+    flex-shrink: 0;
+  }
+
+  .link-url-input {
+    flex: 1;
+    min-width: 0;
   }
 
   @media (max-width: 640px) {

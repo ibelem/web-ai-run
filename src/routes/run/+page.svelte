@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import { browser } from '$app/environment';
+  import { replaceState } from '$app/navigation';
   import { get } from 'svelte/store';
   import type { Backend, TestItem, TestResult, RunConfig as RunConfigType, EnvironmentInfo } from '$lib/engine/types';
   import { detectAvailableBackends } from '$lib/engine/backends';
@@ -103,7 +104,7 @@
     if (usesOnnx && ortVersion) params.set('ort', ortVersion);
     if (usesLitert && litertVersion) params.set('litert', litertVersion);
     if (webnnEp) params.set('webnn_ep', webnnEp);
-    history.replaceState(null, '', `#${params}`);
+    replaceState(`#${params}`, {});
   }
 
   let availableBackends = $state<Backend[]>(['wasm_1']);

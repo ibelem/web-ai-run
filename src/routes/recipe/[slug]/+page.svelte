@@ -61,6 +61,64 @@
   function formatDate(iso: string): string {
     return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   }
+
+  function downloadFile(content: string, filename: string, mime: string) {
+    const blob = new Blob([content], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function safeName() {
+    return data.recipe.name.replace(/[^a-z0-9]+/gi, '-').toLowerCase();
+  }
+
+  function exportJSON() {
+    const payload = {
+      name: data.recipe.name,
+      ...(data.recipe.description ? { description: data.recipe.description } : {}),
+      ...((data.recipe.links?.length) ? { links: data.recipe.links } : {}),
+      models: data.recipe.models.map((m: any) => ({
+        hf_model_id: m.hf_model_id,
+        file_path: m.file_path,
+        data_type: m.data_type,
+      })),
+    };
+    downloadFile(JSON.stringify(payload, null, 2), `${safeName()}.json`, 'application/json');
+  }
+
+  function exportCSV() {
+    const rows = [
+      ['hf_model_id', 'file_path', 'data_type'],
+      ...data.recipe.models.map((m: any) => [m.hf_model_id, m.file_path, m.data_type]),
+    ];
+    const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+    downloadFile(csv, `${safeName()}.csv`, 'text/csv');
+  }
+
+  function exportMD() {
+    const lines: string[] = [`# ${data.recipe.name}`, ''];
+    if (data.recipe.description) {
+      lines.push(data.recipe.description, '');
+    }
+    if (data.recipe.links?.length) {
+      for (const l of data.recipe.links) {
+        lines.push(`- [${l.label || l.url}](${l.url})`);
+      }
+      lines.push('');
+    }
+    lines.push('| hf_model_id | file_path | data_type |');
+    lines.push('|---|---|---|');
+    for (const m of data.recipe.models) {
+      lines.push(`| ${m.hf_model_id} | ${m.file_path} | ${m.data_type} |`);
+    }
+    downloadFile(lines.join('\n'), `${safeName()}.md`, 'text/markdown');
+  }
+
+  let exportOpen = $state(false);
 </script>
 
 <div class="recipe-detail">
@@ -74,6 +132,16 @@
       <button class="btn-share" onclick={copyShareLink}>
         {copyFeedback ? 'Copied!' : 'Share'}
       </button>
+      <div class="export-wrap">
+        <button class="btn-export" onclick={() => exportOpen = !exportOpen}>Export ▾</button>
+        {#if exportOpen}
+          <div class="export-menu" role="menu">
+            <button class="export-item" onclick={() => { exportJSON(); exportOpen = false; }}>JSON</button>
+            <button class="export-item" onclick={() => { exportCSV(); exportOpen = false; }}>CSV</button>
+            <button class="export-item" onclick={() => { exportMD(); exportOpen = false; }}>Markdown</button>
+          </div>
+        {/if}
+      </div>
       {#if data.isOwner}
         <a href="/recipe/{data.recipe.slug}/edit" class="btn-edit">Edit</a>
         <button class="btn-delete" onclick={handleDelete}>Delete</button>
@@ -233,6 +301,61 @@
     color: var(--color-text-on-primary);
   }
 
+  .export-wrap {
+    position: relative;
+  }
+
+  .btn-export {
+    font-family: var(--font-ui);
+    font-size: var(--text-base);
+    font-weight: 500;
+    padding: 10px 20px;
+    border-radius: var(--radius-base);
+    border: 1px solid var(--color-border);
+    background: none;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background var(--transition-base), border-color var(--transition-base), color var(--transition-base);
+  }
+
+  .btn-export:hover {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+  }
+
+  .export-menu {
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    background: var(--color-surface-raised);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-base);
+    box-shadow: var(--shadow-dropdown);
+    z-index: var(--z-dropdown);
+    min-width: 110px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .export-item {
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    padding: var(--space-1) var(--space-3);
+    background: none;
+    border: none;
+    text-align: left;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    transition: background var(--transition-base), color var(--transition-base);
+  }
+
+  .export-item:hover {
+    background: var(--color-surface-sunken);
+    color: var(--color-text-primary);
+  }
+
   .models-section {
     margin-bottom: var(--space-3);
   }
@@ -382,9 +505,17 @@
       width: 100%;
     }
 
-    .btn-run, .btn-share, .btn-edit, .btn-delete {
+    .btn-run, .btn-share, .btn-export, .btn-edit, .btn-delete {
       flex: 1;
       text-align: center;
+    }
+
+    .export-wrap {
+      flex: 1;
+    }
+
+    .btn-export {
+      width: 100%;
     }
 
     .model-list { grid-template-columns: 1fr; }
