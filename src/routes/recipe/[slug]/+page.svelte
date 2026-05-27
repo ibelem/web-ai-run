@@ -84,7 +84,6 @@
       models: data.recipe.models.map((m: any) => ({
         hf_model_id: m.hf_model_id,
         file_path: m.file_path,
-        data_type: m.data_type,
       })),
     };
     downloadFile(JSON.stringify(payload, null, 2), `${safeName()}.json`, 'application/json');
@@ -92,8 +91,8 @@
 
   function exportCSV() {
     const rows = [
-      ['hf_model_id', 'file_path', 'data_type'],
-      ...data.recipe.models.map((m: any) => [m.hf_model_id, m.file_path, m.data_type]),
+      ['hf_model_id', 'file_path'],
+      ...data.recipe.models.map((m: any) => [m.hf_model_id, m.file_path]),
     ];
     const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
     downloadFile(csv, `${safeName()}.csv`, 'text/csv');
@@ -110,10 +109,10 @@
       }
       lines.push('');
     }
-    lines.push('| hf_model_id | file_path | data_type |');
-    lines.push('|---|---|---|');
+    lines.push('| hf_model_id | file_path |');
+    lines.push('|---|---|');
     for (const m of data.recipe.models) {
-      lines.push(`| ${m.hf_model_id} | ${m.file_path} | ${m.data_type} |`);
+      lines.push(`| ${m.hf_model_id} | ${m.file_path} |`);
     }
     downloadFile(lines.join('\n'), `${safeName()}.md`, 'text/markdown');
   }
@@ -161,18 +160,18 @@
           <div class="model-item-left">
             <div class="model-item-top">
               <span class="model-item-repo">{m.hf_model_id}</span>
+              {#if m.data_type}
+                <span class="dtype-chip" data-dtype={m.data_type}>{m.data_type === 'quantized' ? 'quant' : m.data_type}</span>
+              {/if}
             </div>
             <div class="model-item-bottom">
               <FormatIcon format={ext} size={14} />
               <span class="model-item-name">{m.file_path}</span>
+              {#if m.size_bytes}
+                <span class="size-chip">{formatSize(m.size_bytes)}</span>
+              {/if}
             </div>
           </div>
-          {#if m.size_bytes}
-            <span class="size-chip">{formatSize(m.size_bytes)}</span>
-          {/if}
-          {#if m.data_type}
-            <span class="dtype-chip" data-dtype={m.data_type}>{m.data_type === 'quantized' ? 'quant' : m.data_type}</span>
-          {/if}
         </li>
       {/each}
     </ul>
@@ -431,6 +430,12 @@
     min-width: 0;
   }
 
+  .model-item-top :global(.dtype-chip),
+  .model-item-bottom :global(.size-chip) {
+    margin-left: auto;
+    flex-shrink: 0;
+  }
+
   .model-item-repo {
     font-family: var(--font-mono);
     font-size: var(--text-sm);
@@ -450,8 +455,6 @@
     white-space: nowrap;
     min-width: 0;
   }
-
-  /* dtype-chip and size-chip use global styles from app.css */
 
   .visibility-section {
     margin-bottom: var(--space-3);

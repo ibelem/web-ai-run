@@ -1,6 +1,7 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import type { RecipeModel } from '$lib/supabase/types';
+import { inferDataType } from '$lib/huggingface/parser';
 
 function slugify(name: string): string {
   return name
@@ -58,9 +59,10 @@ export const actions: Actions = {
     }
 
     for (const m of models) {
-      if (!m.hf_model_id || !m.file_path || !m.data_type) {
-        return fail(400, { error: 'Each model must have hf_model_id, file_path, and data_type.' });
+      if (!m.hf_model_id || !m.file_path) {
+        return fail(400, { error: 'Each model must have hf_model_id and file_path.' });
       }
+      m.data_type = inferDataType(m.file_path);
     }
 
     if (models.length === 0) return fail(400, { error: 'At least one model is required.' });
@@ -107,8 +109,9 @@ export const actions: Actions = {
     let skipped = 0;
 
     for (const m of newModels) {
+      m.data_type = inferDataType(m.file_path);
       const isDupe = existing.some(
-        (e) => e.hf_model_id === m.hf_model_id && e.file_path === m.file_path && e.data_type === m.data_type
+        (e) => e.hf_model_id === m.hf_model_id && e.file_path === m.file_path
       );
       if (isDupe) {
         skipped++;

@@ -4,7 +4,7 @@
 
   let { data, form } = $props<{ data: any; form: any }>();
 
-  type ParsedModel = { hf_model_id: string; file_path: string; data_type: string };
+  type ParsedModel = { hf_model_id: string; file_path: string };
   type LinkRow = { label: string; url: string };
   type Mode = 'create' | 'merge';
 
@@ -32,7 +32,7 @@
   let formError = $state(form?.error ?? '');
 
   // Derived: a model row is invalid if any required field is missing
-  const hasInvalidRows = $derived(parsedModels.some(m => !m.hf_model_id || !m.file_path || !m.data_type));
+  const hasInvalidRows = $derived(parsedModels.some(m => !m.hf_model_id || !m.file_path));
   const canSubmit = $derived(
     parsedModels.length > 0 &&
     !hasInvalidRows &&
@@ -82,14 +82,12 @@
       return parsed.models.map((item: any) => ({
         hf_model_id: String(item.hf_model_id ?? ''),
         file_path: String(item.file_path ?? ''),
-        data_type: String(item.data_type ?? ''),
       }));
     }
     if (!Array.isArray(parsed)) throw new Error('JSON must be an array of model objects or a recipe export object.');
     return parsed.map((item: any) => ({
       hf_model_id: String(item.hf_model_id ?? ''),
       file_path: String(item.file_path ?? ''),
-      data_type: String(item.data_type ?? ''),
     }));
   }
 
@@ -99,16 +97,14 @@
     const headers = parseCsvRow(lines[0]).map(h => h.toLowerCase());
     const idxId = headers.indexOf('hf_model_id');
     const idxPath = headers.indexOf('file_path');
-    const idxDtype = headers.indexOf('data_type');
-    if (idxId < 0 || idxPath < 0 || idxDtype < 0) {
-      throw new Error('CSV must have columns: hf_model_id, file_path, data_type');
+    if (idxId < 0 || idxPath < 0) {
+      throw new Error('CSV must have columns: hf_model_id, file_path');
     }
     return lines.slice(1).map(line => {
       const cols = parseCsvRow(line);
       return {
         hf_model_id: cols[idxId] ?? '',
         file_path: cols[idxPath] ?? '',
-        data_type: cols[idxDtype] ?? '',
       };
     });
   }
@@ -123,16 +119,14 @@
     const headers = parseRow(tableLines[0]).map(h => h.toLowerCase());
     const idxId = headers.indexOf('hf_model_id');
     const idxPath = headers.indexOf('file_path');
-    const idxDtype = headers.indexOf('data_type');
-    if (idxId < 0 || idxPath < 0 || idxDtype < 0) {
-      throw new Error('Markdown table must have columns: hf_model_id, file_path, data_type');
+    if (idxId < 0 || idxPath < 0) {
+      throw new Error('Markdown table must have columns: hf_model_id, file_path');
     }
     return tableLines.slice(2).map(line => {
       const cols = parseRow(line);
       return {
         hf_model_id: cols[idxId] ?? '',
         file_path: cols[idxPath] ?? '',
-        data_type: cols[idxDtype] ?? '',
       };
     });
   }
@@ -258,16 +252,14 @@
             <tr>
               <th>hf_model_id</th>
               <th>file_path</th>
-              <th>data_type</th>
               <th></th>
             </tr>
           </thead>
           <tbody>
             {#each parsedModels as m, i (i)}
-              <tr class:row-invalid={!m.hf_model_id || !m.file_path || !m.data_type}>
+              <tr class:row-invalid={!m.hf_model_id || !m.file_path}>
                 <td class="cell-mono">{m.hf_model_id || ''}</td>
                 <td class="cell-mono">{m.file_path || ''}</td>
-                <td class="cell-mono">{m.data_type || ''}</td>
                 <td class="cell-remove">
                   <button class="remove-btn" onclick={() => removeModel(i)} aria-label="Remove row">
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round">

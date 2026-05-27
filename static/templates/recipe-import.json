@@ -1,4 +1,17 @@
-[
-  { "hf_model_id": "microsoft/phi-2", "file_path": "phi-2-q4.gguf", "data_type": "int4" },
-  { "hf_model_id": "google/gemma-2b", "file_path": "gemma-2b-fp16.gguf", "data_type": "fp16" }
-]
+{
+  "name": "MobileNet V2 Example",
+  "description": "Example recipe using webnn/mobilenet-v2. Each row is one model file — change hf_model_id and file_path to your own models.",
+  "links": [
+    { "label": "Model on Hugging Face", "url": "https://huggingface.co/webnn/mobilenet-v2" }
+  ],
+  "models": [
+    { "hf_model_id": "webnn/mobilenet-v2", "file_path": "onnx/mobilenet_v2.onnx" },
+    { "hf_model_id": "webnn/mobilenet-v2", "file_path": "onnx/mobilenet_v2_fp16.onnx" },
+    { "hf_model_id": "webnn/mobilenet-v2", "file_path": "onnx/mobilenet_v2_int8.onnx" },
+    { "hf_model_id": "webnn/mobilenet-v2", "file_path": "onnx/mobilenet_v2_int4.onnx" },
+    { "hf_model_id": "webnn/mobilenet-v2", "file_path": "tflite/mobilenet_v2.tflite" },
+    { "hf_model_id": "webnn/mobilenet-v2", "file_path": "tflite/mobilenet_v2_fp16.tflite" },
+    { "hf_model_id": "webnn/mobilenet-v2", "file_path": "litertlm/mobilenet_v2.litertlm" },
+    { "hf_model_id": "webnn/mobilenet-v2", "file_path": "litertlm/mobilenet_v2_fp16.litertlm" }
+  ]
+}

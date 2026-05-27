@@ -22,8 +22,17 @@
     [...new Set(data.results.map((r: LeaderboardRow) => r.backend))].sort()
   );
 
+  const DTYPE_ORDER = ['fp32', 'fp16', 'bf16', 'fp8', 'int8', 'uint8', 'int4', 'uint4', 'q4'];
   const dataTypes = $derived(
-    [...new Set(data.results.map((r: LeaderboardRow) => r.data_type))].sort()
+    [...new Set([...DTYPE_ORDER, ...data.results.map((r: LeaderboardRow) => r.data_type)])]
+      .filter(dt => DTYPE_ORDER.includes(dt) || data.results.some((r: LeaderboardRow) => r.data_type === dt))
+      .sort((a: string, b: string) => {
+        const ai = DTYPE_ORDER.indexOf(a), bi = DTYPE_ORDER.indexOf(b);
+        if (ai >= 0 && bi >= 0) return ai - bi;
+        if (ai >= 0) return -1;
+        if (bi >= 0) return 1;
+        return a.localeCompare(b);
+      })
   );
 
   const filteredResults = $derived(
