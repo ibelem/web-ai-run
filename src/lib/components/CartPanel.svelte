@@ -3,7 +3,7 @@
   import { goto } from '$app/navigation';
   import { auth, isAuthenticated } from '$lib/stores/auth';
   import { cart } from '$lib/stores/cart';
-  import { createRecipe, updateRecipe, listRecipes, type Recipe } from '$lib/recipes/crud';
+  import { createRecipe, updateRecipe, listMyRecipes, type Recipe } from '$lib/recipes/crud';
   import type { RecipeModel } from '$lib/supabase/types';
 
   interface Props {
@@ -53,7 +53,7 @@
     loadingRecipes = true;
     try {
       const authState = get(auth);
-      existingRecipes = await listRecipes(authState.user?.id);
+      existingRecipes = await listMyRecipes(authState.user!.id);
     } catch {
       existingRecipes = [];
     } finally {
@@ -666,7 +666,7 @@
     font-size: var(--text-base);
     font-weight: 500;
     width: 100%;
-    padding: 10px 20px;
+    padding: var(--space-1) var(--space-3);
     border: 1px solid var(--color-primary);
     border-radius: var(--radius-base);
     background: none;
@@ -697,7 +697,7 @@
     font-family: var(--font-ui);
     font-size: var(--text-base);
     font-weight: 500;
-    padding: 10px 20px;
+    padding: var(--space-1) var(--space-3);
     border: none;
     border-radius: var(--radius-base);
     background: var(--color-primary);

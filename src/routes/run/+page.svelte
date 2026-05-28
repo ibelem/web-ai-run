@@ -17,6 +17,7 @@
   import { inferDataType } from '$lib/huggingface/parser';
   import BackendSelector from '$lib/components/BackendSelector.svelte';
   import FormatIcon from '$lib/components/FormatIcon.svelte';
+  import NetronLink from '$lib/components/NetronLink.svelte';
   import RunConfigCmp from '$lib/components/RunConfig.svelte';
   import ProgressBar from '$lib/components/ProgressBar.svelte';
   import TestQueue from '$lib/components/TestQueue.svelte';
@@ -615,11 +616,9 @@
                 {/if}
               </div>
               <div class="model-item-bottom">
-                <FormatIcon format={ext} size={14} />
+                <FormatIcon format={ext} size={14} hfModelId={m.hf_model_id} filePath={m.file_path} />
+                <NetronLink hfModelId={m.hf_model_id} filePath={m.file_path} />
                 <span class="model-item-name">{m.file_path}</span>
-                {#if m.size_bytes}
-                  <span class="size-chip">{formatSize(m.size_bytes)}</span>
-                {/if}
               </div>
             </div>
           </li>
@@ -806,7 +805,7 @@
     font-family: var(--font-ui);
     font-size: var(--text-sm);
     font-weight: 500;
-    padding: var(--space-1) var(--space-2);
+    padding: var(--space-1) var(--space-3);
     border: 1px solid var(--color-error);
     border-radius: var(--radius-base);
     background: none;
@@ -851,7 +850,7 @@
     font-family: var(--font-ui);
     font-size: var(--text-base);
     font-weight: 500;
-    padding: 10px 20px;
+    padding: var(--space-1) var(--space-3);
     border: 1px solid var(--color-primary);
     border-radius: var(--radius-base);
     background: none;
@@ -878,7 +877,7 @@
     font-family: var(--font-ui);
     font-size: var(--text-base);
     font-weight: 500;
-    padding: 10px 20px;
+    padding: var(--space-1) var(--space-3);
     border: 1px solid var(--color-error);
     border-radius: var(--radius-base);
     background: none;

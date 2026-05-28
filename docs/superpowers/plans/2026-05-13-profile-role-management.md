@@ -378,7 +378,7 @@ git commit -m "feat: add profile page server load and update action"
     font-family: var(--font-ui);
     font-size: var(--text-sm);
     font-weight: 500;
-    padding: var(--space-1) var(--space-2);
+    padding: var(--space-1) var(--space-3);
     border: none;
     border-radius: var(--radius-base);
     background: var(--color-text-primary);
@@ -739,7 +739,7 @@ git commit -m "feat: add admin users page server load with role gate"
   }
 
   .error-banner {
-    padding: var(--space-1) var(--space-2);
+    padding: var(--space-1) var(--space-3);
     border: 1px solid var(--color-error);
     border-radius: var(--radius-base);
     background: var(--color-surface-sunken);
@@ -749,7 +749,7 @@ git commit -m "feat: add admin users page server load with role gate"
   }
 
   .success-banner {
-    padding: var(--space-1) var(--space-2);
+    padding: var(--space-1) var(--space-3);
     border: 1px solid var(--color-success);
     border-radius: var(--radius-base);
     background: var(--color-surface-sunken);
@@ -772,7 +772,7 @@ git commit -m "feat: add admin users page server load with role gate"
 
   .users-table th {
     text-align: left;
-    padding: var(--space-1) var(--space-2);
+    padding: var(--space-1) var(--space-3);
     font-weight: 500;
     color: var(--color-text-secondary);
     border-bottom: 1px solid var(--color-border);
@@ -781,7 +781,7 @@ git commit -m "feat: add admin users page server load with role gate"
   }
 
   .users-table td {
-    padding: var(--space-1) var(--space-2);
+    padding: var(--space-1) var(--space-3);
     border-bottom: 1px solid var(--color-border);
     vertical-align: middle;
   }

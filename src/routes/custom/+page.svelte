@@ -329,7 +329,7 @@
     font-family: var(--font-ui);
     font-size: var(--text-sm);
     font-weight: 500;
-    padding: var(--space-1) var(--space-2);
+    padding: var(--space-1) var(--space-3);
     border: 1px solid var(--color-error);
     border-radius: var(--radius-base);
     background: none;

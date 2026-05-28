@@ -311,7 +311,7 @@
     top: -100%;
     left: var(--space-2);
     z-index: calc(var(--z-overlay) + 1);
-    padding: var(--space-1) var(--space-2);
+    padding: var(--space-1) var(--space-3);
     background: var(--color-primary);
     color: var(--color-text-on-primary);
     border-radius: var(--radius-base);
@@ -516,7 +516,7 @@
   .dropdown-item {
     display: block;
     width: 100%;
-    padding: var(--space-1) var(--space-2);
+    padding: var(--space-1) var(--space-3);
     font-family: var(--font-ui);
     font-size: var(--text-base);
     color: var(--color-text-primary);

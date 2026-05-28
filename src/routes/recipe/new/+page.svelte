@@ -13,7 +13,12 @@
   let saving = $state(false);
   let errorMessage = $state('');
 
-  let recipeModels = $state<RecipeModel[]>([]);
+  let recipeModels = $derived(hfModels.map((m) => ({
+    hf_model_id: m.hf_model_id,
+    file_path: m.file_path,
+    data_type: m.data_type,
+    size_bytes: m.size_bytes,
+  })));
 
   type LinkRow = { label: string; url: string };
   let description = $state('');
@@ -28,6 +33,14 @@
     if (links.length === 0) links = [{ label: '', url: '' }];
   }
 
+  function formatSize(bytes?: number): string {
+    if (!bytes) return '';
+    if (bytes >= 1_073_741_824) return `${(bytes / 1_073_741_824).toFixed(1)}G`;
+    if (bytes >= 1_048_576) return `${(bytes / 1_048_576).toFixed(0)}M`;
+    if (bytes >= 1024) return `${(bytes / 1024).toFixed(0)}K`;
+    return `${bytes}B`;
+  }
+
   let hfSearchQuery = $state('');
   let hfModels = $state<SelectedHFModel[]>([]);
 
@@ -36,25 +49,11 @@
     catch { return false; }
   })());
 
-  $effect(() => {
-    for (const m of hfModels) {
-      const already = recipeModels.some(
-        (r) => r.hf_model_id === m.hf_model_id && r.file_path === m.file_path
-      );
-      if (!already) {
-        recipeModels = [...recipeModels, {
-          hf_model_id: m.hf_model_id,
-          file_path: m.file_path,
-          data_type: m.data_type,
-          size_bytes: m.size_bytes,
-        }];
-      }
-    }
-    if (hfModels.length > 0) hfModels = [];
-  });
-
   function removeModel(index: number) {
-    recipeModels = recipeModels.filter((_, i) => i !== index);
+    const removed = recipeModels[index];
+    hfModels = hfModels.filter(
+      (m) => !(m.hf_model_id === removed.hf_model_id && m.file_path === removed.file_path)
+    );
   }
 
   function basename(path: string) {
@@ -207,9 +206,9 @@
       </div>
 
       {#if isHFUrl}
-        <HFUrlImport url={hfSearchQuery.trim()} bind:selectedHFModels={hfModels} />
+        <HFUrlImport url={hfSearchQuery.trim()} bind:selectedHFModels={hfModels} localModels={recipeModels} />
       {:else if hfSearchQuery.trim()}
-        <HFSearch searchQuery={hfSearchQuery} bind:selectedHFModels={hfModels} />
+        <HFSearch searchQuery={hfSearchQuery} bind:selectedHFModels={hfModels} localModels={recipeModels} />
       {/if}
     </section>
 
@@ -399,7 +398,8 @@
     .sidebar-header { display: none; }
     .sidebar-list { display: none; }
     .meta-row { flex-direction: column; align-items: stretch; }
-    .visibility-tabs { min-width: 0; width: 100%; }
+    .name-input { width: 100%; height: 36px; }
+    .visibility-tabs { min-width: 0; width: 100%; height: 36px; }
     .visibility-tab { flex: 1; }
   }
 
@@ -438,7 +438,7 @@
     font-family: var(--font-ui);
     font-size: var(--text-sm);
     font-weight: 500;
-    padding: var(--space-1) var(--space-2);
+    padding: var(--space-1) var(--space-3);
     border: 1px solid var(--color-border);
     background: var(--color-surface-sunken);
     color: var(--color-text-secondary);
@@ -508,7 +508,7 @@
 
   .model-item {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 8px;
     padding: 8px 10px;
     background: var(--color-surface-raised);
@@ -600,8 +600,8 @@
   }
 
   .remove-btn:hover {
-    background: var(--color-surface-sunken);
-    color: var(--color-text-primary);
+    background: var(--color-error);
+    color: var(--color-text-on-primary);
   }
 
   .search-wrap {
@@ -668,7 +668,7 @@
     font-family: var(--font-ui);
     font-size: var(--text-base);
     font-weight: 500;
-    padding: 10px 20px;
+    padding: var(--space-1) var(--space-3);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-base);
     background: none;
@@ -684,7 +684,7 @@
     font-family: var(--font-ui);
     font-size: var(--text-base);
     font-weight: 500;
-    padding: 10px 20px;
+    padding: var(--space-1) var(--space-3);
     border: none;
     border-radius: var(--radius-base);
     background: var(--color-primary);
@@ -791,6 +791,15 @@
       flex: 1;
       text-align: center;
       min-height: 44px;
+    }
+
+    .link-row {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .link-label-input {
+      width: 100%;
     }
   }
 </style>

@@ -40,6 +40,16 @@ export async function listRecipes(userId?: string): Promise<Recipe[]> {
   return (data as Recipe[]) ?? [];
 }
 
+export async function listMyRecipes(userId: string): Promise<Recipe[]> {
+  const supabase = createClient();
+  const { data, error } = await (supabase.from('recipes') as any)
+    .select('*')
+    .eq('owner_id', userId)
+    .order('updated_at', { ascending: false });
+  if (error) throw new Error(error.message);
+  return (data as Recipe[]) ?? [];
+}
+
 export async function getRecipe(slug: string): Promise<Recipe | null> {
   const supabase = createClient();
   const { data, error } = await (supabase.from('recipes') as any)

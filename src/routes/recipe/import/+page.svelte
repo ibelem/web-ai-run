@@ -503,7 +503,7 @@
     font-family: var(--font-ui);
     font-size: var(--text-base);
     font-weight: 500;
-    padding: 10px 20px;
+    padding: var(--space-1) var(--space-3);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-base);
     background: none;
@@ -703,8 +703,8 @@
   }
 
   .remove-btn:hover {
-    background: var(--color-surface-sunken);
-    color: var(--color-text-primary);
+    background: var(--color-error);
+    color: var(--color-text-on-primary);
   }
 
   /* Mode toggle */
@@ -720,7 +720,7 @@
     font-family: var(--font-ui);
     font-size: var(--text-sm);
     font-weight: 500;
-    padding: var(--space-1) var(--space-2);
+    padding: var(--space-1) var(--space-3);
     border: 1px solid var(--color-border);
     background: var(--color-surface-sunken);
     color: var(--color-text-secondary);
@@ -772,7 +772,7 @@
     font-family: var(--font-ui);
     font-size: var(--text-sm);
     font-weight: 500;
-    padding: var(--space-1) var(--space-2);
+    padding: var(--space-1) var(--space-3);
     border: 1px solid var(--color-border);
     background: var(--color-surface-sunken);
     color: var(--color-text-secondary);

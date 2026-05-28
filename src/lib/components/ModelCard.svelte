@@ -1,5 +1,6 @@
 <script lang="ts">
   import FormatIcon from './FormatIcon.svelte';
+  import NetronLink from './NetronLink.svelte';
 
   interface Variant {
     id: string;
@@ -65,7 +66,8 @@
       <span class="info-repo" title={hfModelId}>{hfModelId}</span>
     </div>
     <div class="card-row card-bottom">
-      <FormatIcon {format} size={16} />
+      <FormatIcon {format} size={14} {hfModelId} filePath="{filePath}.{format}" />
+      <NetronLink {hfModelId} filePath="{filePath}.{format}" />
       <span class="info-file" title="{filePath}.{format}">{filePath}.{format}</span>
       {#if maxSize()}
         <span class="info-size" title={sizeTooltip}>{maxSize()}</span>

@@ -3,8 +3,10 @@
     format: string;
     size?: number;
     selected?: boolean;
+    hfModelId?: string;
+    filePath?: string;
   }
-  let { format, size = 16, selected = false }: Props = $props();
+  let { format, size = 16, selected = false, hfModelId, filePath }: Props = $props();
 
   const labels: Record<string, string> = {
     onnx:      'ONNX - Open Neural Network Exchange',
@@ -13,20 +15,36 @@
   };
 
   const label = $derived(labels[format] ?? format);
+  const href = $derived(
+    hfModelId && filePath
+      ? `https://huggingface.co/${hfModelId}/blob/main/${filePath}`
+      : undefined
+  );
 </script>
 
 <span class="fmt-icon-wrap" data-tooltip={label}>
-  {#if format === 'onnx'}
-    <img
-      src={selected ? '/icons/onnx-icon-selected.svg' : '/icons/onnx-icon.svg'}
-      width={size} height={size} alt="onnx" class="fmt-icon"
-    />
-  {:else if format === 'tflite'}
-    <img src="/icons/litert-icon.svg" width={size} height={size} alt="tflite" class="fmt-icon" />
-  {:else if format === 'litertlm'}
-    <img src="/icons/litertlm-icon.svg" width={size} height={size} alt="litertlm" class="fmt-icon" />
+  {#if href}
+    <a {href} target="_blank" rel="noopener noreferrer" class="fmt-icon-link" title="View on Hugging Face" onclick={(e) => e.stopPropagation()}>
+      {#if format === 'onnx'}
+        <img src={selected ? '/icons/onnx-icon-selected.svg' : '/icons/onnx-icon.svg'} width={size} height={size} alt="onnx" class="fmt-icon" />
+      {:else if format === 'tflite'}
+        <img src="/icons/litert-icon.svg" width={size} height={size} alt="tflite" class="fmt-icon" />
+      {:else if format === 'litertlm'}
+        <img src="/icons/litertlm-icon.svg" width={size} height={size} alt="litertlm" class="fmt-icon" />
+      {:else}
+        <span class="fmt-icon-unknown">{format}</span>
+      {/if}
+    </a>
   {:else}
-    <span class="fmt-icon-unknown">{format}</span>
+    {#if format === 'onnx'}
+      <img src={selected ? '/icons/onnx-icon-selected.svg' : '/icons/onnx-icon.svg'} width={size} height={size} alt="onnx" class="fmt-icon" />
+    {:else if format === 'tflite'}
+      <img src="/icons/litert-icon.svg" width={size} height={size} alt="tflite" class="fmt-icon" />
+    {:else if format === 'litertlm'}
+      <img src="/icons/litertlm-icon.svg" width={size} height={size} alt="litertlm" class="fmt-icon" />
+    {:else}
+      <span class="fmt-icon-unknown">{format}</span>
+    {/if}
   {/if}
 </span>
 
@@ -37,6 +55,19 @@
     align-items: center;
     flex-shrink: 0;
     cursor: default;
+  }
+
+  .fmt-icon-link {
+    display: inline-flex;
+    align-items: center;
+    opacity: 0.9;
+    transition: opacity var(--transition-base);
+    line-height: 0;
+    pointer-events: auto;
+  }
+
+  .fmt-icon-link:hover {
+    opacity: 1;
   }
 
   .fmt-icon-wrap::after {

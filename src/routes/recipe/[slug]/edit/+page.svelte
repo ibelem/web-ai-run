@@ -6,7 +6,7 @@
   import FormatIcon from '$lib/components/FormatIcon.svelte';
   import { updateRecipe, deleteRecipe } from '$lib/recipes/crud';
   import type { RecipeModel } from '$lib/supabase/types';
-  import { onMount, onDestroy } from 'svelte';
+  import { onMount } from 'svelte';
 
   let { data } = $props();
 
@@ -120,10 +120,7 @@
 
   onMount(() => {
     window.addEventListener('beforeunload', handleBeforeUnload);
-  });
-
-  onDestroy(() => {
-    window.removeEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   });
 
   beforeNavigate(({ cancel }) => {
@@ -233,19 +230,31 @@
       </div>
     {:else}
       <ul class="model-list">
-        {#each recipeModels as m, i (`${m.hf_model_id}::${m.file_path}`)}
+        {#each recipeModels as m, i (i)}
           {@const ext = m.file_path.endsWith('.litertlm') ? 'litertlm' : m.file_path.endsWith('.tflite') ? 'tflite' : 'onnx'}
           <li class="model-item">
             <div class="model-item-left">
               <div class="model-item-top">
-                <span class="model-item-repo">{m.hf_model_id}</span>
+                <input
+                  class="model-item-input model-item-repo-input"
+                  type="text"
+                  placeholder="owner/model-id"
+                  bind:value={recipeModels[i].hf_model_id}
+                  onclick={(e) => e.stopPropagation()}
+                />
                 {#if m.data_type}
                   <span class="dtype-chip" data-dtype={m.data_type}>{m.data_type === 'quantized' ? 'quant' : m.data_type}</span>
                 {/if}
               </div>
               <div class="model-item-bottom">
                 <FormatIcon format={ext} size={14} />
-                <span class="model-item-name">{m.file_path}</span>
+                <input
+                  class="model-item-input model-item-name-input"
+                  type="text"
+                  placeholder="onnx/model.onnx"
+                  bind:value={recipeModels[i].file_path}
+                  onclick={(e) => e.stopPropagation()}
+                />
                 {#if m.size_bytes}
                   <span class="model-item-size">{formatSize(m.size_bytes)}</span>
                 {/if}
@@ -478,7 +487,8 @@
       flex-direction: column;
     }
     .meta-row { flex-direction: column; align-items: stretch; }
-    .visibility-tabs { min-width: 0; width: 100%; }
+    .name-input { width: 100%; height: 36px; }
+    .visibility-tabs { min-width: 0; width: 100%; height: 36px; }
     .visibility-tab { flex: 1; }
   }
 
@@ -518,7 +528,7 @@
     font-family: var(--font-ui);
     font-size: var(--text-sm);
     font-weight: 500;
-    padding: var(--space-1) var(--space-2);
+    padding: var(--space-1) var(--space-3);
     border: 1px solid var(--color-border);
     background: var(--color-surface-sunken);
     color: var(--color-text-secondary);
@@ -586,7 +596,7 @@
 
   .model-item {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 8px;
     padding: 8px 10px;
     background: var(--color-surface-raised);
@@ -596,9 +606,8 @@
     transition: border-color var(--transition-base), background var(--transition-base);
   }
 
-  .model-item:hover {
+  .model-item:focus-within {
     border-color: var(--color-primary);
-    background: var(--color-accent-light);
   }
 
   .model-item-left {
@@ -626,24 +635,39 @@
     flex-shrink: 0;
   }
 
-  .model-item-repo {
-    font-family: var(--font-mono);
-    font-size: var(--text-sm);
-    color: var(--color-text-primary);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+  .model-item-input {
+    flex: 1;
     min-width: 0;
+    font-family: var(--font-mono);
+    border: none;
+    border-bottom: 1px solid transparent;
+    border-radius: 0;
+    background: transparent;
+    padding: 0 2px !important;
+    height: auto !important;
+    line-height: 1.3;
+    outline: none;
+    transition: border-color var(--transition-base);
   }
 
-  .model-item-name {
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
+  .model-item-input:hover {
+    border-bottom-color: var(--color-border);
+  }
+
+  .model-item-input:focus {
+    border-bottom-color: var(--color-focus-ring);
+  }
+
+  .model-item-repo-input {
+    font-size: 11px !important;
+    color: var(--color-text-primary);
+    border-radius: 0px !important;
+  }
+
+  .model-item-name-input {
+    font-size: 11px !important;
     color: var(--color-text-muted);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    min-width: 0;
+    border-radius: 0px !important;
   }
 
 
@@ -679,8 +703,8 @@
   }
 
   .remove-btn:hover {
-    background: var(--color-surface-sunken);
-    color: var(--color-text-primary);
+    background: var(--color-error);
+    color: var(--color-text-on-primary);
   }
 
   .empty-models {
@@ -762,7 +786,7 @@
     font-family: var(--font-ui);
     font-size: var(--text-base);
     font-weight: 500;
-    padding: 10px 20px;
+    padding: var(--space-1) var(--space-3);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-base);
     background: none;
@@ -780,7 +804,7 @@
     font-family: var(--font-ui);
     font-size: var(--text-base);
     font-weight: 500;
-    padding: 10px 20px;
+    padding: var(--space-1) var(--space-3);
     border: none;
     border-radius: var(--radius-base);
     background: var(--color-primary);
@@ -907,6 +931,15 @@
       flex: 1;
       text-align: center;
       min-height: 44px;
+    }
+
+    .link-row {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .link-label-input {
+      width: 100%;
     }
   }
 </style>

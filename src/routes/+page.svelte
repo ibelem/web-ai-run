@@ -299,7 +299,7 @@
               <span class="model-file">{stripExt(model.file_path)}</span>
             </div>
             <div class="model-badges">
-              <FormatIcon format={inferFormat(model.file_path)} size={16} />
+              <FormatIcon format={inferFormat(model.file_path)} size={14} />
               <span class="dtype-chip" data-dtype={model.data_type}>{model.data_type === 'quantized' ? 'quant' : model.data_type}</span>
             </div>
             <span class="model-synced">{formatRelative(model.last_synced)}</span>
@@ -457,7 +457,7 @@
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    padding: 10px 20px;
+    padding: var(--space-1) var(--space-3);
     border: none;
     border-radius: var(--radius-base);
     font-family: var(--font-ui);
@@ -475,7 +475,7 @@
   .hero-btn-secondary {
     display: inline-flex;
     align-items: center;
-    padding: 10px 20px;
+    padding: var(--space-1) var(--space-3);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-base);
     font-family: var(--font-ui);
@@ -819,7 +819,7 @@
     font-family: var(--font-ui);
     font-size: var(--text-base);
     font-weight: 500;
-    padding: 10px 20px;
+    padding: var(--space-1) var(--space-3);
     border-radius: var(--radius-base);
     border-top-left-radius: 0;
     border-bottom-left-radius: 0;
@@ -872,7 +872,7 @@
 
   @media (max-width: 600px) {
     .hf-home-section {
-      padding: 24px 16px 20px;
+      padding: 24px 1var(--space-1) var(--space-3);
     }
 
     .hf-home-input {

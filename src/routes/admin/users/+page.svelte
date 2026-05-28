@@ -124,7 +124,7 @@
     font-family: var(--font-ui);
     font-size: var(--text-base);
     font-weight: 500;
-    padding: 10px 20px;
+    padding: var(--space-1) var(--space-3);
     border: none;
     border-radius: var(--radius-base);
     background: var(--color-primary);
@@ -140,13 +140,13 @@
   }
   
   .error-banner {
-    padding: var(--space-1) var(--space-2);
+    padding: var(--space-1) var(--space-3);
     border-radius: var(--radius-lg);
     margin-bottom: var(--space-2);
   }
 
   .success-banner {
-    padding: var(--space-1) var(--space-2);
+    padding: var(--space-1) var(--space-3);
     border: 1px solid var(--color-success);
     border-radius: var(--radius-lg);
     background: var(--color-surface-sunken);
@@ -170,7 +170,7 @@
 
   .users-table th {
     text-align: center;
-    padding: var(--space-1) var(--space-2);
+    padding: var(--space-1) var(--space-3);
     font-size: var(--text-xs);
     font-weight: 500;
     color: var(--color-text-secondary);
@@ -183,7 +183,7 @@
 
   .users-table td {
     text-align: center;
-    padding: var(--space-1) var(--space-2);
+    padding: var(--space-1) var(--space-3);
     border-bottom: 1px solid var(--color-border);
     vertical-align: middle;
   }

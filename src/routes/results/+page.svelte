@@ -302,7 +302,7 @@
     align-items: center;
     justify-content: space-between;
     gap: var(--space-2);
-    padding: var(--space-1) var(--space-2);
+    padding: var(--space-1) var(--space-3);
     background: var(--color-surface);
     cursor: pointer;
     user-select: none;

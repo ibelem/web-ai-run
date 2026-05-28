@@ -78,13 +78,13 @@ components:
     backgroundColor: "{colors.primary}"
     textColor: "{colors.surface}"
     rounded: "{rounded.sm}"
-    padding: "10px 20px"
+    padding: "var(--space-1) var(--space-3)"
     typography: "{typography.label}"
   button-primary-hover:
     backgroundColor: "{colors.primary-hover}"
     textColor: "{colors.surface}"
     rounded: "{rounded.sm}"
-    padding: "10px 20px"
+    padding: "var(--space-1) var(--space-3)"
   button-ghost:
     backgroundColor: "transparent"
     textColor: "{colors.text-secondary}"

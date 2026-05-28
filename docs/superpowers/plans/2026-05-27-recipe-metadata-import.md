@@ -318,7 +318,7 @@ At the end of the `<style>` block, before `</style>`, add:
     width: 100%;
     font-family: var(--font-ui);
     font-size: var(--text-sm);
-    padding: var(--space-1) var(--space-2);
+    padding: var(--space-1) var(--space-3);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-base);
     background: var(--color-surface);
@@ -528,7 +528,7 @@ In the `<style>` block, after the `.btn-new-recipe` rule block, add:
     font-family: var(--font-ui);
     font-size: var(--text-base);
     font-weight: 500;
-    padding: 10px 20px;
+    padding: var(--space-1) var(--space-3);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-base);
     background: none;
@@ -1211,7 +1211,7 @@ Create `src/routes/recipe/import/+page.svelte`:
     font-family: var(--font-ui);
     font-size: var(--text-base);
     font-weight: 500;
-    padding: 10px 20px;
+    padding: var(--space-1) var(--space-3);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-base);
     background: none;
@@ -1433,7 +1433,7 @@ Create `src/routes/recipe/import/+page.svelte`:
     font-family: var(--font-ui);
     font-size: var(--text-sm);
     font-weight: 500;
-    padding: var(--space-1) var(--space-2);
+    padding: var(--space-1) var(--space-3);
     border: 1px solid var(--color-border);
     background: var(--color-surface-sunken);
     color: var(--color-text-secondary);
@@ -1472,7 +1472,7 @@ Create `src/routes/recipe/import/+page.svelte`:
   .text-input {
     font-family: var(--font-ui);
     font-size: var(--text-sm);
-    padding: var(--space-1) var(--space-2);
+    padding: var(--space-1) var(--space-3);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-base);
     background: var(--color-surface);
@@ -1496,7 +1496,7 @@ Create `src/routes/recipe/import/+page.svelte`:
     font-family: var(--font-ui);
     font-size: var(--text-sm);
     font-weight: 500;
-    padding: var(--space-1) var(--space-2);
+    padding: var(--space-1) var(--space-3);
     border: 1px solid var(--color-border);
     background: var(--color-surface-sunken);
     color: var(--color-text-secondary);
@@ -1518,7 +1518,7 @@ Create `src/routes/recipe/import/+page.svelte`:
     width: 100%;
     font-family: var(--font-ui);
     font-size: var(--text-sm);
-    padding: var(--space-1) var(--space-2);
+    padding: var(--space-1) var(--space-3);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-base);
     background: var(--color-surface);
@@ -1614,7 +1614,7 @@ Create `src/routes/recipe/import/+page.svelte`:
   .recipe-select {
     font-family: var(--font-ui);
     font-size: var(--text-sm);
-    padding: var(--space-1) var(--space-2);
+    padding: var(--space-1) var(--space-3);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-base);
     background: var(--color-surface);

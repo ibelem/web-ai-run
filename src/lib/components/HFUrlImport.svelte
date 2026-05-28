@@ -2,6 +2,7 @@
   import type { SelectedHFModel } from './HFSearch.svelte';
   import { inferFormat, inferDataType, inferRuntime, stripExt } from '$lib/huggingface/parser';
   import FormatIcon from './FormatIcon.svelte';
+  import NetronLink from './NetronLink.svelte';
 
   interface Props {
     url: string;
@@ -342,18 +343,24 @@
                       {#if inLibrary}
                         <span class="tag tag-inlib">In library</span>
                       {/if}
+                      <FormatIcon format={group.format} size={14} hfModelId={repo.id} filePath="{group.strippedPath}.{group.format}" />
+                      <NetronLink hfModelId={repo.id} filePath="{group.strippedPath}.{group.format}" />
                       <span class="info-file" title="{group.strippedPath}.{group.format}">{group.strippedPath}.{group.format}</span>
                     </div>
                   </div>
                   <div class="card-chips">
                     {#each group.files as file (file.path)}
-                      <button
-                        class="chip"
-                        class:chip-selected={isSelected(repo.id, file.path)}
-                        data-dtype={file.dataType}
-                        title={`${file.dataType} · ${formatSize(file.size)}`}
-                        onclick={() => toggleFile(repo, file)}
-                      >{dtypeLabel(file.dataType)}</button>
+                      <div class="chip-row">
+                        <button
+                          class="chip-dtype"
+                          class:chip-selected={isSelected(repo.id, file.path)}
+                          data-dtype={file.dataType}
+                          onclick={() => toggleFile(repo, file)}
+                        >{dtypeLabel(file.dataType)}</button>
+                        {#if file.size}
+                          <span class="chip-size">{formatSize(file.size)}</span>
+                        {/if}
+                      </div>
                     {/each}
                   </div>
                 </div>
@@ -515,7 +522,7 @@
   }
 
   .file-card.in-library {
-    background: color-mix(in srgb, var(--color-backend-wasm-1) 3%, var(--color-surface-raised));
+    background: color-mix(in srgb, var(--color-backend-wasm-1) 1%, var(--color-surface-raised));
   }
 
   .card-left {
@@ -531,8 +538,8 @@
     display: flex;
     align-items: center;
     gap: 5px;
-    flex-wrap: wrap;
     min-width: 0;
+    overflow: hidden;
   }
 
   .card-chips {
@@ -541,7 +548,7 @@
     gap: 4px;
     justify-content: flex-end;
     align-content: flex-start;
-    width: clamp(80px, 40%, 200px);
+    width: clamp(60px, 20%, 120px);
     flex-shrink: 0;
     pointer-events: auto;
   }
@@ -560,47 +567,67 @@
 
 
   .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
     font-family: var(--font-mono);
     font-size: 11px;
     font-weight: 600;
-    padding: 1px 7px;
-    border-radius: var(--radius-sm);
-    border: 1px solid;
+    padding: 1px 0;
+    border: none;
     background: none;
     cursor: pointer;
     transition: opacity 0.12s, transform 0.12s;
     user-select: none;
     line-height: 1.4;
+    white-space: nowrap;
   }
 
   .chip:hover { opacity: 0.8; transform: translateY(-1px); }
 
-  .chip[data-dtype="fp32"]      { color: var(--color-dt-fp32); border-color: var(--color-dt-fp32); }
-  .chip[data-dtype="fp16"]      { color: var(--color-dt-fp16); border-color: var(--color-dt-fp16); }
-  .chip[data-dtype="bf16"]      { color: var(--color-dt-bf16); border-color: var(--color-dt-bf16); }
-  .chip[data-dtype="fp8"]       { color: var(--color-dt-fp8); border-color: var(--color-dt-fp8); }
-  .chip[data-dtype="int8"]      { color: var(--color-dt-int8); border-color: var(--color-dt-int8); }
-  .chip[data-dtype="uint8"]     { color: var(--color-dt-uint8); border-color: var(--color-dt-uint8); }
-  .chip[data-dtype="int4"]      { color: var(--color-dt-int4); border-color: var(--color-dt-int4); }
-  .chip[data-dtype="uint4"]     { color: var(--color-dt-uint4); border-color: var(--color-dt-uint4); }
-  .chip[data-dtype="q4"]        { color: var(--color-dt-q4); border-color: var(--color-dt-q4); }
-  .chip[data-dtype="q4f16"]     { color: var(--color-dt-q4f16); border-color: var(--color-dt-q4f16); }
-  .chip[data-dtype="bnb4"]      { color: var(--color-dt-bnb4); border-color: var(--color-dt-bnb4); }
-  .chip[data-dtype="quantized"] { color: var(--color-dt-quantized); border-color: var(--color-dt-quantized); }
+  .chip-dtype,
+  .chip-size {
+    width: 52px;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    border: 1px solid currentColor;
+    border-radius: var(--radius-sm);
+    padding: 0 4px;
+  }
 
-  .chip.chip-selected { color: var(--color-text-on-primary); }
-  .chip.chip-selected[data-dtype="fp32"]      { background: var(--color-dt-fp32); border-color: var(--color-dt-fp32); }
-  .chip.chip-selected[data-dtype="fp16"]      { background: var(--color-dt-fp16); border-color: var(--color-dt-fp16); }
-  .chip.chip-selected[data-dtype="bf16"]      { background: var(--color-dt-bf16); border-color: var(--color-dt-bf16); }
-  .chip.chip-selected[data-dtype="fp8"]       { background: var(--color-dt-fp8); border-color: var(--color-dt-fp8); }
-  .chip.chip-selected[data-dtype="int8"]      { background: var(--color-dt-int8); border-color: var(--color-dt-int8); }
-  .chip.chip-selected[data-dtype="uint8"]     { background: var(--color-dt-uint8); border-color: var(--color-dt-uint8); }
-  .chip.chip-selected[data-dtype="int4"]      { background: var(--color-dt-int4); border-color: var(--color-dt-int4); }
-  .chip.chip-selected[data-dtype="uint4"]     { background: var(--color-dt-uint4); border-color: var(--color-dt-uint4); }
-  .chip.chip-selected[data-dtype="q4"]        { background: var(--color-dt-q4); border-color: var(--color-dt-q4); }
-  .chip.chip-selected[data-dtype="q4f16"]     { background: var(--color-dt-q4f16); border-color: var(--color-dt-q4f16); }
-  .chip.chip-selected[data-dtype="bnb4"]      { background: var(--color-dt-bnb4); border-color: var(--color-dt-bnb4); }
-  .chip.chip-selected[data-dtype="quantized"] { background: var(--color-dt-quantized); border-color: var(--color-dt-quantized); }
+  .chip-size {
+    font-weight: 500;
+    opacity: 0.7;
+  }
+
+  .chip-dtype[data-dtype="fp32"]      { color: var(--color-dt-fp32); border-color: var(--color-dt-fp32); }
+  .chip-dtype[data-dtype="fp16"]      { color: var(--color-dt-fp16); border-color: var(--color-dt-fp16); }
+  .chip-dtype[data-dtype="bf16"]      { color: var(--color-dt-bf16); border-color: var(--color-dt-bf16); }
+  .chip-dtype[data-dtype="fp8"]       { color: var(--color-dt-fp8); border-color: var(--color-dt-fp8); }
+  .chip-dtype[data-dtype="int8"]      { color: var(--color-dt-int8); border-color: var(--color-dt-int8); }
+  .chip-dtype[data-dtype="uint8"]     { color: var(--color-dt-uint8); border-color: var(--color-dt-uint8); }
+  .chip-dtype[data-dtype="int4"]      { color: var(--color-dt-int4); border-color: var(--color-dt-int4); }
+  .chip-dtype[data-dtype="uint4"]     { color: var(--color-dt-uint4); border-color: var(--color-dt-uint4); }
+  .chip-dtype[data-dtype="q4"]        { color: var(--color-dt-q4); border-color: var(--color-dt-q4); }
+  .chip-dtype[data-dtype="q4f16"]     { color: var(--color-dt-q4f16); border-color: var(--color-dt-q4f16); }
+  .chip-dtype[data-dtype="bnb4"]      { color: var(--color-dt-bnb4); border-color: var(--color-dt-bnb4); }
+  .chip-dtype[data-dtype="quantized"] { color: var(--color-dt-quantized); border-color: var(--color-dt-quantized); }
+
+  .chip-dtype.chip-selected { color: var(--color-text-on-primary); }
+  .chip-dtype.chip-selected[data-dtype="fp32"]      { background: var(--color-dt-fp32); border-color: var(--color-dt-fp32); }
+  .chip-dtype.chip-selected[data-dtype="fp16"]      { background: var(--color-dt-fp16); border-color: var(--color-dt-fp16); }
+  .chip-dtype.chip-selected[data-dtype="bf16"]      { background: var(--color-dt-bf16); border-color: var(--color-dt-bf16); }
+  .chip-dtype.chip-selected[data-dtype="fp8"]       { background: var(--color-dt-fp8); border-color: var(--color-dt-fp8); }
+  .chip-dtype.chip-selected[data-dtype="int8"]      { background: var(--color-dt-int8); border-color: var(--color-dt-int8); }
+  .chip-dtype.chip-selected[data-dtype="uint8"]     { background: var(--color-dt-uint8); border-color: var(--color-dt-uint8); }
+  .chip-dtype.chip-selected[data-dtype="int4"]      { background: var(--color-dt-int4); border-color: var(--color-dt-int4); }
+  .chip-dtype.chip-selected[data-dtype="uint4"]     { background: var(--color-dt-uint4); border-color: var(--color-dt-uint4); }
+  .chip-dtype.chip-selected[data-dtype="q4"]        { background: var(--color-dt-q4); border-color: var(--color-dt-q4); }
+  .chip-dtype.chip-selected[data-dtype="q4f16"]     { background: var(--color-dt-q4f16); border-color: var(--color-dt-q4f16); }
+  .chip-dtype.chip-selected[data-dtype="bnb4"]      { background: var(--color-dt-bnb4); border-color: var(--color-dt-bnb4); }
+  .chip-dtype.chip-selected[data-dtype="quantized"] { background: var(--color-dt-quantized); border-color: var(--color-dt-quantized); }
 
   .tag-inlib {
     flex-shrink: 0;

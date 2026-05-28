@@ -5,6 +5,7 @@
   let { data } = $props();
 
   let recipes = $state<Recipe[]>(data.recipes);
+  $effect(() => { recipes = data.recipes; });
 
   function runRecipe(recipe: Recipe) {
     try {
@@ -254,7 +255,7 @@
     font-family: var(--font-ui);
     font-size: var(--text-base);
     font-weight: 500;
-    padding: 10px 20px;
+    padding: var(--space-1) var(--space-3);
     border: 1px solid var(--color-primary);
     border-radius: var(--radius-base);
     background: none;
@@ -273,7 +274,7 @@
     font-family: var(--font-ui);
     font-size: var(--text-base);
     font-weight: 500;
-    padding: 10px 20px;
+    padding: var(--space-1) var(--space-3);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-base);
     background: none;
@@ -604,6 +605,7 @@
       flex-direction: column;
     }
 
+    .btn-import-recipe,
     .btn-new-recipe {
       width: 100%;
       text-align: center;

@@ -2006,7 +2006,7 @@ export const load: PageLoad = async ({ url }) => {
     font-family: var(--font-ui);
     font-size: var(--text-sm);
     font-weight: 500;
-    padding: var(--space-1) var(--space-2);
+    padding: var(--space-1) var(--space-3);
     border: none;
     border-radius: var(--radius-base);
     background: var(--color-text-primary);
@@ -2021,7 +2021,7 @@ export const load: PageLoad = async ({ url }) => {
     font-family: var(--font-ui);
     font-size: var(--text-sm);
     font-weight: 500;
-    padding: var(--space-1) var(--space-2);
+    padding: var(--space-1) var(--space-3);
     border: 1px solid var(--color-error);
     border-radius: var(--radius-base);
     background: none;

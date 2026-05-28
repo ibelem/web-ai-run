@@ -72,7 +72,7 @@
   }
 
   @media (pointer: coarse) {
-    .iter-btn { min-height: 28px; padding: var(--space-1) var(--space-2); }
+    .iter-btn { min-height: 28px; padding: var(--space-1) var(--space-3); }
   }
 
   @media (max-width: 640px) {

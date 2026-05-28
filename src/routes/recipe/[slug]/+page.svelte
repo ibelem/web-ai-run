@@ -3,6 +3,7 @@
   import { deleteRecipe, updateRecipe } from '$lib/recipes/crud';
   import type { Recipe } from '$lib/recipes/crud';
   import FormatIcon from '$lib/components/FormatIcon.svelte';
+  import NetronLink from '$lib/components/NetronLink.svelte';
 
   let { data } = $props();
 
@@ -165,7 +166,8 @@
               {/if}
             </div>
             <div class="model-item-bottom">
-              <FormatIcon format={ext} size={14} />
+              <FormatIcon format={ext} size={14} hfModelId={m.hf_model_id} filePath={m.file_path} />
+              <NetronLink hfModelId={m.hf_model_id} filePath={m.file_path} />
               <span class="model-item-name">{m.file_path}</span>
               {#if m.size_bytes}
                 <span class="size-chip">{formatSize(m.size_bytes)}</span>
@@ -248,7 +250,7 @@
     font-family: var(--font-ui);
     font-size: var(--text-base);
     font-weight: 500;
-    padding: 10px 20px;
+    padding: var(--space-1) var(--space-3);
     border-radius: var(--radius-base);
     border: none;
     cursor: pointer;
@@ -308,7 +310,7 @@
     font-family: var(--font-ui);
     font-size: var(--text-base);
     font-weight: 500;
-    padding: 10px 20px;
+    padding: var(--space-1) var(--space-3);
     border-radius: var(--radius-base);
     border: 1px solid var(--color-border);
     background: none;
@@ -528,7 +530,7 @@
     margin-bottom: var(--space-3);
     display: flex;
     flex-direction: column;
-    gap: var(--space-1);
+    gap: var(--space-3);
   }
 
   .recipe-description {

@@ -106,7 +106,7 @@
   }
   
   .error-banner {
-    padding: var(--space-1) var(--space-2);
+    padding: var(--space-1) var(--space-3);
     border-radius: var(--radius-lg);
     margin-bottom: var(--space-2);
   }

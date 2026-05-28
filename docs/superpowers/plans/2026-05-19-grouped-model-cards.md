@@ -679,7 +679,7 @@ Replace the entire `.file-card` layout section (keep `.file-grid`, repo styles, 
   }
 
   .file-card.in-library {
-    background: color-mix(in srgb, #10b981 3%, var(--color-surface-raised));
+    background: color-mix(in srgb, #10b981 1%, var(--color-surface-raised));
   }
 
   .card-left {

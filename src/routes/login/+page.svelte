@@ -349,7 +349,7 @@
     font-family: var(--font-ui);
     font-size: var(--text-base);
     font-weight: 500;
-    padding: 10px 20px;
+    padding: var(--space-1) var(--space-3);
     min-height: 40px;
     border: 1px solid var(--color-primary);
     border-radius: var(--radius-sm);

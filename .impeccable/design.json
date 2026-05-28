@@ -57,7 +57,7 @@
       "refersTo": "button-primary",
       "description": "The one action per screen. WebNN Blue fill, square-cornered.",
       "html": "<button class=\"ds-btn-primary\">Run Benchmark</button>",
-      "css": ".ds-btn-primary { font-family: 'Satoshi', system-ui, sans-serif; font-size: 14px; font-weight: 500; padding: 10px 20px; border: none; border-radius: 3px; background: #0953DE; color: #FFFFFF; cursor: pointer; transition: background 150ms ease; } .ds-btn-primary:hover { background: #0742B0; } .ds-btn-primary:active { background: #063594; } .ds-btn-primary:disabled { background: #ECECEC; color: #8F8F8F; cursor: not-allowed; } .ds-btn-primary:focus-visible { outline: 2px solid #0742B0; outline-offset: 2px; }"
+      "css": ".ds-btn-primary { font-family: 'Satoshi', system-ui, sans-serif; font-size: 14px; font-weight: 500; padding: var(--space-1) var(--space-3); border: none; border-radius: 3px; background: #0953DE; color: #FFFFFF; cursor: pointer; transition: background 150ms ease; } .ds-btn-primary:hover { background: #0742B0; } .ds-btn-primary:active { background: #063594; } .ds-btn-primary:disabled { background: #ECECEC; color: #8F8F8F; cursor: not-allowed; } .ds-btn-primary:focus-visible { outline: 2px solid #0742B0; outline-offset: 2px; }"
     },
     {
       "name": "Ghost Button",
