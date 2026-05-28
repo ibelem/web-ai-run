@@ -478,10 +478,14 @@
   @media (max-width: 768px) {
     .edit-layout {
       flex-direction: column;
+      width: 100%;
     }
     .recipe-sidebar {
       width: 100%;
       position: static;
+    }
+    .edit-page {
+      width: 100%;
     }
     .sidebar-list {
       flex-direction: column;

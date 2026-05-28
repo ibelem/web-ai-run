@@ -1,6 +1,6 @@
 <script lang="ts">
   import { get } from 'svelte/store';
-  import { goto } from '$app/navigation';
+  import { goto, invalidateAll } from '$app/navigation';
   import { auth, isAuthenticated } from '$lib/stores/auth';
   import { cart } from '$lib/stores/cart';
   import { createRecipe, updateRecipe, listMyRecipes, type Recipe } from '$lib/recipes/crud';
@@ -108,7 +108,7 @@
         );
         cart.clear();
         onclose?.();
-        setTimeout(() => goto('/recipe'), 300);
+        setTimeout(async () => { await goto('/recipe'); await invalidateAll(); }, 300);
       } else {
         if (!selectedRecipeId) return;
         const target = existingRecipes.find((r) => r.id === selectedRecipeId);
@@ -117,7 +117,7 @@
         await updateRecipe(selectedRecipeId, { models: merged });
         cart.clear();
         onclose?.();
-        setTimeout(() => goto('/recipe'), 300);
+        setTimeout(async () => { await goto('/recipe'); await invalidateAll(); }, 300);
       }
     } catch (e: any) {
       saveError = e.message ?? 'Failed to save recipe';
@@ -283,14 +283,6 @@
         {#if saveError}
           <p class="save-error">{saveError}</p>
         {/if}
-
-        <button
-          class="btn-save-recipe"
-          onclick={saveRecipe}
-          disabled={saving || totalSelected === 0 || (recipeMode === 'new' ? !recipeName.trim() : !selectedRecipeId)}
-        >
-          {saving ? 'Saving...' : recipeMode === 'new' ? 'Save Recipe' : 'Append to Recipe'}
-        </button>
       </section>
     {:else}
       <section class="panel-section">
@@ -299,8 +291,16 @@
     {/if}
   </div>
 
-  <!-- Run footer always visible -->
   <div class="panel-footer">
+    {#if $isAuthenticated}
+      <button
+        class="btn-save-recipe"
+        onclick={saveRecipe}
+        disabled={saving || totalSelected === 0 || (recipeMode === 'new' ? !recipeName.trim() : !selectedRecipeId)}
+      >
+        {saving ? 'Saving...' : recipeMode === 'new' ? 'Save Recipe' : 'Append to Recipe'}
+      </button>
+    {/if}
     <button class="btn-run" onclick={runSelected} disabled={totalSelected === 0}>
       Run {totalSelected} model{totalSelected !== 1 ? 's' : ''}
     </button>
@@ -662,6 +662,7 @@
   }
 
   .btn-save-recipe {
+    width: 100%;
     font-family: var(--font-ui);
     font-size: var(--text-base);
     font-weight: 500;
@@ -673,7 +674,6 @@
     color: var(--color-primary);
     cursor: pointer;
     transition: background var(--transition-base);
-    margin-top: var(--space-2);
   }
 
   .btn-save-recipe:hover:not(:disabled) {
@@ -690,6 +690,9 @@
     padding: var(--space-2) var(--space-3);
     border-top: 1px solid var(--color-border);
     flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
   }
 
   .btn-run {

@@ -385,6 +385,7 @@
     gap: var(--space-1);
     flex-wrap: wrap;
     margin-bottom: var(--space-2);
+    margin-top: var(--space-2);
   }
 
   .hf-label {
@@ -566,40 +567,36 @@
 
 
 
-  .chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    font-family: var(--font-mono);
-    font-size: 11px;
-    font-weight: 600;
-    padding: 1px 0;
-    border: none;
-    background: none;
-    cursor: pointer;
-    transition: opacity 0.12s, transform 0.12s;
-    user-select: none;
-    line-height: 1.4;
-    white-space: nowrap;
-  }
-
-  .chip:hover { opacity: 0.8; transform: translateY(-1px); }
 
   .chip-dtype,
   .chip-size {
     width: 52px;
     text-align: center;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 0 4px;
+    line-height: 1.4;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: none;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    border: 1px solid currentColor;
-    border-radius: var(--radius-sm);
-    padding: 0 4px;
   }
+
+  .chip-dtype {
+    cursor: pointer;
+    transition: opacity 0.12s, transform 0.12s;
+    user-select: none;
+  }
+
+  .chip-dtype:hover { opacity: 0.8; transform: translateY(-1px); }
 
   .chip-size {
     font-weight: 500;
-    opacity: 0.7;
+    color: var(--color-text-muted);
+    cursor: default;
   }
 
   .chip-dtype[data-dtype="fp32"]      { color: var(--color-dt-fp32); border-color: var(--color-dt-fp32); }

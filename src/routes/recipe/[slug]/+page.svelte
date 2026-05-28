@@ -536,7 +536,6 @@
   .recipe-description {
     font-size: var(--text-sm);
     color: var(--color-text-secondary);
-    line-height: 1.6;
     margin: 0;
     white-space: pre-wrap;
   }

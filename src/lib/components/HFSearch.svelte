@@ -605,7 +605,7 @@
     font-weight: 600;
     padding: 0 4px;
     line-height: 1.4;
-    border: 1px solid;
+    border: 1px solid var(--color-border);
     border-radius: var(--radius-sm);
     background: none;
     cursor: pointer;

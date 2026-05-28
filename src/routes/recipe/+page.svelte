@@ -133,7 +133,7 @@
         {copyFeedback === recipe.id ? '✓' : 'Link'}
       </button>
       {#if showOwnerActions && data.userId === recipe.owner_id}
-        <button class="action-btn action-vis" onclick={() => toggleVisibility(recipe)}>{visLabel}</button>
+        <button class="action-btn action-vis" onclick={() => toggleVisibility(recipe)}>{recipe.visibility === 'public' ? '→ Personal' : '→ Public'}</button>
         <a href="/recipe/{recipe.slug}/edit" class="action-btn action-edit">Edit</a>
         <button class="action-btn action-delete" onclick={() => handleDelete(recipe)}>Delete</button>
       {/if}
