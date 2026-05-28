@@ -24,8 +24,21 @@
   const sortedResults = $derived(
     [...filteredResults]
       .sort((a, b) => {
-        const aVal = (a.metrics as any)?.[sortBy] ?? (a as any)[sortBy] ?? 0;
-        const bVal = (b.metrics as any)?.[sortBy] ?? (b as any)[sortBy] ?? 0;
+        let aVal: any, bVal: any;
+        if (sortBy === 'model') {
+          aVal = a.test_item.hf_model_id.toLowerCase();
+          bVal = b.test_item.hf_model_id.toLowerCase();
+        } else if (sortBy === 'backend') {
+          aVal = a.test_item.backend;
+          bVal = b.test_item.backend;
+        } else {
+          aVal = (a.metrics as any)?.[sortBy] ?? 0;
+          bVal = (b.metrics as any)?.[sortBy] ?? 0;
+        }
+        if (typeof aVal === 'string') {
+          const cmp = aVal.localeCompare(bVal);
+          return sortAsc ? cmp : -cmp;
+        }
         return sortAsc ? aVal - bVal : bVal - aVal;
       })
   );
@@ -134,8 +147,8 @@
       <table class="results-table">
         <thead>
           <tr>
-            <th>Model</th>
-            <th>Backend</th>
+            <th class="sortable" onclick={() => toggleSort('model')}>Model</th>
+            <th class="sortable" onclick={() => toggleSort('backend')}>Backend</th>
             <th class="sortable" onclick={() => toggleSort('compilation_ms')}>Compile</th>
             <th class="sortable" onclick={() => toggleSort('load_and_compile_ms')}>Load+Compile</th>
             <th class="sortable" onclick={() => toggleSort('first_inference_ms')}>1st Inf</th>
@@ -155,7 +168,7 @@
               <td class="metric">{result.metrics!.load_and_compile_ms != null ? fmt(result.metrics!.load_and_compile_ms) : ''}<span class="na">{result.metrics!.load_and_compile_ms == null ? 'n/a' : ''}</span></td>
               <td class="metric">{fmt(result.metrics!.first_inference_ms)}</td>
               <td class="metric highlight">{fmt(result.metrics!.median_ms)}</td>
-              <td class="metric">{fmt(result.metrics!.average_ms)}</td>
+              <td class="metric highlight">{fmt(result.metrics!.average_ms)}</td>
               <td class="metric">{fmt(result.metrics!.best_ms)}</td>
               <td class="metric">{fmt(result.metrics!.p90_ms)}</td>
               <td class="metric">{fmt(result.metrics!.throughput_fps)}</td>
@@ -202,9 +215,6 @@
         <button class="export-btn" onclick={() => copyAs('json')}>
           {copyFeedback === 'json' ? 'Copied!' : 'Copy JSON'}
         </button>
-        <button class="export-btn" onclick={() => copyAs('csv')}>
-          {copyFeedback === 'csv' ? 'Copied!' : 'Copy CSV'}
-        </button>
         <button class="export-btn" onclick={saveCSV}>
           Save CSV
         </button>
@@ -223,12 +233,6 @@
 </div>
 
 <style>
-  .results-wrapper {
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-lg);
-    padding: var(--space-2);
-  }
-
   .results-header {
     display: flex;
     align-items: center;
@@ -271,7 +275,7 @@
   }
 
   .results-table th {
-    text-align: left;
+    text-align: center;
     padding: var(--space-1) var(--space-1);
     font-weight: 500;
     font-size: 11px;
@@ -291,6 +295,7 @@
   .results-table td {
     padding: var(--space-2) var(--space-1);
     border-bottom: 1px solid var(--color-border);
+    text-align: center;
   }
 
   .results-table tbody tr:nth-child(even) {

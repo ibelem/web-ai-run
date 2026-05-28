@@ -16,12 +16,49 @@ export type WorkerResponse =
   | { type: 'status'; id: string; status: string }
   | { type: 'result'; id: string; result: TestResult };
 
-const HF_DOWNLOAD_BASE = 'https://hf-mirror.com';
+const HF_MAIN = 'https://huggingface.co';
+const HF_MIRROR = 'https://hf-mirror.com';
+const HF_TEST_PATH = '/webml/models-moved/resolve/main/01.onnx';
+let cachedHfBase: string | null = null;
 
-function getOrtCdnUrl(version: string, backend: Backend): string {
-  const file = backend === 'webgpu' ? 'ort.webgpu.min.mjs' : 'ort.all.min.mjs';
-  return `https://cdn.jsdelivr.net/npm/onnxruntime-web@${version}/dist/${file}`;
+async function getHfBase(): Promise<string> {
+  if (cachedHfBase) return cachedHfBase;
+
+  const checkDomain = async (base: string): Promise<boolean> => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3000);
+    try {
+      const res = await fetch(`${base}${HF_TEST_PATH}`, {
+        method: 'HEAD',
+        signal: controller.signal,
+        cache: 'no-store',
+      });
+      clearTimeout(timeoutId);
+      return res.ok;
+    } catch {
+      clearTimeout(timeoutId);
+      return false;
+    }
+  };
+
+  if (await checkDomain(HF_MAIN)) {
+    cachedHfBase = HF_MAIN;
+    return HF_MAIN;
+  }
+
+  if (await checkDomain(HF_MIRROR)) {
+    cachedHfBase = HF_MIRROR;
+    return HF_MIRROR;
+  }
+
+  cachedHfBase = HF_MAIN;
+  return HF_MAIN;
 }
+
+function getOrtCdnUrl(version: string): string {
+  return `https://cdn.jsdelivr.net/npm/onnxruntime-web@${version}/dist/ort.webgpu.min.mjs`;
+}
+
 
 function getLiteRtCdnUrl(version: string): string {
   return `https://cdn.jsdelivr.net/npm/@litertjs/core@${version}/dist/litert.mjs`;
@@ -64,8 +101,20 @@ function post(msg: WorkerResponse) {
   self.postMessage(msg);
 }
 
+function ts(): string {
+  const d = new Date();
+  return `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
+}
+
+function log(id: string, msg: string) {
+  post({ type: 'status', id, status: `${ts()} ${msg}` });
+}
+
 async function downloadModel(hfModelId: string, filePath: string, id: string): Promise<ArrayBuffer> {
-  const url = `${HF_DOWNLOAD_BASE}/${hfModelId}/resolve/main/${filePath}`;
+  const base = await getHfBase();
+  log(id, `Models will be fetched from ${base.replace('https://', '')}`);
+  const url = `${base}/${hfModelId}/resolve/main/${filePath}`;
+  log(id, `Fetching model from ${url}`);
   const response = await fetch(url);
   if (!response.ok) throw new Error(`Download failed: ${response.status}`);
 
@@ -101,15 +150,25 @@ async function runOrt(req: WorkerRequest, modelBuffer: ArrayBuffer): Promise<Tes
   const fileName = req.modelSource.kind === 'buffer' ? req.modelSource.fileName : req.modelSource.filePath;
   const hfModelId = req.modelSource.kind === 'buffer' ? `local/${req.modelSource.fileName}` : req.modelSource.hfModelId;
 
-  post({ type: 'status', id, status: 'Loading ONNX Runtime...' });
-  const url = getOrtCdnUrl(runtimeVersion, backend);
+  log(id, `Loading ONNX Runtime Web v${runtimeVersion}...`);
+  const url = getOrtCdnUrl(runtimeVersion);
   const ort = await import(/* @vite-ignore */ url);
+  const cdnBase = `https://cdn.jsdelivr.net/npm/onnxruntime-web@${runtimeVersion}/dist/`;
+  ort.env.wasm.wasmPaths = cdnBase;
+  ort.env.logLevel = 'verbose';
+  ort.env.debug = false;
 
-  post({ type: 'status', id, status: 'Creating inference session...' });
+  log(id, `Creating inference session with ${backend} backend`);
   const compilationStart = performance.now();
   const executionProvider = getOrtExecutionProvider(backend);
-  const session = await ort.InferenceSession.create(modelBuffer, { executionProviders: [executionProvider] });
+  const sessionOptions: any = {
+    executionProviders: [executionProvider],
+    logSeverityLevel: 0,
+    logVerbosityLevel: 0,
+  };
+  const session = await ort.InferenceSession.create(modelBuffer, sessionOptions);
   const compilationMs = performance.now() - compilationStart;
+  log(id, `Compilation Time: ${compilationMs.toFixed(2)} ms`);
 
   const feeds: Record<string, any> = {};
   for (const name of session.inputNames) {
@@ -122,17 +181,23 @@ async function runOrt(req: WorkerRequest, modelBuffer: ArrayBuffer): Promise<Tes
   }
 
   let firstInferenceMs = 0;
-  post({ type: 'status', id, status: 'Warming up...' });
+  const warmupTimes: number[] = [];
+  log(id, `Warming up (${warmupRuns} runs)...`);
   for (let i = 0; i < warmupRuns; i++) {
     const t0 = performance.now();
     await session.run(feeds);
-    if (i === 0) firstInferenceMs = performance.now() - t0;
+    const elapsed = performance.now() - t0;
+    warmupTimes.push(elapsed);
+    if (i === 0) firstInferenceMs = elapsed;
   }
+  log(id, `Warmup times: [${warmupTimes.map(t => t.toFixed(2)).join(', ')}] ms`);
+  log(id, `First Inference Time: ${firstInferenceMs.toFixed(2)} ms`);
+  log(id, `Time to First Inference: ${(compilationMs + firstInferenceMs).toFixed(2)} ms`);
 
   const inferenceTimes: number[] = [];
 
+  log(id, `Inferencing (${iterations} iterations)...`);
   for (let i = 0; i < iterations; i++) {
-    post({ type: 'status', id, status: `Running inference ${i + 1}/${iterations}...` });
     const t0 = performance.now();
     await session.run(feeds);
     inferenceTimes.push(performance.now() - t0);
@@ -141,6 +206,15 @@ async function runOrt(req: WorkerRequest, modelBuffer: ArrayBuffer): Promise<Tes
   await session.release();
   const metrics = computeMetrics(inferenceTimes, compilationMs, null, firstInferenceMs);
   const dataType = fileName.includes('fp16') ? 'fp16' : 'fp32';
+  const totalMs = inferenceTimes.reduce((a, b) => a + b, 0);
+
+  log(id, `Average: ${metrics.average_ms.toFixed(2)} ms`);
+  log(id, `Median: ${metrics.median_ms.toFixed(2)} ms`);
+  log(id, `Best: ${metrics.best_ms.toFixed(2)} ms`);
+  log(id, `P90: ${metrics.p90_ms.toFixed(2)} ms`);
+  log(id, `Total (${iterations} runs): ${totalMs.toFixed(2)} ms`);
+  log(id, `Throughput: ${metrics.throughput_fps.toFixed(2)} FPS`);
+  log(id, `Test ${hfModelId} (${dataType}) with ${backend} backend completed`);
 
   return {
     id,
@@ -162,64 +236,192 @@ async function runLiteRt(req: WorkerRequest, modelBuffer: ArrayBuffer): Promise<
   const fileName = req.modelSource.kind === 'buffer' ? req.modelSource.fileName : req.modelSource.filePath;
   const hfModelId = req.modelSource.kind === 'buffer' ? `local/${req.modelSource.fileName}` : req.modelSource.hfModelId;
 
-  post({ type: 'status', id, status: 'Loading LiteRT.js...' });
+  log(id, `Loading LiteRT.js v${runtimeVersion}...`);
   const url = getLiteRtCdnUrl(runtimeVersion);
   const litert = await import(/* @vite-ignore */ url);
 
-  post({ type: 'status', id, status: 'Compiling model...' });
+  const isWebNN = backend.startsWith('webnn_');
+  const isWebGPU = backend === 'webgpu';
+  const needsJspi = isWebNN || isWebGPU;
+  const needsThreads = backend === 'wasm_n';
+
+  if (litert.loadLiteRt) {
+    const wasmRoot = `https://cdn.jsdelivr.net/npm/@litertjs/core@${runtimeVersion}/dist/wasm`;
+    if (needsJspi) {
+      log(id, `Loading LiteRT WASM with JSPI for ${backend}...`);
+      await litert.loadLiteRt(wasmRoot, { jspi: true });
+    } else if (needsThreads) {
+      log(id, `Loading LiteRT WASM with threads...`);
+      try {
+        await litert.loadLiteRt(wasmRoot, { threads: true });
+      } catch {
+        log(id, `Threads unavailable, falling back to single-threaded...`);
+        await litert.loadLiteRt(wasmRoot, { threads: false });
+      }
+    } else {
+      log(id, `Loading LiteRT WASM (standard)...`);
+      await litert.loadLiteRt(wasmRoot, { threads: false });
+    }
+  }
+
+  log(id, `Compiling model with ${backend} backend...`);
   const compilationStart = performance.now();
-  const compileOpts: any = {};
-  if (backend === 'webgpu') compileOpts.delegate = 'webgpu';
-  else if (backend.startsWith('webnn_')) {
-    compileOpts.delegate = 'webnn';
-    compileOpts.deviceType = backend.replace('webnn_', '');
+  const compileOpts: any = { accelerator: 'wasm' };
+  if (isWebGPU) {
+    compileOpts.accelerator = 'webgpu';
+  } else if (isWebNN) {
+    compileOpts.accelerator = 'webnn';
+    const deviceType = backend.replace('webnn_', '');
+    compileOpts.webNNOptions = { devicePreference: deviceType };
   }
   const model = await litert.loadAndCompile(new Uint8Array(modelBuffer), compileOpts);
   const compilationMs = performance.now() - compilationStart;
+  log(id, `Load+Compile Time: ${compilationMs.toFixed(2)} ms`);
 
-  const inputDetails = model.getInputDetails?.() ?? model.primarySignature?.getInputDetails?.() ?? [];
+  let inputDetails: any[] = [];
+  if (model.primarySignature?.getInputDetails) {
+    inputDetails = model.primarySignature.getInputDetails();
+  } else if (model.getInputDetails) {
+    inputDetails = model.getInputDetails();
+  }
+
+  const SUPPORTED_DTYPES = new Set(['float32', 'int32']);
   const createTensors = () => {
     const tensors: any[] = [];
     for (const input of inputDetails) {
-      const shape = input.shape ?? [1, 224, 224, 3];
-      const dtype = input.dtype ?? 'float32';
+      const shape = Array.from(input.shape ?? [1, 224, 224, 3]) as number[];
+      const name = (input.name ?? '').toLowerCase();
+      let dtype = (input.dtype ?? input.type ?? 'float32').toLowerCase();
+      if (!SUPPORTED_DTYPES.has(dtype)) dtype = 'float32';
       const size = shape.reduce((a: number, b: number) => a * Math.abs(b), 1);
-      const data = Float32Array.from({ length: size }, () => Math.random());
-      tensors.push(litert.createTensor(data, shape, dtype));
+
+      const needsOnes = name.includes('mask') || name.includes('segment') ||
+        name.includes('token_type') || name.includes('frame_count');
+      const data = needsOnes
+        ? new Float32Array(size).fill(1)
+        : Float32Array.from({ length: size }, () => Math.random());
+      tensors.push(new litert.Tensor(data, shape, dtype));
     }
     if (tensors.length === 0) {
-      const data = Float32Array.from({ length: 1 * 3 * 224 * 224 }, () => Math.random());
-      tensors.push(litert.createTensor(data, [1, 3, 224, 224], 'float32'));
+      const data = Float32Array.from({ length: 1 * 224 * 224 * 3 }, () => Math.random());
+      tensors.push(new litert.Tensor(data, [1, 224, 224, 3], 'float32'));
     }
     return tensors;
   };
 
-  let firstInferenceMs = 0;
-  post({ type: 'status', id, status: 'Warming up...' });
-  for (let i = 0; i < warmupRuns; i++) {
-    const inputs = createTensors();
-    const t0 = performance.now();
-    const outputs = await model.run(inputs);
-    if (i === 0) firstInferenceMs = performance.now() - t0;
-    inputs.forEach((t: any) => t.delete?.());
-    if (Array.isArray(outputs)) outputs.forEach((t: any) => t.delete?.());
+  // For WASM/WebNN, create base tensors once and reuse; for WebGPU, create fresh each iteration
+  let baseTensors: any[] | null = null;
+  if (!isWebGPU) {
+    baseTensors = createTensors();
   }
+
+  let firstInferenceMs = 0;
+  const warmupTimes: number[] = [];
+  log(id, `Warming up (${warmupRuns} runs)...`);
+  for (let i = 0; i < warmupRuns; i++) {
+    let inputTensors: any[];
+    if (isWebGPU) {
+      inputTensors = createTensors();
+    } else {
+      inputTensors = baseTensors!;
+    }
+
+    const gpuTensors: any[] = [];
+    let processedInputs: any[];
+    if (isWebGPU) {
+      processedInputs = [];
+      for (const tensor of inputTensors) {
+        const gpuTensor = await tensor.moveTo('webgpu');
+        gpuTensors.push(gpuTensor);
+        processedInputs.push(gpuTensor);
+      }
+    } else {
+      processedInputs = inputTensors;
+    }
+
+    const t0 = performance.now();
+    const outputs = await model.run(processedInputs);
+    // For WebGPU, move results back to CPU
+    if (isWebGPU) {
+      for (const result of (Array.isArray(outputs) ? outputs : [outputs])) {
+        const cpuResult = await result.moveTo('wasm');
+        cpuResult.delete?.();
+      }
+    }
+    const elapsed = performance.now() - t0;
+    warmupTimes.push(elapsed);
+    if (i === 0) firstInferenceMs = elapsed;
+
+    // Cleanup
+    if (isWebGPU) {
+      gpuTensors.forEach((t: any) => t.delete?.());
+      inputTensors.forEach((t: any) => { try { t.delete?.(); } catch {} });
+    }
+    if (!isWebGPU && Array.isArray(outputs)) outputs.forEach((t: any) => t.delete?.());
+  }
+  log(id, `Warmup times: [${warmupTimes.map(t => t.toFixed(2)).join(', ')}] ms`);
+  log(id, `First Inference Time: ${firstInferenceMs.toFixed(2)} ms`);
+  log(id, `Time to First Inference: ${(compilationMs + firstInferenceMs).toFixed(2)} ms`);
 
   const inferenceTimes: number[] = [];
 
+  log(id, `Inferencing (${iterations} iterations)...`);
   for (let i = 0; i < iterations; i++) {
-    post({ type: 'status', id, status: `Running inference ${i + 1}/${iterations}...` });
-    const inputs = createTensors();
+    let inputTensors: any[];
+    if (isWebGPU) {
+      inputTensors = createTensors();
+    } else {
+      inputTensors = baseTensors!;
+    }
+
+    const gpuTensors: any[] = [];
+    let processedInputs: any[];
+    if (isWebGPU) {
+      processedInputs = [];
+      for (const tensor of inputTensors) {
+        const gpuTensor = await tensor.moveTo('webgpu');
+        gpuTensors.push(gpuTensor);
+        processedInputs.push(gpuTensor);
+      }
+    } else {
+      processedInputs = inputTensors;
+    }
+
     const t0 = performance.now();
-    const outputs = await model.run(inputs);
+    const outputs = await model.run(processedInputs);
+    if (isWebGPU) {
+      for (const result of (Array.isArray(outputs) ? outputs : [outputs])) {
+        const cpuResult = await result.moveTo('wasm');
+        cpuResult.delete?.();
+      }
+    }
     inferenceTimes.push(performance.now() - t0);
-    inputs.forEach((t: any) => t.delete?.());
-    if (Array.isArray(outputs)) outputs.forEach((t: any) => t.delete?.());
+
+    // Cleanup
+    if (isWebGPU) {
+      gpuTensors.forEach((t: any) => t.delete?.());
+      inputTensors.forEach((t: any) => { try { t.delete?.(); } catch {} });
+    }
+    if (!isWebGPU && Array.isArray(outputs)) outputs.forEach((t: any) => t.delete?.());
+  }
+
+  // Final cleanup: delete base tensors for WASM/WebNN path
+  if (baseTensors) {
+    baseTensors.forEach((t: any) => { try { t.delete?.(); } catch {} });
   }
 
   model.delete?.();
   const metrics = computeMetrics(inferenceTimes, null, compilationMs, firstInferenceMs);
   const dataType = fileName.includes('fp16') ? 'fp16' : 'fp32';
+  const totalMs = inferenceTimes.reduce((a, b) => a + b, 0);
+
+  log(id, `Average: ${metrics.average_ms.toFixed(2)} ms`);
+  log(id, `Median: ${metrics.median_ms.toFixed(2)} ms`);
+  log(id, `Best: ${metrics.best_ms.toFixed(2)} ms`);
+  log(id, `P90: ${metrics.p90_ms.toFixed(2)} ms`);
+  log(id, `Total (${iterations} runs): ${totalMs.toFixed(2)} ms`);
+  log(id, `Throughput: ${metrics.throughput_fps.toFixed(2)} FPS`);
+  log(id, `Test ${hfModelId} (${dataType}) with ${backend} backend completed`);
 
   return {
     id,
@@ -244,7 +446,6 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
     if (req.modelSource.kind === 'buffer') {
       modelBuffer = req.modelSource.buffer;
     } else {
-      post({ type: 'status', id: req.id, status: 'Downloading model...' });
       modelBuffer = await downloadModel(req.modelSource.hfModelId, req.modelSource.filePath, req.id);
     }
 

@@ -62,7 +62,10 @@ export function runInWorker(options: WorkerRunOptions): Promise<TestResult> {
     function handleError(event: ErrorEvent) {
       worker.removeEventListener('message', handleMessage);
       worker.removeEventListener('error', handleError);
-      reject(new Error(event.message ?? 'Worker error'));
+      const msg = event.message || event.filename
+        ? `Worker error: ${event.message} (${event.filename}:${event.lineno})`
+        : 'Worker crashed (check browser console for details)';
+      reject(new Error(msg));
     }
 
     worker.addEventListener('message', handleMessage);

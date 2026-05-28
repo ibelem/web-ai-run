@@ -37,7 +37,7 @@ export interface TestResult {
   started_at: string;
   completed_at: string | null;
   error_message: string | null;
-  logs: string[];
+  logs?: string[];
 }
 
 export interface DownloadProgress {

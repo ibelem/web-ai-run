@@ -116,6 +116,7 @@
   let results = $state<TestResult[]>([]);
   let isRunning = $state(false);
   let statusText = $state('');
+  let runLogs = $state<string[]>([]);
   let downloadPercent = $state(0);
   let environment = $state<EnvironmentInfo | null>(null);
   let useWorker = $state(true);
@@ -273,6 +274,7 @@
     queue = buildTestQueue(hashModels, selectedBackends);
     isRunning = true;
     results = [];
+    runLogs = [];
 
     const config: RunConfigType = {
       iterations,
@@ -311,26 +313,46 @@
 
       const runtimeVersion = item.runtime === 'onnx' ? ortVersion : litertVersion;
 
-      const result = await runInWorker({
-        modelSource: { kind: 'url', hfModelId: item.hf_model_id, filePath: item.file_path },
-        runtime: item.runtime,
-        backend: item.backend,
-        iterations: config.iterations,
-        warmupRuns: config.warmup_runs,
-        runtimeVersion,
-        onProgress: (progress) => {
-          downloadPercent = progress.percent;
-          item.progress = progress.percent;
-          item.status = 'downloading';
-          scheduleQueueFlush();
-        },
-        onStatus: (status) => {
-          statusText = status;
-          if (status.includes('Compil') || status.includes('session')) item.status = 'compiling';
-          else if (status.includes('Running') || status.includes('Warm')) item.status = 'running';
-          queue = [...queue];
-        },
-      });
+      let result: TestResult;
+      try {
+        result = await runInWorker({
+          modelSource: { kind: 'url', hfModelId: item.hf_model_id, filePath: item.file_path },
+          runtime: item.runtime,
+          backend: item.backend,
+          iterations: config.iterations,
+          warmupRuns: config.warmup_runs,
+          runtimeVersion,
+          onProgress: (progress) => {
+            downloadPercent = progress.percent;
+            item.progress = progress.percent;
+            item.status = 'downloading';
+            scheduleQueueFlush();
+          },
+          onStatus: (status) => {
+            statusText = status;
+            runLogs = [...runLogs, status];
+            if (status.includes('Compil') || status.includes('session') || status.includes('Creating')) item.status = 'compiling';
+            else if (status.includes('Inferencing') || status.includes('Warm')) item.status = 'running';
+            queue = [...queue];
+          },
+        });
+      } catch (err: any) {
+        terminateWorker();
+        const msg = err?.message ?? 'Worker error';
+        runLogs = [...runLogs, `Error: ${msg}`];
+        result = {
+          id: item.id,
+          test_item: { ...item, status: 'error', error: msg },
+          metrics: null,
+          inference_times: [],
+          warmup_ms: 0,
+          iterations: config.iterations,
+          iterations_completed: 0,
+          started_at: new Date().toISOString(),
+          completed_at: new Date().toISOString(),
+          error_message: msg,
+        };
+      }
 
       if (queueFlushTimer) { clearTimeout(queueFlushTimer); queueFlushTimer = null; }
       item.status = result.error_message ? 'error' : 'completed';
@@ -429,26 +451,46 @@
     if (writer) await writer.createResult(item, config.iterations);
 
     const runtimeVersion = item.runtime === 'onnx' ? ortVersion : litertVersion;
-    const result = await runInWorker({
-      modelSource: { kind: 'url', hfModelId: item.hf_model_id, filePath: item.file_path },
-      runtime: item.runtime,
-      backend: item.backend,
-      iterations: config.iterations,
-      warmupRuns: config.warmup_runs,
-      runtimeVersion,
-      onProgress: (progress) => {
-        downloadPercent = progress.percent;
-        item.progress = progress.percent;
-        item.status = 'downloading';
-        scheduleQueueFlush();
-      },
-      onStatus: (status) => {
-        statusText = status;
-        if (status.includes('Compil') || status.includes('session')) item.status = 'compiling';
-        else if (status.includes('Running') || status.includes('Warm')) item.status = 'running';
-        queue = [...queue];
-      },
-    });
+    let result: TestResult;
+    try {
+      result = await runInWorker({
+        modelSource: { kind: 'url', hfModelId: item.hf_model_id, filePath: item.file_path },
+        runtime: item.runtime,
+        backend: item.backend,
+        iterations: config.iterations,
+        warmupRuns: config.warmup_runs,
+        runtimeVersion,
+        onProgress: (progress) => {
+          downloadPercent = progress.percent;
+          item.progress = progress.percent;
+          item.status = 'downloading';
+          scheduleQueueFlush();
+        },
+        onStatus: (status) => {
+          statusText = status;
+          runLogs = [...runLogs, status];
+          if (status.includes('Compil') || status.includes('session') || status.includes('Creating')) item.status = 'compiling';
+          else if (status.includes('Inferencing') || status.includes('Warm')) item.status = 'running';
+          queue = [...queue];
+        },
+      });
+    } catch (err: any) {
+      terminateWorker();
+      const msg = err?.message ?? 'Worker error';
+      runLogs = [...runLogs, `Error: ${msg}`];
+      result = {
+        id: item.id,
+        test_item: { ...item, status: 'error', error: msg },
+        metrics: null,
+        inference_times: [],
+        warmup_ms: 0,
+        iterations: config.iterations,
+        iterations_completed: 0,
+        started_at: new Date().toISOString(),
+        completed_at: new Date().toISOString(),
+        error_message: msg,
+      };
+    }
 
     if (queueFlushTimer) { clearTimeout(queueFlushTimer); queueFlushTimer = null; }
     item.status = result.error_message ? 'error' : 'completed';
@@ -695,16 +737,58 @@
     </section>
   {/if}
 
+  {#if runLogs.length > 0}
+    <section class="logs-section">
+      <h3 class="logs-title">Logs ({runLogs.length})</h3>
+      <div class="logs-container">
+        {#each runLogs as log}
+          <div class="log-line">{log}</div>
+        {/each}
+      </div>
+    </section>
+  {/if}
+
   {#if results.length > 0}
     <section class="results-section">
       <BenchmarkResults {results} />
     </section>
   {/if}
+
+  <footer class="page-footer">
+    <p class="footer-note">WebNN requires <code>#enable-experimental-webassembly-features</code> (JSPI Required) in <code>chrome://flags</code></p>
+  </footer>
 </div>
 
 <style>
   .run-page {
     max-width: 100%;
+  }
+
+  .logs-section {
+    margin-bottom: var(--space-3);
+  }
+
+  .logs-title {
+    font-size: var(--text-sm);
+    font-weight: 500;
+    margin-bottom: var(--space-1);
+    color: var(--color-text-secondary);
+  }
+
+  .logs-container {
+    max-height: 160px;
+    overflow-y: auto;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-base);
+    padding: var(--space-1);
+    background: var(--color-surface);
+  }
+
+  .log-line {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    line-height: 1.6;
+    color: var(--color-text-muted);
   }
 
   .config-section {
@@ -891,6 +975,27 @@
 
   .btn-share-delete:hover {
     background: rgba(229, 62, 62, 0.06);
+  }
+
+  .page-footer {
+    margin-top: var(--space-6);
+    padding-top: var(--space-3);
+    border-top: 1px solid var(--color-border);
+    text-align: center;
+  }
+
+  .footer-note {
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+    margin: 0;
+  }
+
+  .footer-note code {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    padding: 1px 4px;
+    border-radius: var(--radius-sm);
+    background: var(--color-surface-sunken);
   }
 
   .status-section {

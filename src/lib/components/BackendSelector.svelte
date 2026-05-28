@@ -31,12 +31,12 @@
         class:unavailable={!avail}
         disabled={!avail}
         onclick={() => toggle(backend.id)}
+        title={avail ? backend.description : `${unavailableReason(backend)} ${backend.description}`}
         aria-label="{backend.label} ({avail ? 'available' : 'unavailable'})"
       >
         <span class="backend-dot" class:available={avail} aria-hidden="true"></span>
         <span class="backend-label-text">{backend.label}</span>
         {#if !avail}<span class="backend-unavail-text" aria-hidden="true">N/A</span>{/if}
-        <span class="backend-help" title={avail ? backend.description : `${unavailableReason(backend)} ${backend.description}`} aria-label="Info: {avail ? backend.description : unavailableReason(backend)}">?</span>
       </button>
     {/each}
   </div>
@@ -109,11 +109,6 @@
     border-color: var(--color-text-on-primary);
   }
 
-  .backend-btn.active .backend-help {
-    color: rgba(255, 255, 255, 0.7);
-    border-color: rgba(255, 255, 255, 0.4);
-  }
-
   .backend-btn.unavailable {
     opacity: 0.5;
     cursor: not-allowed;
@@ -142,19 +137,4 @@
     letter-spacing: 0.03em;
   }
 
-  .backend-help {
-    font-family: var(--font-ui);
-    font-size: 9px;
-    font-weight: 600;
-    width: 14px;
-    height: 14px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 50%;
-    border: 1px solid var(--color-border-strong);
-    color: var(--color-text-muted);
-    flex-shrink: 0;
-    cursor: help;
-  }
 </style>

@@ -1,9 +1,46 @@
 import type { DownloadProgress } from './types';
 
-const HF_DOWNLOAD_BASE = 'https://hf-mirror.com';
+const HF_MAIN = 'https://huggingface.co';
+const HF_MIRROR = 'https://hf-mirror.com';
+const HF_TEST_PATH = '/webml/models-moved/resolve/main/01.onnx';
+let cachedHfBase: string | null = null;
+
+async function getHfBase(): Promise<string> {
+  if (cachedHfBase) return cachedHfBase;
+
+  const checkDomain = async (base: string): Promise<boolean> => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3000);
+    try {
+      const res = await fetch(`${base}${HF_TEST_PATH}`, {
+        method: 'HEAD',
+        signal: controller.signal,
+        cache: 'no-store',
+      });
+      clearTimeout(timeoutId);
+      return res.ok;
+    } catch {
+      clearTimeout(timeoutId);
+      return false;
+    }
+  };
+
+  if (await checkDomain(HF_MAIN)) {
+    cachedHfBase = HF_MAIN;
+    return HF_MAIN;
+  }
+
+  if (await checkDomain(HF_MIRROR)) {
+    cachedHfBase = HF_MIRROR;
+    return HF_MIRROR;
+  }
+
+  cachedHfBase = HF_MAIN;
+  return HF_MAIN;
+}
 
 export function buildModelUrl(hfModelId: string, filePath: string): string {
-  return `${HF_DOWNLOAD_BASE}/${hfModelId}/resolve/main/${filePath}`;
+  return `${cachedHfBase ?? HF_MAIN}/${hfModelId}/resolve/main/${filePath}`;
 }
 
 export function getModelFileName(hfModelId: string, filePath: string): string {
@@ -25,7 +62,8 @@ export async function downloadModel(
     if (cached) return cached;
   }
 
-  const url = buildModelUrl(hfModelId, filePath);
+  const base = await getHfBase();
+  const url = `${base}/${hfModelId}/resolve/main/${filePath}`;
   const response = await fetch(url);
 
   if (!response.ok) {

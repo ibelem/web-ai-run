@@ -54,11 +54,6 @@
 </div>
 
 <style>
-  .test-queue {
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-lg);
-    padding: var(--space-2);
-  }
 
   .queue-title {
     font-size: var(--text-sm);
@@ -134,4 +129,5 @@
     color: var(--color-text-secondary);
     font-weight: 500;
   }
+
 </style>
