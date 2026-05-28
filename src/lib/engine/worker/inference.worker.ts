@@ -158,6 +158,15 @@ async function runOrt(req: WorkerRequest, modelBuffer: ArrayBuffer): Promise<Tes
   ort.env.logLevel = 'verbose';
   ort.env.debug = false;
 
+  if (backend === 'wasm_n') {
+    ort.env.wasm.numThreads = 4;
+  } else {
+    ort.env.wasm.numThreads = 1;
+  }
+  ort.env.wasm.simd = true;
+
+  const enableMLTensor = false;
+
   log(id, `Creating inference session with ${backend} backend`);
   const compilationStart = performance.now();
   const executionProvider = getOrtExecutionProvider(backend);
@@ -166,6 +175,14 @@ async function runOrt(req: WorkerRequest, modelBuffer: ArrayBuffer): Promise<Tes
     logSeverityLevel: 0,
     logVerbosityLevel: 0,
   };
+
+  if (backend === 'webgpu' && enableMLTensor) {
+    sessionOptions.preferredOutputLocation = 'gpu-buffer';
+  }
+  if (backend === 'webnn_gpu' && enableMLTensor) {
+    sessionOptions.preferredOutputLocation = 'ml-tensor';
+  }
+
   const session = await ort.InferenceSession.create(modelBuffer, sessionOptions);
   const compilationMs = performance.now() - compilationStart;
   log(id, `Compilation Time: ${compilationMs.toFixed(2)} ms`);
@@ -180,12 +197,20 @@ async function runOrt(req: WorkerRequest, modelBuffer: ArrayBuffer): Promise<Tes
     feeds[name] = new ort.Tensor(type, data, dims);
   }
 
+  let webgpuDevice: any = null;
+  if (backend === 'webgpu' && enableMLTensor) {
+    webgpuDevice = ort.env.webgpu.device;
+  }
+
   let firstInferenceMs = 0;
   const warmupTimes: number[] = [];
   log(id, `Warming up (${warmupRuns} runs)...`);
   for (let i = 0; i < warmupRuns; i++) {
     const t0 = performance.now();
     await session.run(feeds);
+    if (backend === 'webgpu' && enableMLTensor && webgpuDevice) {
+      await webgpuDevice.queue.onSubmittedWorkDone();
+    }
     const elapsed = performance.now() - t0;
     warmupTimes.push(elapsed);
     if (i === 0) firstInferenceMs = elapsed;
@@ -199,7 +224,14 @@ async function runOrt(req: WorkerRequest, modelBuffer: ArrayBuffer): Promise<Tes
   log(id, `Inferencing (${iterations} iterations)...`);
   for (let i = 0; i < iterations; i++) {
     const t0 = performance.now();
-    await session.run(feeds);
+    const result = await session.run(feeds);
+    if (backend === 'webgpu' && enableMLTensor && webgpuDevice) {
+      await webgpuDevice.queue.onSubmittedWorkDone();
+    }
+    if (backend === 'webnn_gpu' && enableMLTensor && i === iterations - 1) {
+      const promises = session.outputNames.map((name: string) => result[name].getData());
+      await Promise.all(promises);
+    }
     inferenceTimes.push(performance.now() - t0);
   }
 
