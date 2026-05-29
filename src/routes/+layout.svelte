@@ -86,6 +86,7 @@
     { href: '/custom',      label: 'Custom',      show: true },
     { href: '/run',         label: 'Run',         show: false },
     { href: '/results',     label: 'Results',     show: $isAuthenticated },
+    { href: '/onnx/overrides', label: 'Overrides', show: $isAuthenticated },
     { href: '/leaderboard', label: 'Leaderboard', show: $auth.role === 'intel' || $auth.role === 'admin' },
   ]);
 </script>
@@ -319,7 +320,7 @@
 
 
 <footer class="site-footer">
-  <span class="footer-copy">&copy; {new Date().getFullYear()} Web AI Benchmark</span>
+  <span class="footer-copy">&copy; {new Date().getFullYear()} <a href="https://webai.run">Web AI Benchmark</a></span>
   <span class="footer-sep">·</span>
   <div class="footer-caps">
     <span class="footer-cap" class:cap-ok={isWebnnAvailable} class:cap-warn={!isWebnnAvailable}
@@ -700,6 +701,16 @@
 
   .footer-copy {
     flex-shrink: 0;
+  }
+
+  .footer-copy a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .footer-copy a:hover {
+    text-decoration: underline;
+    color: var(--color-primary);
   }
 
   .footer-sep {

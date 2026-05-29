@@ -9,6 +9,7 @@ export interface WorkerRequest {
   iterations: number;
   warmupRuns: number;
   runtimeVersion: string;
+  freeDimensionOverrides?: Record<string, number>;
 }
 
 export type WorkerResponse =
@@ -184,6 +185,11 @@ async function runOrt(req: WorkerRequest, modelBuffer: ArrayBuffer): Promise<Tes
   }
   if (backend === 'webnn_gpu' && enableMLTensor) {
     sessionOptions.preferredOutputLocation = 'ml-tensor';
+  }
+
+  if (req.freeDimensionOverrides && Object.keys(req.freeDimensionOverrides).length > 0) {
+    sessionOptions.freeDimensionOverrides = req.freeDimensionOverrides;
+    log(id, `freeDimensionOverrides: ${JSON.stringify(req.freeDimensionOverrides)}`);
   }
 
   const session = await ort.InferenceSession.create(modelBuffer, sessionOptions);

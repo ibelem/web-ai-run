@@ -618,7 +618,7 @@
     justify-content: center;
     gap: 4px;
     padding: var(--space-4) var(--space-2);
-    border: 2px dashed var(--color-border);
+    border: 1px dashed var(--color-border);
     border-radius: var(--radius-base);
     background: var(--color-surface-sunken);
     cursor: pointer;

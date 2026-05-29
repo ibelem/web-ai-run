@@ -16,6 +16,7 @@
   import { OS_MODELS } from '$lib/data/os-models';
   import { fetchRuntimeVersions } from '$lib/engine/runtime-versions';
   import { inferDataType } from '$lib/huggingface/parser';
+  import { loadOverrides, getOverride } from '$lib/overrides-cache';
   import BackendSelector from '$lib/components/BackendSelector.svelte';
   import FormatIcon from '$lib/components/FormatIcon.svelte';
   import NetronLink from '$lib/components/NetronLink.svelte';
@@ -134,6 +135,7 @@
   let litertStableVersions = $state<string[]>([]);
   let webnnEp = $state('');
   let mounted = $state(false);
+  let overridesMap = $state<Map<string, Record<string, number>>>(new Map());
   let queueFlushTimer: ReturnType<typeof setTimeout> | null = null;
 
   function scheduleQueueFlush() {
@@ -252,6 +254,8 @@
       litertVersion = parsed.litert || prefs.litert || '';
     }
 
+    loadOverrides().then(m => { overridesMap = m; }).catch(() => {});
+
     mounted = true;
   });
 
@@ -318,6 +322,7 @@
       }
 
       const runtimeVersion = item.runtime === 'onnx' ? ortVersion : litertVersion;
+      const fdo = item.runtime === 'onnx' ? getOverride(overridesMap, item.hf_model_id, item.file_path) : undefined;
 
       let result: TestResult;
       try {
@@ -328,6 +333,7 @@
           iterations: config.iterations,
           warmupRuns: config.warmup_runs,
           runtimeVersion,
+          freeDimensionOverrides: fdo,
           onProgress: (progress) => {
             downloadPercent = progress.percent;
             item.progress = progress.percent;
@@ -460,6 +466,7 @@
     if (writer) await writer.createResult(item, config.iterations);
 
     const runtimeVersion = item.runtime === 'onnx' ? ortVersion : litertVersion;
+    const fdo2 = item.runtime === 'onnx' ? getOverride(overridesMap, item.hf_model_id, item.file_path) : undefined;
     let result: TestResult;
     try {
       result = await runInWorker({
@@ -469,6 +476,7 @@
         iterations: config.iterations,
         warmupRuns: config.warmup_runs,
         runtimeVersion,
+        freeDimensionOverrides: fdo2,
         onProgress: (progress) => {
           downloadPercent = progress.percent;
           item.progress = progress.percent;

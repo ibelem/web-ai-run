@@ -1,0 +1,3889 @@
+[
+  {
+    "hf_model_id": "AdamCodd/vit-base-nsfw-detector",
+    "file_path": "onnx/model_fp16.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "num_channels": 3,
+      "height": 384,
+      "width": 384
+    }
+  },
+  {
+    "hf_model_id": "AdamCodd/vit-base-nsfw-detector",
+    "file_path": "onnx/model_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "num_channels": 3,
+      "height": 384,
+      "width": 384
+    }
+  },
+  {
+    "hf_model_id": "AdamCodd/vit-base-nsfw-detector",
+    "file_path": "onnx/model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "num_channels": 3,
+      "height": 384,
+      "width": 384
+    }
+  },
+  {
+    "hf_model_id": "alibaba-nlp/gte-base-en-v1.5",
+    "file_path": "onnx/model_fp16.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 16
+    }
+  },
+  {
+    "hf_model_id": "alibaba-nlp/gte-base-en-v1.5",
+    "file_path": "onnx/model_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 16
+    }
+  },
+  {
+    "hf_model_id": "alibaba-nlp/gte-base-en-v1.5",
+    "file_path": "onnx/model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 16
+    }
+  },
+  {
+    "hf_model_id": "distil-whisper/distil-large-v3",
+    "file_path": "onnx/decoder_model_merged_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "decoder_sequence_length": 1,
+      "past_decoder_sequence_length": 1,
+      "encoder_sequence_length_out": 1,
+      "encoder_sequence_length / 2": 1500
+    }
+  },
+  {
+    "hf_model_id": "distil-whisper/distil-large-v3",
+    "file_path": "onnx/decoder_model_merged.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "decoder_sequence_length": 1,
+      "past_decoder_sequence_length": 1,
+      "encoder_sequence_length_out": 1,
+      "encoder_sequence_length / 2": 1500
+    }
+  },
+  {
+    "hf_model_id": "distil-whisper/distil-large-v3",
+    "file_path": "onnx/decoder_model_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "decoder_sequence_length": 1,
+      "past_decoder_sequence_length": 1,
+      "encoder_sequence_length_out": 1,
+      "encoder_sequence_length / 2": 1500
+    }
+  },
+  {
+    "hf_model_id": "distil-whisper/distil-large-v3",
+    "file_path": "onnx/decoder_model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "decoder_sequence_length": 1,
+      "past_decoder_sequence_length": 1,
+      "encoder_sequence_length_out": 1,
+      "encoder_sequence_length / 2": 1500
+    }
+  },
+  {
+    "hf_model_id": "distil-whisper/distil-large-v3",
+    "file_path": "onnx/decoder_with_past_model_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "past_decoder_sequence_length": 1,
+      "encoder_sequence_length_out": 1500
+    }
+  },
+  {
+    "hf_model_id": "distil-whisper/distil-large-v3",
+    "file_path": "onnx/decoder_with_past_model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "past_decoder_sequence_length": 1,
+      "encoder_sequence_length_out": 1500
+    }
+  },
+  {
+    "hf_model_id": "distil-whisper/distil-medium.en",
+    "file_path": "onnx/decoder_model_merged_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "decoder_sequence_length": 1,
+      "past_decoder_sequence_length": 1,
+      "encoder_sequence_length_out": 1,
+      "encoder_sequence_length / 2": 1500
+    }
+  },
+  {
+    "hf_model_id": "distil-whisper/distil-medium.en",
+    "file_path": "onnx/decoder_model_merged.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "decoder_sequence_length": 1,
+      "past_decoder_sequence_length": 1,
+      "encoder_sequence_length_out": 1,
+      "encoder_sequence_length / 2": 1500
+    }
+  },
+  {
+    "hf_model_id": "distil-whisper/distil-medium.en",
+    "file_path": "onnx/decoder_model_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "decoder_sequence_length": 1,
+      "past_decoder_sequence_length": 1,
+      "encoder_sequence_length_out": 1,
+      "encoder_sequence_length / 2": 1500
+    }
+  },
+  {
+    "hf_model_id": "distil-whisper/distil-medium.en",
+    "file_path": "onnx/decoder_model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "decoder_sequence_length": 1,
+      "past_decoder_sequence_length": 1,
+      "encoder_sequence_length_out": 1,
+      "encoder_sequence_length / 2": 1500
+    }
+  },
+  {
+    "hf_model_id": "distil-whisper/distil-medium.en",
+    "file_path": "onnx/decoder_with_past_model_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "past_decoder_sequence_length": 1,
+      "encoder_sequence_length_out": 1500
+    }
+  },
+  {
+    "hf_model_id": "distil-whisper/distil-medium.en",
+    "file_path": "onnx/decoder_with_past_model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "past_decoder_sequence_length": 1,
+      "encoder_sequence_length_out": 1500
+    }
+  },
+  {
+    "hf_model_id": "distil-whisper/distil-medium.en",
+    "file_path": "onnx/encoder_model_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "feature_size": 80,
+      "encoder_sequence_length": 3000
+    }
+  },
+  {
+    "hf_model_id": "distil-whisper/distil-medium.en",
+    "file_path": "onnx/encoder_model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "feature_size": 80,
+      "encoder_sequence_length": 3000
+    }
+  },
+  {
+    "hf_model_id": "hf-internal-testing/tiny-clap-htsat-unfused",
+    "file_path": "onnx/model.onnx",
+    "overrides": {
+      "text_batch_size": 2,
+      "sequence_length": 6,
+      "audio_batch_size": 1,
+      "num_channels": 1,
+      "height": 1001,
+      "width": 64
+    }
+  },
+  {
+    "hf_model_id": "hf-internal-testing/tiny-random-BertForMaskedLM",
+    "file_path": "onnx/model.onnx",
+    "overrides": {
+      "batch_size": 32,
+      "sequence_length": 36
+    }
+  },
+  {
+    "hf_model_id": "hf-internal-testing/tiny-random-BertForQuestionAnswering",
+    "file_path": "onnx/model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 512
+    }
+  },
+  {
+    "hf_model_id": "hf-internal-testing/tiny-random-BertForSequenceClassification",
+    "file_path": "onnx/model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 512
+    }
+  },
+  {
+    "hf_model_id": "hf-internal-testing/tiny-random-BertForTokenClassification",
+    "file_path": "onnx/model.onnx",
+    "overrides": {
+      "batch_size": 256,
+      "sequence_length": 7
+    }
+  },
+  {
+    "hf_model_id": "hf-internal-testing/tiny-random-BertModel",
+    "file_path": "onnx/model.onnx",
+    "overrides": {
+      "batch_size": 64,
+      "sequence_length": 20
+    }
+  },
+  {
+    "hf_model_id": "hf-internal-testing/tiny-random-DPTForDepthEstimation",
+    "file_path": "onnx/model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "num_channels": 3,
+      "height": 32,
+      "width": 32
+    }
+  },
+  {
+    "hf_model_id": "hf-internal-testing/tiny-random-GroupViTModel",
+    "file_path": "onnx/model.onnx",
+    "overrides": {
+      "text_batch_size": 2,
+      "sequence_length": 10,
+      "image_batch_size": 1,
+      "num_channels": 3,
+      "height": 30,
+      "width": 30
+    }
+  },
+  {
+    "hf_model_id": "hf-internal-testing/tiny-random-LlamaForCausalLM",
+    "file_path": "onnx/model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 1,
+      "past_sequence_length + 1": 266,
+      "past_sequence_length": 265
+    }
+  },
+  {
+    "hf_model_id": "hf-internal-testing/tiny-random-MoonshineForConditionalGeneration",
+    "file_path": "onnx/decoder_model_merged.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "decoder_sequence_length": 1,
+      "encoder_sequence_length": 40
+    }
+  },
+  {
+    "hf_model_id": "hf-internal-testing/tiny-random-MoonshineForConditionalGeneration",
+    "file_path": "onnx/encoder_model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "num_samples": 16000
+    }
+  },
+  {
+    "hf_model_id": "hf-internal-testing/tiny-random-OwlViTForObjectDetection",
+    "file_path": "onnx/model.onnx",
+    "overrides": {
+      "text_batch_size": 2,
+      "sequence_length": 4,
+      "image_batch_size": 1,
+      "num_channels": 3,
+      "height": 32,
+      "width": 32
+    }
+  },
+  {
+    "hf_model_id": "hf-internal-testing/tiny-random-Qwen2VLForConditionalGeneration",
+    "file_path": "onnx/decoder_model_merged.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 1,
+      "past_sequence_length": 0
+    }
+  },
+  {
+    "hf_model_id": "hf-internal-testing/tiny-random-Qwen2VLForConditionalGeneration",
+    "file_path": "onnx/embed_tokens.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 1
+    }
+  },
+  {
+    "hf_model_id": "hf-internal-testing/tiny-random-Qwen2VLForConditionalGeneration",
+    "file_path": "onnx/vision_encoder.onnx",
+    "overrides": {
+      "batch_size * grid_t * grid_h * grid_w": 256,
+      "channel * temporal_patch_size * patch_size * patch_size": 1176,
+      "batch_size": 1
+    }
+  },
+  {
+    "hf_model_id": "hf-internal-testing/tiny-random-Swin2SRForImageSuperResolution",
+    "file_path": "onnx/model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "num_channels": 3,
+      "height": 16,
+      "width": 32
+    }
+  },
+  {
+    "hf_model_id": "hf-internal-testing/tiny-random-T5ForConditionalGeneration",
+    "file_path": "onnx/decoder_model_merged.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "encoder_sequence_length": 512,
+      "decoder_sequence_length": 1,
+      "past_decoder_sequence_length": 0,
+      "encoder_sequence_length_out": 0
+    }
+  },
+  {
+    "hf_model_id": "hf-internal-testing/tiny-random-T5ForConditionalGeneration",
+    "file_path": "onnx/encoder_model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "encoder_sequence_length": 512
+    }
+  },
+  {
+    "hf_model_id": "hf-internal-testing/tiny-random-unispeech",
+    "file_path": "onnx/model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 16000
+    }
+  },
+  {
+    "hf_model_id": "hf-internal-testing/tiny-random-VisionEncoderDecoderModel-vit-gpt2",
+    "file_path": "onnx/decoder_model_merged.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "decoder_sequence_length": 41,
+      "encoder_sequence_length": 226
+    }
+  },
+  {
+    "hf_model_id": "hf-internal-testing/tiny-random-VisionEncoderDecoderModel-vit-gpt2",
+    "file_path": "onnx/encoder_model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "num_channels": 3,
+      "height": 30,
+      "width": 30
+    }
+  },
+  {
+    "hf_model_id": "hf-internal-testing/tiny-random-vit",
+    "file_path": "onnx/model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "num_channels": 3,
+      "height": 30,
+      "width": 30
+    }
+  },
+  {
+    "hf_model_id": "hf-internal-testing/tiny-random-ViTMAEModel",
+    "file_path": "onnx/model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "num_channels": 3,
+      "height": 30,
+      "width": 30
+    }
+  },
+  {
+    "hf_model_id": "jinaai/jina-clip-v1",
+    "file_path": "onnx/text_model_fp16.onnx",
+    "overrides": {
+      "batch_size": 2,
+      "sequence_length": 5
+    }
+  },
+  {
+    "hf_model_id": "jinaai/jina-clip-v1",
+    "file_path": "onnx/text_model_q4.onnx",
+    "overrides": {
+      "batch_size": 2,
+      "sequence_length": 5
+    }
+  },
+  {
+    "hf_model_id": "jinaai/jina-clip-v1",
+    "file_path": "onnx/text_model_quantized.onnx",
+    "overrides": {
+      "batch_size": 2,
+      "sequence_length": 5
+    }
+  },
+  {
+    "hf_model_id": "jinaai/jina-clip-v1",
+    "file_path": "onnx/text_model.onnx",
+    "overrides": {
+      "batch_size": 2,
+      "sequence_length": 5
+    }
+  },
+  {
+    "hf_model_id": "jinaai/jina-clip-v1",
+    "file_path": "onnx/vision_model_fp16.onnx",
+    "overrides": {
+      "batch_size": 1
+    }
+  },
+  {
+    "hf_model_id": "jinaai/jina-clip-v1",
+    "file_path": "onnx/vision_model_q4.onnx",
+    "overrides": {
+      "batch_size": 1
+    }
+  },
+  {
+    "hf_model_id": "jinaai/jina-clip-v1",
+    "file_path": "onnx/vision_model_quantized.onnx",
+    "overrides": {
+      "batch_size": 1
+    }
+  },
+  {
+    "hf_model_id": "jinaai/jina-clip-v1",
+    "file_path": "onnx/vision_model.onnx",
+    "overrides": {
+      "batch_size": 1
+    }
+  },
+  {
+    "hf_model_id": "jinaai/jina-embeddings-v2-base-code",
+    "file_path": "onnx/model_fp16.onnx",
+    "overrides": {
+      "batch": 2,
+      "sequence": 26
+    }
+  },
+  {
+    "hf_model_id": "jinaai/jina-embeddings-v2-base-code",
+    "file_path": "onnx/model_quantized.onnx",
+    "overrides": {
+      "batch": 2,
+      "sequence": 26
+    }
+  },
+  {
+    "hf_model_id": "jinaai/jina-embeddings-v2-base-code",
+    "file_path": "onnx/model.onnx",
+    "overrides": {
+      "batch": 2,
+      "sequence": 26
+    }
+  },
+  {
+    "hf_model_id": "jinaai/jina-reranker-v1-turbo-en",
+    "file_path": "onnx/model_fp16.onnx",
+    "overrides": {
+      "batch": 10,
+      "sequence": 20
+    }
+  },
+  {
+    "hf_model_id": "jinaai/jina-reranker-v1-turbo-en",
+    "file_path": "onnx/model_q4.onnx",
+    "overrides": {
+      "batch": 10,
+      "sequence": 20
+    }
+  },
+  {
+    "hf_model_id": "jinaai/jina-reranker-v1-turbo-en",
+    "file_path": "onnx/model_quantized.onnx",
+    "overrides": {
+      "batch": 10,
+      "sequence": 20
+    }
+  },
+  {
+    "hf_model_id": "jinaai/jina-reranker-v1-turbo-en",
+    "file_path": "onnx/model.onnx",
+    "overrides": {
+      "batch": 10,
+      "sequence": 20
+    }
+  },
+  {
+    "hf_model_id": "jonathandinu/face-parsing",
+    "file_path": "onnx/model_fp16.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "num_channels": 3,
+      "height": 512,
+      "width": 512
+    }
+  },
+  {
+    "hf_model_id": "jonathandinu/face-parsing",
+    "file_path": "onnx/model_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "num_channels": 3,
+      "height": 512,
+      "width": 512
+    }
+  },
+  {
+    "hf_model_id": "jonathandinu/face-parsing",
+    "file_path": "onnx/model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "num_channels": 3,
+      "height": 512,
+      "width": 512
+    }
+  },
+  {
+    "hf_model_id": "Marqo/marqo-fashionSigLIP",
+    "file_path": "onnx/text_model_bnb4.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 64
+    }
+  },
+  {
+    "hf_model_id": "Marqo/marqo-fashionSigLIP",
+    "file_path": "onnx/text_model_fp16.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 64
+    }
+  },
+  {
+    "hf_model_id": "Marqo/marqo-fashionSigLIP",
+    "file_path": "onnx/text_model_q4f16.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 64
+    }
+  },
+  {
+    "hf_model_id": "Marqo/marqo-fashionSigLIP",
+    "file_path": "onnx/text_model_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 64
+    }
+  },
+  {
+    "hf_model_id": "Marqo/marqo-fashionSigLIP",
+    "file_path": "onnx/text_model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 64
+    }
+  },
+  {
+    "hf_model_id": "Marqo/marqo-fashionSigLIP",
+    "file_path": "onnx/vision_model_bnb4.onnx",
+    "overrides": {
+      "batch_size": 1
+    }
+  },
+  {
+    "hf_model_id": "Marqo/marqo-fashionSigLIP",
+    "file_path": "onnx/vision_model_fp16.onnx",
+    "overrides": {
+      "batch_size": 1
+    }
+  },
+  {
+    "hf_model_id": "Marqo/marqo-fashionSigLIP",
+    "file_path": "onnx/vision_model_q4f16.onnx",
+    "overrides": {
+      "batch_size": 1
+    }
+  },
+  {
+    "hf_model_id": "Marqo/marqo-fashionSigLIP",
+    "file_path": "onnx/vision_model_quantized.onnx",
+    "overrides": {
+      "batch_size": 1
+    }
+  },
+  {
+    "hf_model_id": "Marqo/marqo-fashionSigLIP",
+    "file_path": "onnx/vision_model.onnx",
+    "overrides": {
+      "batch_size": 1
+    }
+  },
+  {
+    "hf_model_id": "mixedbread-ai/mxbai-embed-large-v1",
+    "file_path": "onnx/model_quantized.onnx",
+    "overrides": {
+      "batch_size": 5,
+      "sequence_length": 18
+    }
+  },
+  {
+    "hf_model_id": "mixedbread-ai/mxbai-embed-large-v1",
+    "file_path": "onnx/model.onnx",
+    "overrides": {
+      "batch_size": 5,
+      "sequence_length": 18
+    }
+  },
+  {
+    "hf_model_id": "mixedbread-ai/mxbai-rerank-base-v1",
+    "file_path": "onnx/model_fp16.onnx",
+    "overrides": {
+      "batch_size": 5,
+      "sequence_length": 18
+    }
+  },
+  {
+    "hf_model_id": "mixedbread-ai/mxbai-rerank-base-v1",
+    "file_path": "onnx/model_quantized.onnx",
+    "overrides": {
+      "batch_size": 5,
+      "sequence_length": 18
+    }
+  },
+  {
+    "hf_model_id": "mixedbread-ai/mxbai-rerank-base-v1",
+    "file_path": "onnx/model.onnx",
+    "overrides": {
+      "batch_size": 5,
+      "sequence_length": 18
+    }
+  },
+  {
+    "hf_model_id": "nomic-ai/nomic-embed-text-v1",
+    "file_path": "onnx/model_quantized.onnx",
+    "overrides": {
+      "batch_size": 2,
+      "sequence_length": 16
+    }
+  },
+  {
+    "hf_model_id": "nomic-ai/nomic-embed-text-v1",
+    "file_path": "onnx/model.onnx",
+    "overrides": {
+      "batch_size": 2,
+      "sequence_length": 16
+    }
+  },
+  {
+    "hf_model_id": "nomic-ai/nomic-embed-text-v1.5",
+    "file_path": "onnx/model_quantized.onnx",
+    "overrides": {
+      "batch_size": 2,
+      "sequence_length": 16
+    }
+  },
+  {
+    "hf_model_id": "nomic-ai/nomic-embed-text-v1.5",
+    "file_path": "onnx/model.onnx",
+    "overrides": {
+      "batch_size": 2,
+      "sequence_length": 16
+    }
+  },
+  {
+    "hf_model_id": "onnx-community/florence-2-base",
+    "file_path": "onnx/decoder_model_fp16.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "decoder_sequence_length": 512,
+      "encoder_sequence_length": 512
+    }
+  },
+  {
+    "hf_model_id": "onnx-community/florence-2-base",
+    "file_path": "onnx/decoder_model_merged_fp16.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "decoder_sequence_length": 16,
+      "past_decoder_sequence_length": 16,
+      "encoder_sequence_length_out": 512,
+      "encoder_sequence_length": 512
+    }
+  },
+  {
+    "hf_model_id": "onnx-community/florence-2-base",
+    "file_path": "onnx/decoder_model_merged_q4.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "decoder_sequence_length": 16,
+      "past_decoder_sequence_length": 16,
+      "encoder_sequence_length_out": 512,
+      "encoder_sequence_length": 512
+    }
+  },
+  {
+    "hf_model_id": "onnx-community/florence-2-base",
+    "file_path": "onnx/decoder_model_merged_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "decoder_sequence_length": 16,
+      "past_decoder_sequence_length": 16,
+      "encoder_sequence_length_out": 512,
+      "encoder_sequence_length": 512
+    }
+  },
+  {
+    "hf_model_id": "onnx-community/florence-2-base",
+    "file_path": "onnx/decoder_model_merged.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "decoder_sequence_length": 16,
+      "past_decoder_sequence_length": 16,
+      "encoder_sequence_length_out": 512,
+      "encoder_sequence_length": 512
+    }
+  },
+  {
+    "hf_model_id": "onnx-community/florence-2-base",
+    "file_path": "onnx/decoder_model_q4.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "decoder_sequence_length": 512,
+      "encoder_sequence_length": 512
+    }
+  },
+  {
+    "hf_model_id": "onnx-community/florence-2-base",
+    "file_path": "onnx/decoder_model_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "decoder_sequence_length": 512,
+      "encoder_sequence_length": 512
+    }
+  },
+  {
+    "hf_model_id": "onnx-community/florence-2-base",
+    "file_path": "onnx/decoder_model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "decoder_sequence_length": 512,
+      "encoder_sequence_length": 512
+    }
+  },
+  {
+    "hf_model_id": "onnx-community/florence-2-base",
+    "file_path": "onnx/decoder_with_past_model_fp16.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "past_decoder_sequence_length": 16,
+      "encoder_sequence_length_out": 512
+    }
+  },
+  {
+    "hf_model_id": "onnx-community/florence-2-base",
+    "file_path": "onnx/decoder_with_past_model_q4.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "past_decoder_sequence_length": 16,
+      "encoder_sequence_length_out": 512
+    }
+  },
+  {
+    "hf_model_id": "onnx-community/florence-2-base",
+    "file_path": "onnx/decoder_with_past_model_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "past_decoder_sequence_length": 16,
+      "encoder_sequence_length_out": 512
+    }
+  },
+  {
+    "hf_model_id": "onnx-community/florence-2-base",
+    "file_path": "onnx/decoder_with_past_model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "past_decoder_sequence_length": 16,
+      "encoder_sequence_length_out": 512
+    }
+  },
+  {
+    "hf_model_id": "onnx-community/florence-2-base",
+    "file_path": "onnx/embed_tokens_fp16.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 512
+    }
+  },
+  {
+    "hf_model_id": "onnx-community/florence-2-base",
+    "file_path": "onnx/embed_tokens_q4.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 512
+    }
+  },
+  {
+    "hf_model_id": "onnx-community/florence-2-base",
+    "file_path": "onnx/embed_tokens_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 512
+    }
+  },
+  {
+    "hf_model_id": "onnx-community/florence-2-base",
+    "file_path": "onnx/embed_tokens.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 512
+    }
+  },
+  {
+    "hf_model_id": "onnx-community/florence-2-base",
+    "file_path": "onnx/encoder_model_fp16.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "encoder_sequence_length": 512
+    }
+  },
+  {
+    "hf_model_id": "onnx-community/florence-2-base",
+    "file_path": "onnx/encoder_model_q4.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "encoder_sequence_length": 512
+    }
+  },
+  {
+    "hf_model_id": "onnx-community/florence-2-base",
+    "file_path": "onnx/encoder_model_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "encoder_sequence_length": 512
+    }
+  },
+  {
+    "hf_model_id": "onnx-community/florence-2-base",
+    "file_path": "onnx/encoder_model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "encoder_sequence_length": 512
+    }
+  },
+  {
+    "hf_model_id": "onnx-community/florence-2-base",
+    "file_path": "onnx/vision_encoder_q4.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "height": 30,
+      "width": 30
+    }
+  },
+  {
+    "hf_model_id": "onnx-community/florence-2-base",
+    "file_path": "onnx/vision_encoder_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "height": 30,
+      "width": 30
+    }
+  },
+  {
+    "hf_model_id": "onnx-community/florence-2-base",
+    "file_path": "onnx/vision_encoder.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "height": 30,
+      "width": 30
+    }
+  },
+  {
+    "hf_model_id": "onnx-community/Kokoro-82M-v1.0-ONNX",
+    "file_path": "onnx/model_fp16.onnx",
+    "overrides": {
+      "sequence_length": 48
+    }
+  },
+  {
+    "hf_model_id": "onnx-community/Kokoro-82M-v1.0-ONNX",
+    "file_path": "onnx/model_q4.onnx",
+    "overrides": {
+      "sequence_length": 48
+    }
+  },
+  {
+    "hf_model_id": "onnx-community/Kokoro-82M-v1.0-ONNX",
+    "file_path": "onnx/model_q4f16.onnx",
+    "overrides": {
+      "sequence_length": 48
+    }
+  },
+  {
+    "hf_model_id": "onnx-community/Kokoro-82M-v1.0-ONNX",
+    "file_path": "onnx/model_quantized.onnx",
+    "overrides": {
+      "sequence_length": 48
+    }
+  },
+  {
+    "hf_model_id": "onnx-community/Kokoro-82M-v1.0-ONNX",
+    "file_path": "onnx/model.onnx",
+    "overrides": {
+      "sequence_length": 48
+    }
+  },
+  {
+    "hf_model_id": "onnx-community/mediapipe_selfie_segmentation",
+    "file_path": "onnx/model_fp16.onnx",
+    "overrides": {
+      "batch_size": 1
+    }
+  },
+  {
+    "hf_model_id": "onnx-community/mediapipe_selfie_segmentation",
+    "file_path": "onnx/model_q4.onnx",
+    "overrides": {
+      "batch_size": 1
+    }
+  },
+  {
+    "hf_model_id": "onnx-community/mediapipe_selfie_segmentation",
+    "file_path": "onnx/model_q4f16.onnx",
+    "overrides": {
+      "batch_size": 1
+    }
+  },
+  {
+    "hf_model_id": "onnx-community/mediapipe_selfie_segmentation",
+    "file_path": "onnx/model_quantized.onnx",
+    "overrides": {
+      "batch_size": 1
+    }
+  },
+  {
+    "hf_model_id": "onnx-community/mediapipe_selfie_segmentation",
+    "file_path": "onnx/model.onnx",
+    "overrides": {
+      "batch_size": 1
+    }
+  },
+  {
+    "hf_model_id": "onnx-community/mediapipe_selfie_segmentation_landscape",
+    "file_path": "onnx/model_fp16.onnx",
+    "overrides": {
+      "batch_size": 1
+    }
+  },
+  {
+    "hf_model_id": "onnx-community/mediapipe_selfie_segmentation_landscape",
+    "file_path": "onnx/model_q4.onnx",
+    "overrides": {
+      "batch_size": 1
+    }
+  },
+  {
+    "hf_model_id": "onnx-community/mediapipe_selfie_segmentation_landscape",
+    "file_path": "onnx/model_q4f16.onnx",
+    "overrides": {
+      "batch_size": 1
+    }
+  },
+  {
+    "hf_model_id": "onnx-community/mediapipe_selfie_segmentation_landscape",
+    "file_path": "onnx/model_quantized.onnx",
+    "overrides": {
+      "batch_size": 1
+    }
+  },
+  {
+    "hf_model_id": "onnx-community/mediapipe_selfie_segmentation_landscape",
+    "file_path": "onnx/model.onnx",
+    "overrides": {
+      "batch_size": 1
+    }
+  },
+  {
+    "hf_model_id": "onnx-community/mobilenetv4s-webnn",
+    "file_path": "onnx/model_fp16.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "num_channels": 3,
+      "height": 224,
+      "width": 224
+    }
+  },
+  {
+    "hf_model_id": "onnx-community/mobilenetv4s-webnn",
+    "file_path": "onnx/model_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "num_channels": 3,
+      "height": 224,
+      "width": 224
+    }
+  },
+  {
+    "hf_model_id": "onnx-community/mobilenetv4s-webnn",
+    "file_path": "onnx/model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "num_channels": 3,
+      "height": 224,
+      "width": 224
+    }
+  },
+  {
+    "hf_model_id": "onnx-community/whisper-tiny",
+    "file_path": "onnx/decoder_model_fp16.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "decoder_sequence_length": 1,
+      "encoder_sequence_length / 2": 1500
+    }
+  },
+  {
+    "hf_model_id": "onnx-community/whisper-tiny",
+    "file_path": "onnx/decoder_model_merged_fp16.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "decoder_sequence_length": 1,
+      "encoder_sequence_length / 2": 1500,
+      "past_decoder_sequence_length": 128,
+      "encoder_sequence_length_out": 1500
+    }
+  },
+  {
+    "hf_model_id": "onnx-community/whisper-tiny",
+    "file_path": "onnx/decoder_model_merged_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "decoder_sequence_length": 1,
+      "encoder_sequence_length / 2": 1500,
+      "past_decoder_sequence_length": 128,
+      "encoder_sequence_length_out": 1500
+    }
+  },
+  {
+    "hf_model_id": "onnx-community/whisper-tiny",
+    "file_path": "onnx/decoder_model_merged.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "decoder_sequence_length": 1,
+      "encoder_sequence_length / 2": 1500,
+      "past_decoder_sequence_length": 128,
+      "encoder_sequence_length_out": 1500
+    }
+  },
+  {
+    "hf_model_id": "onnx-community/whisper-tiny",
+    "file_path": "onnx/decoder_model_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "decoder_sequence_length": 1,
+      "encoder_sequence_length / 2": 1500
+    }
+  },
+  {
+    "hf_model_id": "onnx-community/whisper-tiny",
+    "file_path": "onnx/decoder_model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "decoder_sequence_length": 1,
+      "encoder_sequence_length / 2": 1500
+    }
+  },
+  {
+    "hf_model_id": "onnx-community/whisper-tiny",
+    "file_path": "onnx/decoder_with_past_model_fp16.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "past_decoder_sequence_length": 128,
+      "encoder_sequence_length_out": 1500
+    }
+  },
+  {
+    "hf_model_id": "onnx-community/whisper-tiny",
+    "file_path": "onnx/decoder_with_past_model_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "past_decoder_sequence_length": 128,
+      "encoder_sequence_length_out": 1500
+    }
+  },
+  {
+    "hf_model_id": "onnx-community/whisper-tiny",
+    "file_path": "onnx/decoder_with_past_model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "past_decoder_sequence_length": 128,
+      "encoder_sequence_length_out": 1500
+    }
+  },
+  {
+    "hf_model_id": "onnx-community/whisper-tiny",
+    "file_path": "onnx/encoder_model_fp16.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "feature_size": 80,
+      "encoder_sequence_length": 3000
+    }
+  },
+  {
+    "hf_model_id": "onnx-community/whisper-tiny",
+    "file_path": "onnx/encoder_model_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "feature_size": 80,
+      "encoder_sequence_length": 3000
+    }
+  },
+  {
+    "hf_model_id": "onnx-community/whisper-tiny",
+    "file_path": "onnx/encoder_model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "feature_size": 80,
+      "encoder_sequence_length": 3000
+    }
+  },
+  {
+    "hf_model_id": "onnx-community/whisper-tiny.en",
+    "file_path": "onnx/decoder_model_merged_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "decoder_sequence_length": 2,
+      "encoder_sequence_length / 2": 1500,
+      "past_decoder_sequence_length": 0,
+      "encoder_sequence_length_out": 0
+    }
+  },
+  {
+    "hf_model_id": "onnx-community/whisper-tiny.en",
+    "file_path": "onnx/decoder_model_merged.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "decoder_sequence_length": 2,
+      "encoder_sequence_length / 2": 1500,
+      "past_decoder_sequence_length": 0,
+      "encoder_sequence_length_out": 0
+    }
+  },
+  {
+    "hf_model_id": "onnx-community/whisper-tiny.en",
+    "file_path": "onnx/encoder_model_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "feature_size": 80,
+      "encoder_sequence_length": 3000
+    }
+  },
+  {
+    "hf_model_id": "onnx-community/whisper-tiny.en",
+    "file_path": "onnx/encoder_model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "feature_size": 80,
+      "encoder_sequence_length": 3000
+    }
+  },
+  {
+    "hf_model_id": "onnx-internal-testing/tiny-random-CLIPModel-ONNX",
+    "file_path": "onnx/model.onnx",
+    "overrides": {
+      "text_batch_size": 2,
+      "sequence_length": 15,
+      "image_batch_size": 1,
+      "num_channels": 3,
+      "height": 30,
+      "width": 30
+    }
+  },
+  {
+    "hf_model_id": "onnx-internal-testing/tiny-random-YolosForObjectDetection-ONNX",
+    "file_path": "onnx/model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "num_channels": 3,
+      "height": 30,
+      "width": 30
+    }
+  },
+  {
+    "hf_model_id": "snowflake/snowflake-arctic-embed-m",
+    "file_path": "onnx/model_fp16.onnx",
+    "overrides": {
+      "batch_size": 3,
+      "sequence_length": 19
+    }
+  },
+  {
+    "hf_model_id": "snowflake/snowflake-arctic-embed-m",
+    "file_path": "onnx/model_q4.onnx",
+    "overrides": {
+      "batch_size": 3,
+      "sequence_length": 19
+    }
+  },
+  {
+    "hf_model_id": "snowflake/snowflake-arctic-embed-m",
+    "file_path": "onnx/model_quantized.onnx",
+    "overrides": {
+      "batch_size": 3,
+      "sequence_length": 19
+    }
+  },
+  {
+    "hf_model_id": "snowflake/snowflake-arctic-embed-m",
+    "file_path": "onnx/model.onnx",
+    "overrides": {
+      "batch_size": 3,
+      "sequence_length": 19
+    }
+  },
+  {
+    "hf_model_id": "snowflake/snowflake-arctic-embed-xs",
+    "file_path": "onnx/model_quantized.onnx",
+    "overrides": {
+      "batch_size": 2,
+      "sequence_length": 4
+    }
+  },
+  {
+    "hf_model_id": "snowflake/snowflake-arctic-embed-xs",
+    "file_path": "onnx/model.onnx",
+    "overrides": {
+      "batch_size": 2,
+      "sequence_length": 4
+    }
+  },
+  {
+    "hf_model_id": "supabase/gte-small",
+    "file_path": "onnx/model_fp16.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 16
+    }
+  },
+  {
+    "hf_model_id": "supabase/gte-small",
+    "file_path": "onnx/model_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 16
+    }
+  },
+  {
+    "hf_model_id": "supabase/gte-small",
+    "file_path": "onnx/model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 16
+    }
+  },
+  {
+    "hf_model_id": "webml/models-moved",
+    "file_path": "fp16/faster-r-cnn-opset-12-fp16.onnx",
+    "overrides": {
+      "height": 224,
+      "width": 224
+    }
+  },
+  {
+    "hf_model_id": "webml/models-moved",
+    "file_path": "fp16/fcn-resnet50-opset-12-fp16.onnx",
+    "overrides": {
+      "batch": 1,
+      "height": 224,
+      "width": 224
+    }
+  },
+  {
+    "hf_model_id": "webml/models-moved",
+    "file_path": "fp16/image-classification/mobilenet-v2_fp16.onnx",
+    "overrides": {
+      "batch_size": 1
+    }
+  },
+  {
+    "hf_model_id": "webml/models-moved",
+    "file_path": "fp16/image-classification/resnet-50_fp16.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "num_channels": 3,
+      "height": 224,
+      "width": 224
+    }
+  },
+  {
+    "hf_model_id": "webml/models-moved",
+    "file_path": "fp16/sd_safety_checker_int32_reduceSum.onnx",
+    "overrides": {
+      "batch": 1,
+      "channels": 3,
+      "height": 224,
+      "width": 224
+    }
+  },
+  {
+    "hf_model_id": "webml/models-moved",
+    "file_path": "fp16/sd-turbo/text_encoder/model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 77
+    }
+  },
+  {
+    "hf_model_id": "webml/models-moved",
+    "file_path": "fp16/segment-anything/sam_vit_b_01ec64.decoder-fp16.onnx",
+    "overrides": {
+      "num_points": 2
+    }
+  },
+  {
+    "hf_model_id": "webml/models-moved",
+    "file_path": "fp16/ssd-mobilenet-v1-opset-12-fp16.onnx",
+    "overrides": {
+      "unk__6578": 1,
+      "unk__6579": 224,
+      "unk__6580": 224
+    }
+  },
+  {
+    "hf_model_id": "webml/models-moved",
+    "file_path": "fp16/stable-diffusion-1.5/Stable-Diffusion-v1.5-vae-decoder-float16-fp32-instancenorm.onnx",
+    "overrides": {
+      "batch": 1,
+      "channels": 4,
+      "height": 64,
+      "width": 64
+    }
+  },
+  {
+    "hf_model_id": "webml/models-moved",
+    "file_path": "fp16/stable-diffusion-1.5/text-encoder.onnx",
+    "overrides": {
+      "batch": 2,
+      "sequence": 77
+    }
+  },
+  {
+    "hf_model_id": "webml/models-moved",
+    "file_path": "int8/faster-r-cnn-opset-12-int8.onnx",
+    "overrides": {
+      "height": 224,
+      "width": 224
+    }
+  },
+  {
+    "hf_model_id": "webml/models-moved",
+    "file_path": "int8/FasterRCNN-12-qdq.onnx",
+    "overrides": {
+      "height": 224,
+      "width": 224
+    }
+  },
+  {
+    "hf_model_id": "webml/models-moved",
+    "file_path": "int8/fcn-resnet50-12-qdq.onnx",
+    "overrides": {
+      "batch": 1,
+      "height": 224,
+      "width": 224
+    }
+  },
+  {
+    "hf_model_id": "webml/models-moved",
+    "file_path": "int8/fcn-resnet50-opset-12-int8.onnx",
+    "overrides": {
+      "batch": 1,
+      "height": 224,
+      "width": 224
+    }
+  },
+  {
+    "hf_model_id": "webml/models-moved",
+    "file_path": "int8/mask-r-cnn-opset-12-int8.onnx",
+    "overrides": {
+      "height": 224,
+      "width": 224
+    }
+  },
+  {
+    "hf_model_id": "webml/models-moved",
+    "file_path": "int8/MaskRCNN-12-qdq.onnx",
+    "overrides": {
+      "height": 224,
+      "width": 224
+    }
+  },
+  {
+    "hf_model_id": "webml/models-moved",
+    "file_path": "int8/mobilenetv2-12-int8.onnx",
+    "overrides": {
+      "batch_size": 1
+    }
+  },
+  {
+    "hf_model_id": "webml/models-moved",
+    "file_path": "int8/mobilenetv2-12-qdq.onnx",
+    "overrides": {
+      "batch_size": 1
+    }
+  },
+  {
+    "hf_model_id": "webml/models-moved",
+    "file_path": "int8/resnet50-v1-12-qdq.onnx",
+    "overrides": {
+      "N": 1
+    }
+  },
+  {
+    "hf_model_id": "webml/models-moved",
+    "file_path": "int8/ssd_mobilenet_v1_13-qdq.onnx",
+    "overrides": {
+      "unk__6578": 1,
+      "unk__6579": 224,
+      "unk__6580": 224
+    }
+  },
+  {
+    "hf_model_id": "webml/models-moved",
+    "file_path": "int8/ssd-mobilenet-v1-opset-12-int8.onnx",
+    "overrides": {
+      "unk__6578": 1,
+      "unk__6579": 224,
+      "unk__6580": 224
+    }
+  },
+  {
+    "hf_model_id": "webml/models-moved",
+    "file_path": "isv_z_proxy.onnx",
+    "overrides": {
+      "batch_size": 1
+    }
+  },
+  {
+    "hf_model_id": "webml/models-moved",
+    "file_path": "isv/voiceitt/onnx/decoder-epoch-40-avg-10.onnx",
+    "overrides": {
+      "N": 1000
+    }
+  },
+  {
+    "hf_model_id": "webml/models-moved",
+    "file_path": "isv/voiceitt/onnx/encoder-epoch-40-avg-10.qt8.onnx",
+    "overrides": {
+      "N": 1
+    }
+  },
+  {
+    "hf_model_id": "webml/models-moved",
+    "file_path": "isv/voiceitt/onnx/encoder-epoch-70-avg-20.onnx",
+    "overrides": {
+      "N": 1
+    }
+  },
+  {
+    "hf_model_id": "webml/models-moved",
+    "file_path": "isv/voiceitt/onnx/joiner-epoch-40-avg-10.onnx",
+    "overrides": {
+      "N": 1000
+    }
+  },
+  {
+    "hf_model_id": "webml/models-moved",
+    "file_path": "isv/voiceitt/onnx/tack_fbank.onnx",
+    "overrides": {
+      "length": 1000
+    }
+  },
+  {
+    "hf_model_id": "webml/models-moved",
+    "file_path": "isv/voiceitt/onnx/tack_mfcc.onnx",
+    "overrides": {
+      "length": 1000
+    }
+  },
+  {
+    "hf_model_id": "webml/models-moved",
+    "file_path": "isv/voiceitt/onnx/vad_model.onnx",
+    "overrides": {
+      "length": 1000
+    }
+  },
+  {
+    "hf_model_id": "webml/models-moved",
+    "file_path": "m2m100-decoder.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "decoder_sequence_length": 128,
+      "encoder_sequence_length": 128
+    }
+  },
+  {
+    "hf_model_id": "webml/models-moved",
+    "file_path": "m2m100-encoder.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "encoder_sequence_length": 128
+    }
+  },
+  {
+    "hf_model_id": "webml/models-moved",
+    "file_path": "mobilenetv2-12.onnx",
+    "overrides": {
+      "batch_size": 1
+    }
+  },
+  {
+    "hf_model_id": "webml/models-moved",
+    "file_path": "resnet50-v1-12.onnx",
+    "overrides": {
+      "N": 1
+    }
+  },
+  {
+    "hf_model_id": "webml/models-moved",
+    "file_path": "resnet50-v2-7.onnx",
+    "overrides": {
+      "N": 1
+    }
+  },
+  {
+    "hf_model_id": "webml/models-moved",
+    "file_path": "sd-2.1-vae-decoder.onnx",
+    "overrides": {
+      "vaedec_sample_batch": 1,
+      "vaedec_sample_channels": 4,
+      "vaedec_sample_height": 64,
+      "vaedec_sample_width": 64
+    }
+  },
+  {
+    "hf_model_id": "webml/models-moved",
+    "file_path": "sd-2.1-vae-encoder.onnx",
+    "overrides": {
+      "vaeenc_sample_batch": 1,
+      "vaeenc_sample_channels": 3,
+      "vaeenc_sample_height": 512,
+      "vaeenc_sample_width": 512
+    }
+  },
+  {
+    "hf_model_id": "webml/models-moved",
+    "file_path": "sd-turbo/text_encoder/model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 77
+    }
+  },
+  {
+    "hf_model_id": "webml/models-moved",
+    "file_path": "sd-turbo/unet/model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "num_channels": 4,
+      "height": 64,
+      "width": 64,
+      "steps": 1,
+      "sequence_length": 77
+    }
+  },
+  {
+    "hf_model_id": "webml/models-moved",
+    "file_path": "sd-turbo/vae_decoder/model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "num_channels_latent": 4,
+      "height_latent": 64,
+      "width_latent": 64
+    }
+  },
+  {
+    "hf_model_id": "webml/models-moved",
+    "file_path": "segment-anything/sam_vit_b_01ec64.decoder.onnx",
+    "overrides": {
+      "num_points": 2
+    }
+  },
+  {
+    "hf_model_id": "webml/models-moved",
+    "file_path": "segment-anything/sam-b-decoder.onnx",
+    "overrides": {
+      "num_points": 2
+    }
+  },
+  {
+    "hf_model_id": "webml/models-moved",
+    "file_path": "segment-anything/sam-b-encoder.onnx",
+    "overrides": {
+      "image_height": 224,
+      "image_width": 224
+    }
+  },
+  {
+    "hf_model_id": "webml/models-moved",
+    "file_path": "tinyyolov2-8.onnx",
+    "overrides": {
+      "None": 1
+    }
+  },
+  {
+    "hf_model_id": "webml/qwen2-0.5b-instruct",
+    "file_path": "onnx/model_fp16.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 1,
+      "past_sequence_length": 1,
+      "past_sequence_length + 1": 2
+    }
+  },
+  {
+    "hf_model_id": "webml/qwen2-0.5b-instruct",
+    "file_path": "onnx/model_q4.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 1,
+      "past_sequence_length": 1,
+      "past_sequence_length + 1": 2
+    }
+  },
+  {
+    "hf_model_id": "webml/qwen2-0.5b-instruct",
+    "file_path": "onnx/model_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 1,
+      "past_sequence_length": 1,
+      "past_sequence_length + 1": 2
+    }
+  },
+  {
+    "hf_model_id": "webml/qwen2-0.5b-instruct",
+    "file_path": "onnx/model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 1,
+      "past_sequence_length": 1,
+      "past_sequence_length + 1": 2
+    }
+  },
+  {
+    "hf_model_id": "webml/univar-lambda-1",
+    "file_path": "onnx/model_fp16.onnx",
+    "overrides": {
+      "batch_size": 2,
+      "sequence_length": 16
+    }
+  },
+  {
+    "hf_model_id": "webml/univar-lambda-1",
+    "file_path": "onnx/model_q4.onnx",
+    "overrides": {
+      "batch_size": 2,
+      "sequence_length": 16
+    }
+  },
+  {
+    "hf_model_id": "webml/univar-lambda-1",
+    "file_path": "onnx/model_quantized.onnx",
+    "overrides": {
+      "batch_size": 2,
+      "sequence_length": 16
+    }
+  },
+  {
+    "hf_model_id": "webml/univar-lambda-1",
+    "file_path": "onnx/model.onnx",
+    "overrides": {
+      "batch_size": 2,
+      "sequence_length": 16
+    }
+  },
+  {
+    "hf_model_id": "webnn/depth-anything-base-hf",
+    "file_path": "onnx/model_fp16.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "num_channels": 3,
+      "height": 518,
+      "width": 518
+    }
+  },
+  {
+    "hf_model_id": "webnn/florence-2-base",
+    "file_path": "onnx/vision_encoder_fp16.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "height": 30,
+      "width": 30
+    }
+  },
+  {
+    "hf_model_id": "webnn/florence-2-base",
+    "file_path": "onnx/vision_encoder_q4f16.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "height": 30,
+      "width": 30
+    }
+  },
+  {
+    "hf_model_id": "webnn/sdxl-turbo",
+    "file_path": "onnx/text_encoder_2_model_q4f16.onnx",
+    "overrides": {
+      "batch_size": 4,
+      "sequence_length": 77
+    }
+  },
+  {
+    "hf_model_id": "webnn/sdxl-turbo",
+    "file_path": "onnx/text_encoder_model_q4f16.onnx",
+    "overrides": {
+      "batch_size": 4,
+      "sequence_length": 77
+    }
+  },
+  {
+    "hf_model_id": "webnn/sdxl-turbo",
+    "file_path": "onnx/unet_model_q4f16.onnx",
+    "overrides": {
+      "unet_sample_batch": 1,
+      "unet_sample_channels": 4,
+      "unet_sample_height": 64,
+      "unet_sample_width": 64,
+      "unet_time_batch": 1,
+      "unet_hidden_batch": 1,
+      "unet_hidden_sequence": 77,
+      "unet_text_embeds_batch": 1,
+      "unet_text_embeds_size": 1280,
+      "unet_time_ids_batch": 1,
+      "unet_time_ids_size": 6
+    }
+  },
+  {
+    "hf_model_id": "webnn/sdxl-turbo",
+    "file_path": "onnx/vae_decoder_model_q4f16.onnx",
+    "overrides": {
+      "batch_size": 4,
+      "num_channels_latent": 4,
+      "height_latent": 64,
+      "width_latent": 64
+    }
+  },
+  {
+    "hf_model_id": "webnn/Z-Image-Turbo",
+    "file_path": "onnx/safety_checker_model_f16.onnx",
+    "overrides": {
+      "batch": 1,
+      "channels": 3,
+      "height": 224,
+      "width": 224
+    }
+  },
+  {
+    "hf_model_id": "webnn/Z-Image-Turbo",
+    "file_path": "onnx/sc_prep_model_f16.onnx",
+    "overrides": {
+      "batch": 1,
+      "channels": 3,
+      "height": 512,
+      "width": 512
+    }
+  },
+  {
+    "hf_model_id": "webnn/Z-Image-Turbo",
+    "file_path": "onnx/scheduler_step_model_f16.onnx",
+    "overrides": {
+      "batch": 1,
+      "height": 64,
+      "width": 64
+    }
+  },
+  {
+    "hf_model_id": "webnn/Z-Image-Turbo",
+    "file_path": "onnx/vae_decoder_model_f16.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "latent_height": 64,
+      "latent_width": 64
+    }
+  },
+  {
+    "hf_model_id": "webnn/Z-Image-Turbo",
+    "file_path": "onnx/vae_pre_process_model_f16.onnx",
+    "overrides": {
+      "batch": 1,
+      "height": 64,
+      "width": 64
+    }
+  },
+  {
+    "hf_model_id": "xenova/albert-base-v2",
+    "file_path": "onnx/model_fp16.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 128
+    }
+  },
+  {
+    "hf_model_id": "xenova/albert-base-v2",
+    "file_path": "onnx/model_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 128
+    }
+  },
+  {
+    "hf_model_id": "xenova/albert-base-v2",
+    "file_path": "onnx/model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 128
+    }
+  },
+  {
+    "hf_model_id": "xenova/bart-large-cnn",
+    "file_path": "onnx/encoder_model_fp16.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "encoder_sequence_length": 128
+    }
+  },
+  {
+    "hf_model_id": "xenova/bart-large-cnn",
+    "file_path": "onnx/encoder_model_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "encoder_sequence_length": 128
+    }
+  },
+  {
+    "hf_model_id": "xenova/bart-large-cnn",
+    "file_path": "onnx/encoder_model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "encoder_sequence_length": 128
+    }
+  },
+  {
+    "hf_model_id": "xenova/bert-base-cased",
+    "file_path": "onnx/model_fp16.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 9
+    }
+  },
+  {
+    "hf_model_id": "xenova/bert-base-cased",
+    "file_path": "onnx/model_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 9
+    }
+  },
+  {
+    "hf_model_id": "xenova/bert-base-cased",
+    "file_path": "onnx/model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 9
+    }
+  },
+  {
+    "hf_model_id": "xenova/bert-base-multilingual-cased-ner-hrl",
+    "file_path": "onnx/model_fp16.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 1
+    }
+  },
+  {
+    "hf_model_id": "xenova/bert-base-multilingual-cased-ner-hrl",
+    "file_path": "onnx/model_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 1
+    }
+  },
+  {
+    "hf_model_id": "xenova/bert-base-multilingual-cased-ner-hrl",
+    "file_path": "onnx/model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 1
+    }
+  },
+  {
+    "hf_model_id": "xenova/bert-base-multilingual-uncased-sentiment",
+    "file_path": "onnx/model_fp16.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 63
+    }
+  },
+  {
+    "hf_model_id": "xenova/bert-base-multilingual-uncased-sentiment",
+    "file_path": "onnx/model_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 63
+    }
+  },
+  {
+    "hf_model_id": "xenova/bert-base-multilingual-uncased-sentiment",
+    "file_path": "onnx/model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 63
+    }
+  },
+  {
+    "hf_model_id": "xenova/bert-base-uncased",
+    "file_path": "onnx/model_fp16.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 128
+    }
+  },
+  {
+    "hf_model_id": "xenova/bert-base-uncased",
+    "file_path": "onnx/model_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 128
+    }
+  },
+  {
+    "hf_model_id": "xenova/bert-base-uncased",
+    "file_path": "onnx/model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 128
+    }
+  },
+  {
+    "hf_model_id": "xenova/bge-large-en-v1.5",
+    "file_path": "onnx/model_fp16.onnx",
+    "overrides": {
+      "batch_size": 2,
+      "sequence_length": 5
+    }
+  },
+  {
+    "hf_model_id": "xenova/bge-large-en-v1.5",
+    "file_path": "onnx/model_quantized.onnx",
+    "overrides": {
+      "batch_size": 2,
+      "sequence_length": 5
+    }
+  },
+  {
+    "hf_model_id": "xenova/bge-large-en-v1.5",
+    "file_path": "onnx/model.onnx",
+    "overrides": {
+      "batch_size": 2,
+      "sequence_length": 5
+    }
+  },
+  {
+    "hf_model_id": "xenova/bge-reranker-base",
+    "file_path": "onnx/model_fp16.onnx",
+    "overrides": {
+      "batch_size": 2,
+      "sequence_length": 5
+    }
+  },
+  {
+    "hf_model_id": "xenova/bge-reranker-base",
+    "file_path": "onnx/model_quantized.onnx",
+    "overrides": {
+      "batch_size": 2,
+      "sequence_length": 5
+    }
+  },
+  {
+    "hf_model_id": "xenova/bge-reranker-base",
+    "file_path": "onnx/model.onnx",
+    "overrides": {
+      "batch_size": 2,
+      "sequence_length": 5
+    }
+  },
+  {
+    "hf_model_id": "xenova/clip-vit-base-patch16",
+    "file_path": "onnx/model_fp16.onnx",
+    "overrides": {
+      "text_batch_size": 1,
+      "sequence_length": 77,
+      "image_batch_size": 1,
+      "num_channels": 3,
+      "height": 224,
+      "width": 224
+    }
+  },
+  {
+    "hf_model_id": "xenova/clip-vit-base-patch16",
+    "file_path": "onnx/model_quantized.onnx",
+    "overrides": {
+      "text_batch_size": 1,
+      "sequence_length": 77,
+      "image_batch_size": 1,
+      "num_channels": 3,
+      "height": 224,
+      "width": 224
+    }
+  },
+  {
+    "hf_model_id": "xenova/clip-vit-base-patch16",
+    "file_path": "onnx/model.onnx",
+    "overrides": {
+      "text_batch_size": 1,
+      "sequence_length": 77,
+      "image_batch_size": 1,
+      "num_channels": 3,
+      "height": 224,
+      "width": 224
+    }
+  },
+  {
+    "hf_model_id": "xenova/codegen-350m-mono",
+    "file_path": "onnx/decoder_model_fp16.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 8
+    }
+  },
+  {
+    "hf_model_id": "xenova/codegen-350m-mono",
+    "file_path": "onnx/decoder_model_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 8
+    }
+  },
+  {
+    "hf_model_id": "xenova/codegen-350m-mono",
+    "file_path": "onnx/decoder_model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 8
+    }
+  },
+  {
+    "hf_model_id": "xenova/depth-anything-base-hf",
+    "file_path": "onnx/model_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "num_channels": 3,
+      "height": 518,
+      "width": 518
+    }
+  },
+  {
+    "hf_model_id": "xenova/depth-anything-base-hf",
+    "file_path": "onnx/model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "num_channels": 3,
+      "height": 518,
+      "width": 518
+    }
+  },
+  {
+    "hf_model_id": "xenova/detr-resnet-50",
+    "file_path": "onnx/model_fp16.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "num_channels": 3,
+      "height": 640,
+      "width": 640
+    }
+  },
+  {
+    "hf_model_id": "xenova/detr-resnet-50",
+    "file_path": "onnx/model_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "num_channels": 3,
+      "height": 640,
+      "width": 640
+    }
+  },
+  {
+    "hf_model_id": "xenova/detr-resnet-50",
+    "file_path": "onnx/model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "num_channels": 3,
+      "height": 640,
+      "width": 640
+    }
+  },
+  {
+    "hf_model_id": "xenova/dino-vitb16",
+    "file_path": "onnx/model_fp16.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "num_channels": 3,
+      "height": 224,
+      "width": 224
+    }
+  },
+  {
+    "hf_model_id": "xenova/dino-vitb16",
+    "file_path": "onnx/model_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "num_channels": 3,
+      "height": 224,
+      "width": 224
+    }
+  },
+  {
+    "hf_model_id": "xenova/dino-vitb16",
+    "file_path": "onnx/model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "num_channels": 3,
+      "height": 224,
+      "width": 224
+    }
+  },
+  {
+    "hf_model_id": "xenova/distilbart-cnn-6-6",
+    "file_path": "onnx/decoder_model_fp16.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "decoder_sequence_length": 168,
+      "encoder_sequence_length": 168
+    }
+  },
+  {
+    "hf_model_id": "xenova/distilbart-cnn-6-6",
+    "file_path": "onnx/decoder_model_merged_fp16.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "encoder_sequence_length": 168,
+      "decoder_sequence_length": 168,
+      "past_decoder_sequence_length": 168,
+      "encoder_sequence_length_out": 168
+    }
+  },
+  {
+    "hf_model_id": "xenova/distilbart-cnn-6-6",
+    "file_path": "onnx/decoder_model_merged_q4f16.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "encoder_sequence_length": 168,
+      "decoder_sequence_length": 168,
+      "past_decoder_sequence_length": 168,
+      "encoder_sequence_length_out": 168
+    }
+  },
+  {
+    "hf_model_id": "xenova/distilbart-cnn-6-6",
+    "file_path": "onnx/decoder_model_merged_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "encoder_sequence_length": 168,
+      "decoder_sequence_length": 168,
+      "past_decoder_sequence_length": 168,
+      "encoder_sequence_length_out": 168
+    }
+  },
+  {
+    "hf_model_id": "xenova/distilbart-cnn-6-6",
+    "file_path": "onnx/decoder_model_merged.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "encoder_sequence_length": 168,
+      "decoder_sequence_length": 168,
+      "past_decoder_sequence_length": 168,
+      "encoder_sequence_length_out": 168
+    }
+  },
+  {
+    "hf_model_id": "xenova/distilbart-cnn-6-6",
+    "file_path": "onnx/decoder_model_q4f16.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "decoder_sequence_length": 168,
+      "encoder_sequence_length": 168
+    }
+  },
+  {
+    "hf_model_id": "xenova/distilbart-cnn-6-6",
+    "file_path": "onnx/decoder_model_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "decoder_sequence_length": 168,
+      "encoder_sequence_length": 168
+    }
+  },
+  {
+    "hf_model_id": "xenova/distilbart-cnn-6-6",
+    "file_path": "onnx/decoder_model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "decoder_sequence_length": 168,
+      "encoder_sequence_length": 168
+    }
+  },
+  {
+    "hf_model_id": "xenova/distilbart-cnn-6-6",
+    "file_path": "onnx/decoder_with_past_model_fp16.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "encoder_sequence_length": 168,
+      "past_decoder_sequence_length": 168,
+      "encoder_sequence_length_out": 168
+    }
+  },
+  {
+    "hf_model_id": "xenova/distilbart-cnn-6-6",
+    "file_path": "onnx/decoder_with_past_model_q4f16.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "encoder_sequence_length": 168,
+      "past_decoder_sequence_length": 168,
+      "encoder_sequence_length_out": 168
+    }
+  },
+  {
+    "hf_model_id": "xenova/distilbart-cnn-6-6",
+    "file_path": "onnx/decoder_with_past_model_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "encoder_sequence_length": 168,
+      "past_decoder_sequence_length": 168,
+      "encoder_sequence_length_out": 168
+    }
+  },
+  {
+    "hf_model_id": "xenova/distilbart-cnn-6-6",
+    "file_path": "onnx/decoder_with_past_model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "encoder_sequence_length": 168,
+      "past_decoder_sequence_length": 168,
+      "encoder_sequence_length_out": 168
+    }
+  },
+  {
+    "hf_model_id": "xenova/distilbart-cnn-6-6",
+    "file_path": "onnx/encoder_model_fp16.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "encoder_sequence_length": 168
+    }
+  },
+  {
+    "hf_model_id": "xenova/distilbart-cnn-6-6",
+    "file_path": "onnx/encoder_model_q4f16.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "encoder_sequence_length": 168
+    }
+  },
+  {
+    "hf_model_id": "xenova/distilbart-cnn-6-6",
+    "file_path": "onnx/encoder_model_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "encoder_sequence_length": 168
+    }
+  },
+  {
+    "hf_model_id": "xenova/distilbart-cnn-6-6",
+    "file_path": "onnx/encoder_model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "encoder_sequence_length": 168
+    }
+  },
+  {
+    "hf_model_id": "xenova/distilbert-base-cased-distilled-squad",
+    "file_path": "onnx/model_fp16.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 262
+    }
+  },
+  {
+    "hf_model_id": "xenova/distilbert-base-cased-distilled-squad",
+    "file_path": "onnx/model_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 262
+    }
+  },
+  {
+    "hf_model_id": "xenova/distilbert-base-cased-distilled-squad",
+    "file_path": "onnx/model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 262
+    }
+  },
+  {
+    "hf_model_id": "xenova/distilbert-base-uncased",
+    "file_path": "onnx/model_fp16.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 50
+    }
+  },
+  {
+    "hf_model_id": "xenova/distilbert-base-uncased",
+    "file_path": "onnx/model_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 50
+    }
+  },
+  {
+    "hf_model_id": "xenova/distilbert-base-uncased",
+    "file_path": "onnx/model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 50
+    }
+  },
+  {
+    "hf_model_id": "xenova/distilbert-base-uncased-mnli",
+    "file_path": "onnx/model_fp16.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 50
+    }
+  },
+  {
+    "hf_model_id": "xenova/distilbert-base-uncased-mnli",
+    "file_path": "onnx/model_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 50
+    }
+  },
+  {
+    "hf_model_id": "xenova/distilbert-base-uncased-mnli",
+    "file_path": "onnx/model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 50
+    }
+  },
+  {
+    "hf_model_id": "xenova/distilgpt2",
+    "file_path": "onnx/decoder_merged_model_fp16.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 16,
+      "attention_mask_sequence_length": 16,
+      "past_sequence_length": 16
+    }
+  },
+  {
+    "hf_model_id": "xenova/distilgpt2",
+    "file_path": "onnx/decoder_model_fp16.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 16
+    }
+  },
+  {
+    "hf_model_id": "xenova/distilgpt2",
+    "file_path": "onnx/decoder_model_merged_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 16,
+      "attention_mask_sequence_length": 16,
+      "past_sequence_length": 16
+    }
+  },
+  {
+    "hf_model_id": "xenova/distilgpt2",
+    "file_path": "onnx/decoder_model_merged.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 16,
+      "attention_mask_sequence_length": 16,
+      "past_sequence_length": 16
+    }
+  },
+  {
+    "hf_model_id": "xenova/distilgpt2",
+    "file_path": "onnx/decoder_model_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 16
+    }
+  },
+  {
+    "hf_model_id": "xenova/distilgpt2",
+    "file_path": "onnx/decoder_model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 16
+    }
+  },
+  {
+    "hf_model_id": "xenova/distilgpt2",
+    "file_path": "onnx/decoder_with_past_model_fp16.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "past_sequence_length": 16,
+      "past_sequence_length + 1": 16
+    }
+  },
+  {
+    "hf_model_id": "xenova/distilgpt2",
+    "file_path": "onnx/decoder_with_past_model_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "past_sequence_length": 16,
+      "past_sequence_length + 1": 16
+    }
+  },
+  {
+    "hf_model_id": "xenova/distilgpt2",
+    "file_path": "onnx/decoder_with_past_model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "past_sequence_length": 16,
+      "past_sequence_length + 1": 16
+    }
+  },
+  {
+    "hf_model_id": "xenova/distiluse-base-multilingual-cased-v2",
+    "file_path": "onnx/model_fp16.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 16
+    }
+  },
+  {
+    "hf_model_id": "xenova/distiluse-base-multilingual-cased-v2",
+    "file_path": "onnx/model_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 16
+    }
+  },
+  {
+    "hf_model_id": "xenova/distiluse-base-multilingual-cased-v2",
+    "file_path": "onnx/model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 16
+    }
+  },
+  {
+    "hf_model_id": "xenova/flan-t5-small",
+    "file_path": "onnx/decoder_model_fp16.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "decoder_sequence_length": 128,
+      "encoder_sequence_length": 128
+    }
+  },
+  {
+    "hf_model_id": "xenova/flan-t5-small",
+    "file_path": "onnx/decoder_model_merged_fp16.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "encoder_sequence_length": 128,
+      "decoder_sequence_length": 128,
+      "past_decoder_sequence_length": 128,
+      "encoder_sequence_length_out": 128
+    }
+  },
+  {
+    "hf_model_id": "xenova/flan-t5-small",
+    "file_path": "onnx/decoder_model_merged_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "encoder_sequence_length": 128,
+      "decoder_sequence_length": 128,
+      "past_decoder_sequence_length": 128,
+      "encoder_sequence_length_out": 128
+    }
+  },
+  {
+    "hf_model_id": "xenova/flan-t5-small",
+    "file_path": "onnx/decoder_model_merged.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "encoder_sequence_length": 128,
+      "decoder_sequence_length": 128,
+      "past_decoder_sequence_length": 128,
+      "encoder_sequence_length_out": 128
+    }
+  },
+  {
+    "hf_model_id": "xenova/flan-t5-small",
+    "file_path": "onnx/decoder_model_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "decoder_sequence_length": 128,
+      "encoder_sequence_length": 128
+    }
+  },
+  {
+    "hf_model_id": "xenova/flan-t5-small",
+    "file_path": "onnx/decoder_model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "decoder_sequence_length": 128,
+      "encoder_sequence_length": 128
+    }
+  },
+  {
+    "hf_model_id": "xenova/flan-t5-small",
+    "file_path": "onnx/decoder_with_past_model_fp16.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "encoder_sequence_length": 128,
+      "past_decoder_sequence_length": 128,
+      "encoder_sequence_length_out": 128
+    }
+  },
+  {
+    "hf_model_id": "xenova/flan-t5-small",
+    "file_path": "onnx/decoder_with_past_model_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "encoder_sequence_length": 128,
+      "past_decoder_sequence_length": 128,
+      "encoder_sequence_length_out": 128
+    }
+  },
+  {
+    "hf_model_id": "xenova/flan-t5-small",
+    "file_path": "onnx/decoder_with_past_model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "encoder_sequence_length": 128,
+      "past_decoder_sequence_length": 128,
+      "encoder_sequence_length_out": 128
+    }
+  },
+  {
+    "hf_model_id": "xenova/flan-t5-small",
+    "file_path": "onnx/encoder_model_fp16.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "encoder_sequence_length": 128
+    }
+  },
+  {
+    "hf_model_id": "xenova/flan-t5-small",
+    "file_path": "onnx/encoder_model_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "encoder_sequence_length": 128
+    }
+  },
+  {
+    "hf_model_id": "xenova/flan-t5-small",
+    "file_path": "onnx/encoder_model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "encoder_sequence_length": 128
+    }
+  },
+  {
+    "hf_model_id": "xenova/llama2.c-stories15m",
+    "file_path": "onnx/decoder_model_fp16.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 5,
+      "past_sequence_length + 1": 5
+    }
+  },
+  {
+    "hf_model_id": "xenova/llama2.c-stories15m",
+    "file_path": "onnx/decoder_model_merged_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 5,
+      "past_sequence_length": 4,
+      "attention_mask_sequence_length": 1
+    }
+  },
+  {
+    "hf_model_id": "xenova/llama2.c-stories15m",
+    "file_path": "onnx/decoder_model_merged.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 5,
+      "past_sequence_length": 4,
+      "attention_mask_sequence_length": 1
+    }
+  },
+  {
+    "hf_model_id": "xenova/llama2.c-stories15m",
+    "file_path": "onnx/decoder_model_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 5,
+      "past_sequence_length + 1": 5
+    }
+  },
+  {
+    "hf_model_id": "xenova/llama2.c-stories15m",
+    "file_path": "onnx/decoder_model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 5,
+      "past_sequence_length + 1": 5
+    }
+  },
+  {
+    "hf_model_id": "xenova/llama2.c-stories15m",
+    "file_path": "onnx/decoder_with_past_model_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "past_sequence_length + 1": 6
+    }
+  },
+  {
+    "hf_model_id": "xenova/llama2.c-stories15m",
+    "file_path": "onnx/decoder_with_past_model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "past_sequence_length + 1": 6
+    }
+  },
+  {
+    "hf_model_id": "xenova/llama2.c-stories15m",
+    "file_path": "onnx/model_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 1,
+      "past_sequence_length + 1": 10,
+      "past_sequence_length": 9
+    }
+  },
+  {
+    "hf_model_id": "xenova/llama2.c-stories15m",
+    "file_path": "onnx/model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 1,
+      "past_sequence_length + 1": 10,
+      "past_sequence_length": 9
+    }
+  },
+  {
+    "hf_model_id": "xenova/mobileclip_s0",
+    "file_path": "onnx/text_model_fp16.onnx",
+    "overrides": {
+      "batch_size": 2,
+      "sequence_length": 77
+    }
+  },
+  {
+    "hf_model_id": "xenova/mobileclip_s0",
+    "file_path": "onnx/text_model_q4.onnx",
+    "overrides": {
+      "batch_size": 2,
+      "sequence_length": 77
+    }
+  },
+  {
+    "hf_model_id": "xenova/mobileclip_s0",
+    "file_path": "onnx/text_model_quantized.onnx",
+    "overrides": {
+      "batch_size": 2,
+      "sequence_length": 77
+    }
+  },
+  {
+    "hf_model_id": "xenova/mobileclip_s0",
+    "file_path": "onnx/text_model.onnx",
+    "overrides": {
+      "batch_size": 2,
+      "sequence_length": 77
+    }
+  },
+  {
+    "hf_model_id": "xenova/mobileclip_s0",
+    "file_path": "onnx/vision_model_fp16.onnx",
+    "overrides": {
+      "batch_size": 1
+    }
+  },
+  {
+    "hf_model_id": "xenova/mobileclip_s0",
+    "file_path": "onnx/vision_model_q4.onnx",
+    "overrides": {
+      "batch_size": 1
+    }
+  },
+  {
+    "hf_model_id": "xenova/mobileclip_s0",
+    "file_path": "onnx/vision_model_quantized.onnx",
+    "overrides": {
+      "batch_size": 1
+    }
+  },
+  {
+    "hf_model_id": "xenova/mobileclip_s0",
+    "file_path": "onnx/vision_model.onnx",
+    "overrides": {
+      "batch_size": 1
+    }
+  },
+  {
+    "hf_model_id": "xenova/mobilevit-small",
+    "file_path": "onnx/model_fp16.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "num_channels": 3,
+      "height": 256,
+      "width": 256
+    }
+  },
+  {
+    "hf_model_id": "xenova/mobilevit-small",
+    "file_path": "onnx/model_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "num_channels": 3,
+      "height": 256,
+      "width": 256
+    }
+  },
+  {
+    "hf_model_id": "xenova/mobilevit-small",
+    "file_path": "onnx/model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "num_channels": 3,
+      "height": 256,
+      "width": 256
+    }
+  },
+  {
+    "hf_model_id": "xenova/modnet",
+    "file_path": "onnx/model_fp16.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "height": 256,
+      "width": 256
+    }
+  },
+  {
+    "hf_model_id": "xenova/modnet",
+    "file_path": "onnx/model_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "height": 256,
+      "width": 256
+    }
+  },
+  {
+    "hf_model_id": "xenova/modnet",
+    "file_path": "onnx/model_uint8.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "height": 256,
+      "width": 256
+    }
+  },
+  {
+    "hf_model_id": "xenova/modnet",
+    "file_path": "onnx/model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "height": 256,
+      "width": 256
+    }
+  },
+  {
+    "hf_model_id": "xenova/moondream2",
+    "file_path": "onnx/embed_tokens_fp16.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 256
+    }
+  },
+  {
+    "hf_model_id": "xenova/moondream2",
+    "file_path": "onnx/embed_tokens_q4.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 256
+    }
+  },
+  {
+    "hf_model_id": "xenova/moondream2",
+    "file_path": "onnx/embed_tokens_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 256
+    }
+  },
+  {
+    "hf_model_id": "xenova/moondream2",
+    "file_path": "onnx/vision_encoder_fp16.onnx",
+    "overrides": {
+      "batch_size": 1
+    }
+  },
+  {
+    "hf_model_id": "xenova/moondream2",
+    "file_path": "onnx/vision_encoder_q4.onnx",
+    "overrides": {
+      "batch_size": 1
+    }
+  },
+  {
+    "hf_model_id": "xenova/moondream2",
+    "file_path": "onnx/vision_encoder_quantized.onnx",
+    "overrides": {
+      "batch_size": 1
+    }
+  },
+  {
+    "hf_model_id": "xenova/MoveNet-multipose-lightning",
+    "file_path": "onnx/model_fp16.onnx",
+    "overrides": {
+      "unk__1502": 192,
+      "unk__1503": 192
+    }
+  },
+  {
+    "hf_model_id": "xenova/MoveNet-multipose-lightning",
+    "file_path": "onnx/model_q4.onnx",
+    "overrides": {
+      "unk__1502": 192,
+      "unk__1503": 192
+    }
+  },
+  {
+    "hf_model_id": "xenova/MoveNet-multipose-lightning",
+    "file_path": "onnx/model_quantized.onnx",
+    "overrides": {
+      "unk__1502": 192,
+      "unk__1503": 192
+    }
+  },
+  {
+    "hf_model_id": "xenova/MoveNet-multipose-lightning",
+    "file_path": "onnx/model.onnx",
+    "overrides": {
+      "unk__1502": 192,
+      "unk__1503": 192
+    }
+  },
+  {
+    "hf_model_id": "xenova/msmarco-distilbert-base-v4",
+    "file_path": "onnx/model_fp16.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 50
+    }
+  },
+  {
+    "hf_model_id": "xenova/msmarco-distilbert-base-v4",
+    "file_path": "onnx/model_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 50
+    }
+  },
+  {
+    "hf_model_id": "xenova/msmarco-distilbert-base-v4",
+    "file_path": "onnx/model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 50
+    }
+  },
+  {
+    "hf_model_id": "xenova/mt5-small",
+    "file_path": "onnx/decoder_model_fp16.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "decoder_sequence_length": 128,
+      "encoder_sequence_length": 128
+    }
+  },
+  {
+    "hf_model_id": "xenova/mt5-small",
+    "file_path": "onnx/decoder_model_merged_fp16.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "encoder_sequence_length": 128,
+      "decoder_sequence_length": 128,
+      "past_decoder_sequence_length": 128,
+      "encoder_sequence_length_out": 128
+    }
+  },
+  {
+    "hf_model_id": "xenova/mt5-small",
+    "file_path": "onnx/decoder_model_merged_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "encoder_sequence_length": 128,
+      "decoder_sequence_length": 128,
+      "past_decoder_sequence_length": 128,
+      "encoder_sequence_length_out": 128
+    }
+  },
+  {
+    "hf_model_id": "xenova/mt5-small",
+    "file_path": "onnx/decoder_model_merged.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "encoder_sequence_length": 128,
+      "decoder_sequence_length": 128,
+      "past_decoder_sequence_length": 128,
+      "encoder_sequence_length_out": 128
+    }
+  },
+  {
+    "hf_model_id": "xenova/mt5-small",
+    "file_path": "onnx/decoder_model_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "decoder_sequence_length": 128,
+      "encoder_sequence_length": 128
+    }
+  },
+  {
+    "hf_model_id": "xenova/mt5-small",
+    "file_path": "onnx/decoder_model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "decoder_sequence_length": 128,
+      "encoder_sequence_length": 128
+    }
+  },
+  {
+    "hf_model_id": "xenova/mt5-small",
+    "file_path": "onnx/decoder_with_past_model_fp16.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "encoder_sequence_length": 128,
+      "decoder_sequence_length": 128,
+      "past_decoder_sequence_length": 128,
+      "encoder_sequence_length_out": 128
+    }
+  },
+  {
+    "hf_model_id": "xenova/mt5-small",
+    "file_path": "onnx/decoder_with_past_model_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "encoder_sequence_length": 128,
+      "decoder_sequence_length": 128,
+      "past_decoder_sequence_length": 128,
+      "encoder_sequence_length_out": 128
+    }
+  },
+  {
+    "hf_model_id": "xenova/mt5-small",
+    "file_path": "onnx/decoder_with_past_model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "encoder_sequence_length": 128,
+      "decoder_sequence_length": 128,
+      "past_decoder_sequence_length": 128,
+      "encoder_sequence_length_out": 128
+    }
+  },
+  {
+    "hf_model_id": "xenova/mt5-small",
+    "file_path": "onnx/encoder_model_fp16.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "encoder_sequence_length": 128
+    }
+  },
+  {
+    "hf_model_id": "xenova/mt5-small",
+    "file_path": "onnx/encoder_model_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "encoder_sequence_length": 128
+    }
+  },
+  {
+    "hf_model_id": "xenova/mt5-small",
+    "file_path": "onnx/encoder_model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "encoder_sequence_length": 128
+    }
+  },
+  {
+    "hf_model_id": "xenova/paraphrase-multilingual-mpnet-base-v2",
+    "file_path": "onnx/model_fp16.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 128
+    }
+  },
+  {
+    "hf_model_id": "xenova/paraphrase-multilingual-mpnet-base-v2",
+    "file_path": "onnx/model_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 128
+    }
+  },
+  {
+    "hf_model_id": "xenova/paraphrase-multilingual-mpnet-base-v2",
+    "file_path": "onnx/model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 128
+    }
+  },
+  {
+    "hf_model_id": "xenova/sam-vit-base",
+    "file_path": "onnx/model_fp16.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "point_batch_size": 1,
+      "nb_points_per_image": 1
+    }
+  },
+  {
+    "hf_model_id": "xenova/sam-vit-base",
+    "file_path": "onnx/model_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "point_batch_size": 1,
+      "nb_points_per_image": 1
+    }
+  },
+  {
+    "hf_model_id": "xenova/sam-vit-base",
+    "file_path": "onnx/model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "point_batch_size": 1,
+      "nb_points_per_image": 1
+    }
+  },
+  {
+    "hf_model_id": "xenova/sam-vit-base",
+    "file_path": "onnx/prompt_encoder_mask_decoder_fp16.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "point_batch_size": 1,
+      "nb_points_per_image": 1
+    }
+  },
+  {
+    "hf_model_id": "xenova/sam-vit-base",
+    "file_path": "onnx/prompt_encoder_mask_decoder_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "point_batch_size": 1,
+      "nb_points_per_image": 1
+    }
+  },
+  {
+    "hf_model_id": "xenova/sam-vit-base",
+    "file_path": "onnx/prompt_encoder_mask_decoder.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "point_batch_size": 1,
+      "nb_points_per_image": 1
+    }
+  },
+  {
+    "hf_model_id": "xenova/sam-vit-base",
+    "file_path": "onnx/vision_encoder_fp16.onnx",
+    "overrides": {
+      "batch_size": 1
+    }
+  },
+  {
+    "hf_model_id": "xenova/sam-vit-base",
+    "file_path": "onnx/vision_encoder_quantized.onnx",
+    "overrides": {
+      "batch_size": 1
+    }
+  },
+  {
+    "hf_model_id": "xenova/sam-vit-base",
+    "file_path": "onnx/vision_encoder.onnx",
+    "overrides": {
+      "batch_size": 1
+    }
+  },
+  {
+    "hf_model_id": "xenova/slimsam-77-uniform",
+    "file_path": "onnx/prompt_encoder_mask_decoder_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "point_batch_size": 1,
+      "nb_points_per_image": 1
+    }
+  },
+  {
+    "hf_model_id": "xenova/slimsam-77-uniform",
+    "file_path": "onnx/prompt_encoder_mask_decoder.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "point_batch_size": 1,
+      "nb_points_per_image": 1
+    }
+  },
+  {
+    "hf_model_id": "xenova/slimsam-77-uniform",
+    "file_path": "onnx/vision_encoder_quantized.onnx",
+    "overrides": {
+      "batch_size": 1
+    }
+  },
+  {
+    "hf_model_id": "xenova/slimsam-77-uniform",
+    "file_path": "onnx/vision_encoder.onnx",
+    "overrides": {
+      "batch_size": 1
+    }
+  },
+  {
+    "hf_model_id": "xenova/squeezebert-uncased",
+    "file_path": "onnx/model_fp16.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 50
+    }
+  },
+  {
+    "hf_model_id": "xenova/squeezebert-uncased",
+    "file_path": "onnx/model_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 50
+    }
+  },
+  {
+    "hf_model_id": "xenova/squeezebert-uncased",
+    "file_path": "onnx/model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 50
+    }
+  },
+  {
+    "hf_model_id": "xenova/t5-small",
+    "file_path": "onnx/decoder_model_fp16.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "encoder_sequence_length": 128,
+      "decoder_sequence_length": 128,
+      "past_decoder_sequence_length": 128,
+      "encoder_sequence_length_out": 128
+    }
+  },
+  {
+    "hf_model_id": "xenova/t5-small",
+    "file_path": "onnx/decoder_model_merged_fp16.onnx",
+    "overrides": {
+      "encoder_sequence_length": 9,
+      "batch_size": 1,
+      "decoder_sequence_length": 1,
+      "past_decoder_sequence_length": 2,
+      "encoder_sequence_length_out": 9
+    }
+  },
+  {
+    "hf_model_id": "xenova/t5-small",
+    "file_path": "onnx/decoder_model_merged_quantized.onnx",
+    "overrides": {
+      "encoder_sequence_length": 9,
+      "batch_size": 1,
+      "decoder_sequence_length": 1,
+      "past_decoder_sequence_length": 2,
+      "encoder_sequence_length_out": 9
+    }
+  },
+  {
+    "hf_model_id": "xenova/t5-small",
+    "file_path": "onnx/decoder_model_merged.onnx",
+    "overrides": {
+      "encoder_sequence_length": 9,
+      "batch_size": 1,
+      "decoder_sequence_length": 1,
+      "past_decoder_sequence_length": 2,
+      "encoder_sequence_length_out": 9
+    }
+  },
+  {
+    "hf_model_id": "xenova/t5-small",
+    "file_path": "onnx/decoder_model_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "encoder_sequence_length": 128,
+      "decoder_sequence_length": 128,
+      "past_decoder_sequence_length": 128,
+      "encoder_sequence_length_out": 128
+    }
+  },
+  {
+    "hf_model_id": "xenova/t5-small",
+    "file_path": "onnx/decoder_model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "encoder_sequence_length": 128,
+      "decoder_sequence_length": 128,
+      "past_decoder_sequence_length": 128,
+      "encoder_sequence_length_out": 128
+    }
+  },
+  {
+    "hf_model_id": "xenova/t5-small",
+    "file_path": "onnx/decoder_with_past_model_fp16.onnx",
+    "overrides": {
+      "encoder_sequence_length": 9,
+      "batch_size": 1,
+      "decoder_sequence_length": 1,
+      "past_decoder_sequence_length": 2,
+      "encoder_sequence_length_out": 9
+    }
+  },
+  {
+    "hf_model_id": "xenova/t5-small",
+    "file_path": "onnx/decoder_with_past_model_quantized.onnx",
+    "overrides": {
+      "encoder_sequence_length": 9,
+      "batch_size": 1,
+      "decoder_sequence_length": 1,
+      "past_decoder_sequence_length": 2,
+      "encoder_sequence_length_out": 9
+    }
+  },
+  {
+    "hf_model_id": "xenova/t5-small",
+    "file_path": "onnx/decoder_with_past_model.onnx",
+    "overrides": {
+      "encoder_sequence_length": 9,
+      "batch_size": 1,
+      "decoder_sequence_length": 1,
+      "past_decoder_sequence_length": 2,
+      "encoder_sequence_length_out": 9
+    }
+  },
+  {
+    "hf_model_id": "xenova/t5-small",
+    "file_path": "onnx/encoder_model_fp16.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "encoder_sequence_length": 9
+    }
+  },
+  {
+    "hf_model_id": "xenova/t5-small",
+    "file_path": "onnx/encoder_model_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "encoder_sequence_length": 9
+    }
+  },
+  {
+    "hf_model_id": "xenova/t5-small",
+    "file_path": "onnx/encoder_model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "encoder_sequence_length": 9
+    }
+  },
+  {
+    "hf_model_id": "xenova/tiny-random-florence2forconditionalgeneration",
+    "file_path": "onnx/decoder_model_merged.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "decoder_sequence_length": 16,
+      "past_decoder_sequence_length": 16,
+      "encoder_sequence_length_out": 512,
+      "encoder_sequence_length": 512
+    }
+  },
+  {
+    "hf_model_id": "xenova/tiny-random-florence2forconditionalgeneration",
+    "file_path": "onnx/decoder_model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "decoder_sequence_length": 16,
+      "encoder_sequence_length": 512
+    }
+  },
+  {
+    "hf_model_id": "xenova/tiny-random-florence2forconditionalgeneration",
+    "file_path": "onnx/decoder_with_past_model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "past_decoder_sequence_length": 16,
+      "encoder_sequence_length_out": 512,
+      "encoder_sequence_length": 512
+    }
+  },
+  {
+    "hf_model_id": "xenova/tiny-random-florence2forconditionalgeneration",
+    "file_path": "onnx/embed_tokens.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 512
+    }
+  },
+  {
+    "hf_model_id": "xenova/tiny-random-florence2forconditionalgeneration",
+    "file_path": "onnx/encoder_model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "encoder_sequence_length": 512
+    }
+  },
+  {
+    "hf_model_id": "xenova/tiny-random-florence2forconditionalgeneration",
+    "file_path": "onnx/vision_encoder.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "height": 30,
+      "width": 30
+    }
+  },
+  {
+    "hf_model_id": "xenova/tiny-random-llavaforconditionalgeneration",
+    "file_path": "onnx/decoder_model_fp16.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 576
+    }
+  },
+  {
+    "hf_model_id": "xenova/tiny-random-llavaforconditionalgeneration",
+    "file_path": "onnx/decoder_model_merged_fp16.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 576,
+      "past_sequence_length": 576,
+      "attention_mask_sequence_length": 1
+    }
+  },
+  {
+    "hf_model_id": "xenova/tiny-random-llavaforconditionalgeneration",
+    "file_path": "onnx/decoder_model_merged_q4.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 576,
+      "past_sequence_length": 576,
+      "attention_mask_sequence_length": 1
+    }
+  },
+  {
+    "hf_model_id": "xenova/tiny-random-llavaforconditionalgeneration",
+    "file_path": "onnx/decoder_model_merged_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 576,
+      "past_sequence_length": 576,
+      "attention_mask_sequence_length": 1
+    }
+  },
+  {
+    "hf_model_id": "xenova/tiny-random-llavaforconditionalgeneration",
+    "file_path": "onnx/decoder_model_merged.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 576,
+      "past_sequence_length": 576,
+      "attention_mask_sequence_length": 1
+    }
+  },
+  {
+    "hf_model_id": "xenova/tiny-random-llavaforconditionalgeneration",
+    "file_path": "onnx/decoder_model_q4.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 576
+    }
+  },
+  {
+    "hf_model_id": "xenova/tiny-random-llavaforconditionalgeneration",
+    "file_path": "onnx/decoder_model_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 576
+    }
+  },
+  {
+    "hf_model_id": "xenova/tiny-random-llavaforconditionalgeneration",
+    "file_path": "onnx/decoder_model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 576
+    }
+  },
+  {
+    "hf_model_id": "xenova/tiny-random-llavaforconditionalgeneration",
+    "file_path": "onnx/decoder_with_past_model_fp16.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 576,
+      "past_sequence_length + 1": 576
+    }
+  },
+  {
+    "hf_model_id": "xenova/tiny-random-llavaforconditionalgeneration",
+    "file_path": "onnx/decoder_with_past_model_q4.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 576,
+      "past_sequence_length + 1": 576
+    }
+  },
+  {
+    "hf_model_id": "xenova/tiny-random-llavaforconditionalgeneration",
+    "file_path": "onnx/decoder_with_past_model_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 576,
+      "past_sequence_length + 1": 576
+    }
+  },
+  {
+    "hf_model_id": "xenova/tiny-random-llavaforconditionalgeneration",
+    "file_path": "onnx/decoder_with_past_model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 576,
+      "past_sequence_length + 1": 576
+    }
+  },
+  {
+    "hf_model_id": "xenova/tiny-random-llavaforconditionalgeneration",
+    "file_path": "onnx/embed_tokens_fp16.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 576
+    }
+  },
+  {
+    "hf_model_id": "xenova/tiny-random-llavaforconditionalgeneration",
+    "file_path": "onnx/embed_tokens_q4.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 576
+    }
+  },
+  {
+    "hf_model_id": "xenova/tiny-random-llavaforconditionalgeneration",
+    "file_path": "onnx/embed_tokens_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 576
+    }
+  },
+  {
+    "hf_model_id": "xenova/tiny-random-llavaforconditionalgeneration",
+    "file_path": "onnx/embed_tokens.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 576
+    }
+  },
+  {
+    "hf_model_id": "xenova/tiny-random-llavaforconditionalgeneration",
+    "file_path": "onnx/vision_encoder_fp16.onnx",
+    "overrides": {
+      "batch_size": 1
+    }
+  },
+  {
+    "hf_model_id": "xenova/tiny-random-llavaforconditionalgeneration",
+    "file_path": "onnx/vision_encoder_q4.onnx",
+    "overrides": {
+      "batch_size": 1
+    }
+  },
+  {
+    "hf_model_id": "xenova/tiny-random-llavaforconditionalgeneration",
+    "file_path": "onnx/vision_encoder_quantized.onnx",
+    "overrides": {
+      "batch_size": 1
+    }
+  },
+  {
+    "hf_model_id": "xenova/tiny-random-llavaforconditionalgeneration",
+    "file_path": "onnx/vision_encoder.onnx",
+    "overrides": {
+      "batch_size": 1
+    }
+  },
+  {
+    "hf_model_id": "xenova/tiny-random-llavaforconditionalgeneration_phi",
+    "file_path": "onnx/decoder_model_merged.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 576,
+      "past_sequence_length + 1": 576,
+      "past_sequence_length": 575
+    }
+  },
+  {
+    "hf_model_id": "xenova/tiny-random-llavaforconditionalgeneration_phi",
+    "file_path": "onnx/embed_tokens.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 256
+    }
+  },
+  {
+    "hf_model_id": "xenova/tiny-random-llavaforconditionalgeneration_phi",
+    "file_path": "onnx/vision_encoder.onnx",
+    "overrides": {
+      "batch_size": 1
+    }
+  },
+  {
+    "hf_model_id": "xenova/tiny-random-M2M100ForConditionalGeneration",
+    "file_path": "onnx/decoder_model_merged.onnx",
+    "overrides": {
+      "encoder_sequence_length": 14,
+      "batch_size": 1,
+      "decoder_sequence_length": 1,
+      "past_decoder_sequence_length": 0,
+      "encoder_sequence_length_out": 0
+    }
+  },
+  {
+    "hf_model_id": "xenova/tiny-random-M2M100ForConditionalGeneration",
+    "file_path": "onnx/encoder_model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "encoder_sequence_length": 14
+    }
+  },
+  {
+    "hf_model_id": "xenova/tiny-random-vits",
+    "file_path": "onnx/model.onnx",
+    "overrides": {
+      "text_batch_size": 1,
+      "sequence_length": 383
+    }
+  },
+  {
+    "hf_model_id": "xenova/tinyllama-v0",
+    "file_path": "onnx/decoder_model_fp16.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 41
+    }
+  },
+  {
+    "hf_model_id": "xenova/tinyllama-v0",
+    "file_path": "onnx/decoder_model_merged_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 41,
+      "past_sequence_length": 40,
+      "attention_mask_sequence_length": 1
+    }
+  },
+  {
+    "hf_model_id": "xenova/tinyllama-v0",
+    "file_path": "onnx/decoder_model_merged.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 41,
+      "past_sequence_length": 40,
+      "attention_mask_sequence_length": 1
+    }
+  },
+  {
+    "hf_model_id": "xenova/tinyllama-v0",
+    "file_path": "onnx/decoder_model_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 41
+    }
+  },
+  {
+    "hf_model_id": "xenova/tinyllama-v0",
+    "file_path": "onnx/decoder_model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 41
+    }
+  },
+  {
+    "hf_model_id": "xenova/tinyllama-v0",
+    "file_path": "onnx/decoder_with_past_model_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "past_sequence_length": 1,
+      "past_sequence_length + 1": 2
+    }
+  },
+  {
+    "hf_model_id": "xenova/tinyllama-v0",
+    "file_path": "onnx/decoder_with_past_model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "past_sequence_length": 1,
+      "past_sequence_length + 1": 2
+    }
+  },
+  {
+    "hf_model_id": "Xenova/uae-large-v1",
+    "file_path": "onnx/model_fp16.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 128
+    }
+  },
+  {
+    "hf_model_id": "Xenova/uae-large-v1",
+    "file_path": "onnx/model_int8.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 128
+    }
+  },
+  {
+    "hf_model_id": "Xenova/uae-large-v1",
+    "file_path": "onnx/model_q4.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 128
+    }
+  },
+  {
+    "hf_model_id": "Xenova/uae-large-v1",
+    "file_path": "onnx/model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 128
+    }
+  },
+  {
+    "hf_model_id": "xenova/vit-base-patch16-224",
+    "file_path": "onnx/model_fp16.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "num_channels": 3,
+      "height": 224,
+      "width": 224
+    }
+  },
+  {
+    "hf_model_id": "xenova/vit-base-patch16-224",
+    "file_path": "onnx/model_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "num_channels": 3,
+      "height": 224,
+      "width": 224
+    }
+  },
+  {
+    "hf_model_id": "xenova/vit-base-patch16-224",
+    "file_path": "onnx/model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "num_channels": 3,
+      "height": 224,
+      "width": 224
+    }
+  },
+  {
+    "hf_model_id": "xenova/vit-gpt2-image-captioning",
+    "file_path": "onnx/decoder_model_fp16.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "decoder_sequence_length": 168,
+      "encoder_sequence_length": 168
+    }
+  },
+  {
+    "hf_model_id": "xenova/vit-gpt2-image-captioning",
+    "file_path": "onnx/decoder_model_merged_fp16.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "decoder_sequence_length": 168,
+      "encoder_sequence_length": 168,
+      "past_sequence_length": 168
+    }
+  },
+  {
+    "hf_model_id": "xenova/vit-gpt2-image-captioning",
+    "file_path": "onnx/decoder_model_merged_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "decoder_sequence_length": 168,
+      "encoder_sequence_length": 168,
+      "past_sequence_length": 168
+    }
+  },
+  {
+    "hf_model_id": "xenova/vit-gpt2-image-captioning",
+    "file_path": "onnx/decoder_model_merged.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "decoder_sequence_length": 168,
+      "encoder_sequence_length": 168,
+      "past_sequence_length": 168
+    }
+  },
+  {
+    "hf_model_id": "xenova/vit-gpt2-image-captioning",
+    "file_path": "onnx/decoder_model_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "decoder_sequence_length": 168,
+      "encoder_sequence_length": 168
+    }
+  },
+  {
+    "hf_model_id": "xenova/vit-gpt2-image-captioning",
+    "file_path": "onnx/decoder_model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "decoder_sequence_length": 168,
+      "encoder_sequence_length": 168
+    }
+  },
+  {
+    "hf_model_id": "xenova/vit-gpt2-image-captioning",
+    "file_path": "onnx/decoder_with_past_model_fp16.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "decoder_sequence_length": 168,
+      "encoder_sequence_length": 168
+    }
+  },
+  {
+    "hf_model_id": "xenova/vit-gpt2-image-captioning",
+    "file_path": "onnx/decoder_with_past_model_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "decoder_sequence_length": 168,
+      "encoder_sequence_length": 168
+    }
+  },
+  {
+    "hf_model_id": "xenova/vit-gpt2-image-captioning",
+    "file_path": "onnx/decoder_with_past_model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "decoder_sequence_length": 168,
+      "encoder_sequence_length": 168
+    }
+  },
+  {
+    "hf_model_id": "xenova/vit-gpt2-image-captioning",
+    "file_path": "onnx/encoder_model_fp16.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "num_channels": 3,
+      "height": 224,
+      "width": 224
+    }
+  },
+  {
+    "hf_model_id": "xenova/vit-gpt2-image-captioning",
+    "file_path": "onnx/encoder_model_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "num_channels": 3,
+      "height": 224,
+      "width": 224
+    }
+  },
+  {
+    "hf_model_id": "xenova/vit-gpt2-image-captioning",
+    "file_path": "onnx/encoder_model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "num_channels": 3,
+      "height": 224,
+      "width": 224
+    }
+  },
+  {
+    "hf_model_id": "Xenova/whisper-small",
+    "file_path": "onnx/decoder_model_merged_q4.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "decoder_sequence_length": 4,
+      "encoder_sequence_length / 2": 1500,
+      "past_decoder_sequence_length": 128,
+      "encoder_sequence_length_out": 1500
+    }
+  },
+  {
+    "hf_model_id": "Xenova/whisper-small",
+    "file_path": "onnx/decoder_model_q4.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "decoder_sequence_length": 4,
+      "encoder_sequence_length / 2": 1500
+    }
+  },
+  {
+    "hf_model_id": "Xenova/whisper-small",
+    "file_path": "onnx/decoder_with_past_model_q4.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "past_decoder_sequence_length": 128,
+      "encoder_sequence_length_out": 1500
+    }
+  },
+  {
+    "hf_model_id": "Xenova/whisper-small",
+    "file_path": "onnx/encoder_model_q4.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "feature_size": 80,
+      "encoder_sequence_length": 3000
+    }
+  },
+  {
+    "hf_model_id": "xenova/xlm-roberta-base",
+    "file_path": "onnx/model_fp16.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 50
+    }
+  },
+  {
+    "hf_model_id": "xenova/xlm-roberta-base",
+    "file_path": "onnx/model_quantized.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 50
+    }
+  },
+  {
+    "hf_model_id": "xenova/xlm-roberta-base",
+    "file_path": "onnx/model.onnx",
+    "overrides": {
+      "batch_size": 1,
+      "sequence_length": 50
+    }
+  }
+]

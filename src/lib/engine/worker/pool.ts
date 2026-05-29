@@ -8,6 +8,7 @@ export interface WorkerRunOptions {
   iterations: number;
   warmupRuns: number;
   runtimeVersion: string;
+  freeDimensionOverrides?: Record<string, number>;
   onProgress?: (progress: DownloadProgress) => void;
   onStatus?: (status: string) => void;
 }
@@ -38,6 +39,7 @@ export function runInWorker(options: WorkerRunOptions): Promise<TestResult> {
       iterations: options.iterations,
       warmupRuns: options.warmupRuns,
       runtimeVersion: options.runtimeVersion,
+      freeDimensionOverrides: options.freeDimensionOverrides,
     };
 
     function handleMessage(event: MessageEvent<WorkerResponse>) {
