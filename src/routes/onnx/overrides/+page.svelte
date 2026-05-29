@@ -83,7 +83,7 @@
           Check All
         </button>
       {/if}
-      <a href="/onnx/overrides/import" class="btn btn-secondary">Batch Import</a>
+      <a href="/onnx/overrides/import" class="btn btn-secondary">Import</a>
       <a href="/onnx/overrides/new" class="btn btn-primary">Add Override</a>
     </div>
   </header>
@@ -105,14 +105,12 @@
             <th>Model</th>
             <th>File Path</th>
             <th>Overrides</th>
-            <th class="col-updated">Updated by</th>
-            <th class="col-status">Reachable</th>
+            <th class="col-updated">By</th>
             <th class="col-actions">Actions</th>
             <th class="col-right">Model</th>
             <th class="col-right">File Path</th>
             <th class="col-right">Overrides</th>
-            <th class="col-right col-updated">Updated by</th>
-            <th class="col-right col-status">Reachable</th>
+            <th class="col-right col-updated">By</th>
             <th class="col-right col-actions">Actions</th>
           </tr>
         </thead>
@@ -158,7 +156,14 @@
                   </span>
                 {/if}
               </td>
-              <td class="col-status">
+              <td class="col-actions">
+                {#if editingId !== left.id && canManage(left)}
+                  <button class="btn-sm btn-edit btn-icon" onclick={() => startEdit(left)} title="Edit"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+                  <form method="POST" action="?/delete" use:enhance={() => { return async ({ result, update }) => { if (result.type === 'success') invalidateOverridesCache(); await update({ reset: false }); }; }} style="display:inline">
+                    <input type="hidden" name="id" value={left.id} />
+                    <button type="submit" class="btn-sm btn-delete btn-icon" title="Delete"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
+                  </form>
+                {/if}
                 {#if (checkStatuses[left.id] ?? 'idle') === 'checking'}
                   <span class="check-icon check-checking" title="Checking..."><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" class="spin"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg></span>
                 {:else if checkStatuses[left.id] === 'ok'}
@@ -167,15 +172,6 @@
                   <span class="check-icon check-not-found" title="404 Not Found"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></span>
                 {:else if checkStatuses[left.id] === 'error'}
                   <span class="check-icon check-error" title="Request error"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>
-                {/if}
-              </td>
-              <td class="col-actions">
-                {#if editingId !== left.id && canManage(left)}
-                  <button class="btn-sm btn-edit" onclick={() => startEdit(left)}>Edit</button>
-                  <form method="POST" action="?/delete" use:enhance={() => { return async ({ result, update }) => { if (result.type === 'success') invalidateOverridesCache(); await update({ reset: false }); }; }} style="display:inline">
-                    <input type="hidden" name="id" value={left.id} />
-                    <button type="submit" class="btn-sm btn-delete">Delete</button>
-                  </form>
                 {/if}
               </td>
               <!-- Right item -->
@@ -218,7 +214,14 @@
                     </span>
                   {/if}
                 </td>
-                <td class="col-status col-right">
+                <td class="col-actions col-right">
+                  {#if editingId !== right.id && canManage(right)}
+                    <button class="btn-sm btn-edit btn-icon" onclick={() => startEdit(right)} title="Edit"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+                    <form method="POST" action="?/delete" use:enhance={() => { return async ({ result, update }) => { if (result.type === 'success') invalidateOverridesCache(); await update({ reset: false }); }; }} style="display:inline">
+                      <input type="hidden" name="id" value={right.id} />
+                      <button type="submit" class="btn-sm btn-delete btn-icon" title="Delete"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
+                    </form>
+                  {/if}
                   {#if (checkStatuses[right.id] ?? 'idle') === 'checking'}
                     <span class="check-icon check-checking" title="Checking..."><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" class="spin"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg></span>
                   {:else if checkStatuses[right.id] === 'ok'}
@@ -229,17 +232,7 @@
                     <span class="check-icon check-error" title="Request error"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>
                   {/if}
                 </td>
-                <td class="col-actions col-right">
-                  {#if editingId !== right.id && canManage(right)}
-                    <button class="btn-sm btn-edit" onclick={() => startEdit(right)}>Edit</button>
-                    <form method="POST" action="?/delete" use:enhance={() => { return async ({ result, update }) => { if (result.type === 'success') invalidateOverridesCache(); await update({ reset: false }); }; }} style="display:inline">
-                      <input type="hidden" name="id" value={right.id} />
-                      <button type="submit" class="btn-sm btn-delete">Delete</button>
-                    </form>
-                  {/if}
-                </td>
               {:else}
-                <td class="col-right"></td>
                 <td class="col-right"></td>
                 <td class="col-right"></td>
                 <td class="col-right"></td>
@@ -343,11 +336,29 @@
     width: 100%;
     border-collapse: collapse;
     font-size: var(--text-sm);
+    table-layout: fixed;
   }
+
+  /* 10 columns: Model, Path, Overrides, By, Actions | repeat */
+  .data-table th:nth-child(1),
+  .data-table th:nth-child(6) { width: 150px; }
+
+  .data-table th:nth-child(2),
+  .data-table th:nth-child(7) { width: 150px; }
+
+  .data-table th:nth-child(3),
+  .data-table th:nth-child(8) { width: 150px; }
+
+  .data-table th:nth-child(4),
+  .data-table th:nth-child(9) { width: 36px; }
+
+  .data-table th:nth-child(5),
+  .data-table th:nth-child(10) { width: 64px; }
+
 
   .data-table th,
   .data-table td {
-    padding: 8px 12px;
+    padding: 3px 12px 0px 12px;
     text-align: left;
     border-bottom: 1px solid var(--color-border);
     vertical-align: middle;
@@ -432,15 +443,23 @@
   }
 
   .col-actions {
-    width: 130px;
     white-space: nowrap;
+  }
+
+  .btn-icon {
+    padding: 3px 5px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: none !important;
+    background: none;
   }
 
   .btn-sm {
     font-family: var(--font-ui);
     font-size: 11px;
     font-weight: 500;
-    padding: 3px 10px;
+    padding: 3px 3px;
     border-radius: var(--radius-sm);
     cursor: pointer;
     border: 1px solid var(--color-border);
@@ -512,9 +531,7 @@
   }
 
   .user-name {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 90px;
+    display: none;
   }
 
   .col-status {
@@ -549,6 +566,7 @@
     display: inline-flex;
     align-items: center;
     flex-shrink: 0;
+    margin-left: 3px;
   }
 
   .check-checking { color: var(--color-text-muted); }
@@ -559,15 +577,103 @@
   @keyframes spin { to { transform: rotate(360deg); } }
   .spin { animation: spin 0.8s linear infinite; }
 
-  .col-right:first-of-type,
-  .data-table th:nth-child(7),
-  .data-table td:nth-child(7) {
+  .data-table th:nth-child(6),
+  .data-table td:nth-child(6) {
     border-left: 2px solid var(--color-border);
   }
 
   @media (max-width: 1200px) {
     .col-right {
       display: none;
+    }
+  }
+
+  @media (max-width: 768px) {
+    /* Header stacks, buttons wrap */
+    .page-header {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: var(--space-2);
+    }
+
+    .page-header-actions {
+      flex-wrap: wrap;
+      gap: var(--space-1);
+      width: 100%;
+    }
+
+    .page-header-text p {
+      max-width: 100%;
+    }
+
+    /* Table → flex card rows */
+    .data-table thead {
+      display: none;
+    }
+
+    .data-table tbody tr {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--color-border);
+    }
+
+    .data-table td {
+      border: none;
+      padding: 1px 0;
+    }
+
+    /* Full-width stacked fields */
+    .cell-repo,
+    .cell-path,
+    .cell-overrides {
+      flex: 0 0 100%;
+      max-width: 100%;
+      padding-bottom: 2px;
+    }
+
+    .cell-repo a,
+    .cell-path code {
+      max-width: 100%;
+    }
+
+    /* Overrides can wrap on small screens */
+    .overrides-display {
+      white-space: normal;
+      overflow: visible;
+      text-overflow: unset;
+    }
+
+    /* Meta row: updated-by + status + actions on one line */
+    .col-updated {
+      flex: 1 1 auto;
+      min-width: 0;
+      width: auto;
+      padding-top: 6px;
+    }
+
+    .col-status {
+      flex: 0 0 auto;
+      width: auto;
+      padding-top: 6px;
+      padding-right: 8px;
+      text-align: left;
+    }
+
+    .col-actions {
+      flex: 0 0 auto;
+      width: auto;
+      padding-top: 6px;
+    }
+
+    .col-right {
+      display: none;
+    }
+
+    /* Remove the 7th-column divider — irrelevant on mobile */
+    .data-table td:nth-child(7) {
+      border-left: none;
     }
   }
 </style>

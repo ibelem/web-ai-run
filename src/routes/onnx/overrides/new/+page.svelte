@@ -398,6 +398,10 @@
   .check-not-found { color: var(--color-error); }
   .check-error { color: var(--color-warning, #f59e0b); }
 
+  code {
+    font-family: var(--font-mono);
+  }
+
   @keyframes spin { to { transform: rotate(360deg); } }
   .spin { animation: spin 0.8s linear infinite; }
 </style>

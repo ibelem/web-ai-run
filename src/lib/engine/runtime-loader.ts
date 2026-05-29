@@ -3,20 +3,18 @@ import type { Backend } from './types';
 let ortModule: any = null;
 let litertModule: any = null;
 
-export function getOrtCdnUrl(version: string, variant: 'all' | 'webgpu' = 'all'): string {
-  const file = variant === 'webgpu' ? 'ort.webgpu.min.mjs' : 'ort.all.min.mjs';
-  return `https://cdn.jsdelivr.net/npm/onnxruntime-web@${version}/dist/${file}`;
+export function getOrtCdnUrl(version: string): string {
+  return `https://cdn.jsdelivr.net/npm/onnxruntime-web@${version}/dist/ort.jspi.min.mjs`;
 }
 
 export function getLiteRtCdnUrl(version: string): string {
   return `https://cdn.jsdelivr.net/npm/@litertjs/core@${version}/dist/litert.mjs`;
 }
 
-export async function loadOrt(version: string, backend: Backend): Promise<any> {
+export async function loadOrt(version: string, _backend: Backend): Promise<any> {
   if (ortModule) return ortModule;
 
-  const variant = backend === 'webgpu' ? 'webgpu' : 'all';
-  const url = getOrtCdnUrl(version, variant);
+  const url = getOrtCdnUrl(version);
 
   ortModule = await import(/* @vite-ignore */ url);
   return ortModule;

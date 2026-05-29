@@ -15,6 +15,7 @@ export interface WorkerRequest {
 export type WorkerResponse =
   | { type: 'progress'; id: string; progress: DownloadProgress }
   | { type: 'status'; id: string; status: string }
+  | { type: 'logs'; id: string; logs: string[] }
   | { type: 'result'; id: string; result: TestResult };
 
 let litertLoaded = false;
@@ -60,7 +61,7 @@ async function getHfBase(): Promise<string> {
 }
 
 function getOrtCdnUrl(version: string): string {
-  return `https://cdn.jsdelivr.net/npm/onnxruntime-web@${version}/dist/ort.webgpu.min.mjs`;
+  return `https://cdn.jsdelivr.net/npm/onnxruntime-web@${version}/dist/ort.jspi.min.mjs`;
 }
 
 
@@ -110,14 +111,74 @@ function ts(): string {
   return `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
 }
 
+let logBuffer: string[] = [];
+
 function log(id: string, msg: string) {
-  post({ type: 'status', id, status: `${ts()} ${msg}` });
+  logBuffer.push(`${ts()} ${msg}`);
+}
+
+function status(id: string, msg: string) {
+  const line = `${ts()} ${msg}`;
+  logBuffer.push(line);
+  post({ type: 'status', id, status: line });
+}
+
+function flushLogs(id: string) {
+  if (logBuffer.length === 0) return;
+  post({ type: 'logs', id, logs: logBuffer });
+  logBuffer = [];
+}
+
+function sanitizeFileName(s: string): string {
+  return s.replace(/[^a-zA-Z0-9._-]/g, '--');
+}
+
+async function getFromOPFS(fileName: string): Promise<ArrayBuffer | null> {
+  try {
+    const root = await navigator.storage.getDirectory();
+    const modelsDir = await root.getDirectoryHandle('models', { create: true });
+    const fileHandle = await modelsDir.getFileHandle(fileName);
+    const file = await fileHandle.getFile();
+    return file.arrayBuffer();
+  } catch {
+    return null;
+  }
+}
+
+async function saveToOPFS(fileName: string, data: ArrayBuffer): Promise<void> {
+  try {
+    const root = await navigator.storage.getDirectory();
+    const modelsDir = await root.getDirectoryHandle('models', { create: true });
+    const fileHandle = await modelsDir.getFileHandle(fileName, { create: true });
+    const writable = await fileHandle.createWritable();
+    await writable.write(data);
+    await writable.close();
+  } catch {}
 }
 
 async function downloadModel(hfModelId: string, filePath: string, id: string): Promise<ArrayBuffer> {
   const base = await getHfBase();
-  log(id, `Models will be fetched from ${base.replace('https://', '')}`);
   const url = `${base}/${hfModelId}/resolve/main/${filePath}`;
+
+  // HEAD request to get ETag for cache validation
+  let etag = '';
+  try {
+    const head = await fetch(url, { method: 'HEAD' });
+    if (head.ok) {
+      etag = (head.headers.get('etag') ?? '').replace(/"/g, '');
+    }
+  } catch {}
+
+  const cacheKey = etag
+    ? sanitizeFileName(`${hfModelId}--${filePath}--${etag}`)
+    : sanitizeFileName(`${hfModelId}--${filePath}`);
+
+  const cached = await getFromOPFS(cacheKey);
+  if (cached) {
+    log(id, `Loaded from OPFS cache (${(cached.byteLength / 1_048_576).toFixed(1)} MB)`);
+    return cached;
+  }
+
   log(id, `Fetching model from ${url}`);
   const response = await fetch(url);
   if (!response.ok) throw new Error(`Download failed: ${response.status}`);
@@ -145,7 +206,11 @@ async function downloadModel(hfModelId: string, filePath: string, id: string): P
     buffer.set(chunk, offset);
     offset += chunk.byteLength;
   }
-  return buffer.buffer;
+
+  const arrayBuffer = buffer.buffer;
+  await saveToOPFS(cacheKey, arrayBuffer);
+  log(id, `Saved to OPFS cache`);
+  return arrayBuffer;
 }
 
 async function runOrt(req: WorkerRequest, modelBuffer: ArrayBuffer): Promise<TestResult> {
@@ -154,7 +219,7 @@ async function runOrt(req: WorkerRequest, modelBuffer: ArrayBuffer): Promise<Tes
   const fileName = req.modelSource.kind === 'buffer' ? req.modelSource.fileName : req.modelSource.filePath;
   const hfModelId = req.modelSource.kind === 'buffer' ? `local/${req.modelSource.fileName}` : req.modelSource.hfModelId;
 
-  log(id, `Loading ONNX Runtime Web v${runtimeVersion}...`);
+  status(id, `Loading ONNX Runtime Web v${runtimeVersion}...`);
   const url = getOrtCdnUrl(runtimeVersion);
   const ort = await import(/* @vite-ignore */ url);
   const cdnBase = `https://cdn.jsdelivr.net/npm/onnxruntime-web@${runtimeVersion}/dist/`;
@@ -171,7 +236,7 @@ async function runOrt(req: WorkerRequest, modelBuffer: ArrayBuffer): Promise<Tes
 
   const enableMLTensor = false;
 
-  log(id, `Creating inference session with ${backend} backend`);
+  status(id, `Creating inference session with ${backend} backend`);
   const compilationStart = performance.now();
   const executionProvider = getOrtExecutionProvider(backend);
   const sessionOptions: any = {
@@ -213,7 +278,7 @@ async function runOrt(req: WorkerRequest, modelBuffer: ArrayBuffer): Promise<Tes
 
   let firstInferenceMs = 0;
   const warmupTimes: number[] = [];
-  log(id, `Warming up (${warmupRuns} runs)...`);
+  status(id, `Warming up (${warmupRuns} runs)...`);
   for (let i = 0; i < warmupRuns; i++) {
     const t0 = performance.now();
     await session.run(feeds);
@@ -230,7 +295,7 @@ async function runOrt(req: WorkerRequest, modelBuffer: ArrayBuffer): Promise<Tes
 
   const inferenceTimes: number[] = [];
 
-  log(id, `Inferencing (${iterations} iterations)...`);
+  status(id, `Inferencing (${iterations} iterations)...`);
   for (let i = 0; i < iterations; i++) {
     const t0 = performance.now();
     const result = await session.run(feeds);
@@ -249,6 +314,7 @@ async function runOrt(req: WorkerRequest, modelBuffer: ArrayBuffer): Promise<Tes
   const dataType = fileName.includes('fp16') ? 'fp16' : 'fp32';
   const totalMs = inferenceTimes.reduce((a, b) => a + b, 0);
 
+  log(id, `Inference times (ms): [${inferenceTimes.map(t => t.toFixed(2)).join(', ')}]`);
   log(id, `Average: ${metrics.average_ms.toFixed(2)} ms`);
   log(id, `Median: ${metrics.median_ms.toFixed(2)} ms`);
   log(id, `Best: ${metrics.best_ms.toFixed(2)} ms`);
@@ -256,6 +322,7 @@ async function runOrt(req: WorkerRequest, modelBuffer: ArrayBuffer): Promise<Tes
   log(id, `Total (${iterations} runs): ${totalMs.toFixed(2)} ms`);
   log(id, `Throughput: ${metrics.throughput_fps.toFixed(2)} FPS`);
   log(id, `Test ${hfModelId} (${dataType}) with ${backend} backend completed`);
+  flushLogs(id);
 
   return {
     id,
@@ -277,7 +344,7 @@ async function runLiteRt(req: WorkerRequest, modelBuffer: ArrayBuffer): Promise<
   const fileName = req.modelSource.kind === 'buffer' ? req.modelSource.fileName : req.modelSource.filePath;
   const hfModelId = req.modelSource.kind === 'buffer' ? `local/${req.modelSource.fileName}` : req.modelSource.hfModelId;
 
-  log(id, `Loading LiteRT.js v${runtimeVersion}...`);
+  status(id, `Loading LiteRT.js v${runtimeVersion}...`);
   const url = getLiteRtCdnUrl(runtimeVersion);
   const litert = await import(/* @vite-ignore */ url);
 
@@ -294,11 +361,11 @@ async function runLiteRt(req: WorkerRequest, modelBuffer: ArrayBuffer): Promise<
       log(id, `Switching LiteRT WASM mode from ${litertMode} to ${requiredMode}, unloading...`);
       try { litert.unloadLiteRt(); } catch {}
       litertLoaded = false;
+      litertMode = null;
     }
 
     if (!litertLoaded) {
       log(id, `Loading LiteRT WASM (${requiredMode})...`);
-      // Inject locateFile so emscripten fetches .wasm from jsdelivr, not the worker origin.
       (globalThis as any).Module = {
         locateFile: (path: string) => `${wasmRoot}/${path}`,
       };
@@ -307,23 +374,47 @@ async function runLiteRt(req: WorkerRequest, modelBuffer: ArrayBuffer): Promise<
           await litert.loadLiteRt(wasmRoot, { jspi: true });
         } else if (needsThreads) {
           try {
-            await litert.loadLiteRt(wasmRoot, { threads: true });
-          } catch {
-            log(id, `Threads unavailable, falling back to single-threaded...`);
-            await litert.loadLiteRt(wasmRoot, { threads: false });
+            await Promise.race([
+              litert.loadLiteRt(wasmRoot, { threads: true }),
+              new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000)),
+            ]);
+          } catch (e: any) {
+            if (e?.message?.includes('already load')) {
+              litertLoaded = true;
+              litertMode = requiredMode;
+            } else {
+              log(id, `Threads unavailable, falling back to single-threaded...`);
+              try {
+                await litert.loadLiteRt(wasmRoot, { threads: false });
+              } catch (e2: any) {
+                if (e2?.message?.includes('already load')) {
+                  litertLoaded = true;
+                  litertMode = 'standard';
+                } else {
+                  throw e2;
+                }
+              }
+            }
           }
         } else {
           await litert.loadLiteRt(wasmRoot, { threads: false });
         }
         litertLoaded = true;
         litertMode = requiredMode;
+      } catch (e: any) {
+        if (e?.message?.includes('already load')) {
+          litertLoaded = true;
+          litertMode = requiredMode;
+        } else {
+          throw e;
+        }
       } finally {
         (globalThis as any).Module = undefined;
       }
     }
   }
 
-  log(id, `Compiling model with ${backend} backend...`);
+  status(id, `Compiling model with ${backend} backend...`);
   const compilationStart = performance.now();
   const compileOpts: any = { accelerator: 'wasm' };
   if (isWebGPU) {
@@ -376,7 +467,7 @@ async function runLiteRt(req: WorkerRequest, modelBuffer: ArrayBuffer): Promise<
 
   let firstInferenceMs = 0;
   const warmupTimes: number[] = [];
-  log(id, `Warming up (${warmupRuns} runs)...`);
+  status(id, `Warming up (${warmupRuns} runs)...`);
   for (let i = 0; i < warmupRuns; i++) {
     let inputTensors: any[];
     if (isWebGPU) {
@@ -424,7 +515,7 @@ async function runLiteRt(req: WorkerRequest, modelBuffer: ArrayBuffer): Promise<
 
   const inferenceTimes: number[] = [];
 
-  log(id, `Inferencing (${iterations} iterations)...`);
+  status(id, `Inferencing (${iterations} iterations)...`);
   for (let i = 0; i < iterations; i++) {
     let inputTensors: any[];
     if (isWebGPU) {
@@ -474,6 +565,7 @@ async function runLiteRt(req: WorkerRequest, modelBuffer: ArrayBuffer): Promise<
   const dataType = fileName.includes('fp16') ? 'fp16' : 'fp32';
   const totalMs = inferenceTimes.reduce((a, b) => a + b, 0);
 
+  log(id, `Inference times (ms): [${inferenceTimes.map(t => t.toFixed(2)).join(', ')}]`);
   log(id, `Average: ${metrics.average_ms.toFixed(2)} ms`);
   log(id, `Median: ${metrics.median_ms.toFixed(2)} ms`);
   log(id, `Best: ${metrics.best_ms.toFixed(2)} ms`);
@@ -481,6 +573,7 @@ async function runLiteRt(req: WorkerRequest, modelBuffer: ArrayBuffer): Promise<
   log(id, `Total (${iterations} runs): ${totalMs.toFixed(2)} ms`);
   log(id, `Throughput: ${metrics.throughput_fps.toFixed(2)} FPS`);
   log(id, `Test ${hfModelId} (${dataType}) with ${backend} backend completed`);
+  flushLogs(id);
 
   return {
     id,
@@ -498,6 +591,7 @@ async function runLiteRt(req: WorkerRequest, modelBuffer: ArrayBuffer): Promise<
 
 self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
   const req = event.data;
+  if (!req || req.type !== 'run') return;
 
   try {
     let modelBuffer: ArrayBuffer;
@@ -529,6 +623,7 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
       completed_at: new Date().toISOString(),
       error_message: err.message,
     };
+    flushLogs(req.id);
     post({ type: 'result', id: req.id, result: errorResult });
   }
 };

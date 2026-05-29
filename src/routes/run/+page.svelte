@@ -1,94 +1,129 @@
 <script lang="ts">
-  import { onMount, onDestroy } from 'svelte';
-  import { browser } from '$app/environment';
-  import { replaceState } from '$app/navigation';
-  import { get } from 'svelte/store';
-  import type { Backend, TestItem, TestResult, RunConfig as RunConfigType, EnvironmentInfo } from '$lib/engine/types';
-  import { detectAvailableBackends } from '$lib/engine/backends';
-  import { buildTestQueue } from '$lib/engine/queue';
-  import { detectEnvironment } from '$lib/engine/environment';
-  import { ResultsWriter } from '$lib/engine/results-writer';
-  import { runInWorker, terminateWorker } from '$lib/engine/worker/pool';
-  import { auth, isAuthenticated } from '$lib/stores/auth';
-  import { isAtLeast } from '$lib/types/roles';
-  import type { SharedRunConfig } from '$lib/supabase/types';
-  import { CPU_MODELS } from '$lib/data/cpu-models';
-  import { OS_MODELS } from '$lib/data/os-models';
-  import { fetchRuntimeVersions } from '$lib/engine/runtime-versions';
-  import { inferDataType } from '$lib/huggingface/parser';
-  import { loadOverrides, getOverride } from '$lib/overrides-cache';
-  import BackendSelector from '$lib/components/BackendSelector.svelte';
-  import FormatIcon from '$lib/components/FormatIcon.svelte';
-  import NetronLink from '$lib/components/NetronLink.svelte';
-  import RunConfigCmp from '$lib/components/RunConfig.svelte';
-  import ProgressBar from '$lib/components/ProgressBar.svelte';
-  import TestQueue from '$lib/components/TestQueue.svelte';
-  import BenchmarkResults from '$lib/components/BenchmarkResults.svelte';
+  import { onMount, onDestroy } from "svelte";
+  import { browser } from "$app/environment";
+  import { replaceState } from "$app/navigation";
+  import { get } from "svelte/store";
+  import type {
+    Backend,
+    TestItem,
+    TestResult,
+    RunConfig as RunConfigType,
+    EnvironmentInfo,
+  } from "$lib/engine/types";
+  import {
+    detectAvailableBackends,
+    getBackendLabel,
+  } from "$lib/engine/backends";
+  import { buildTestQueue } from "$lib/engine/queue";
+  import { detectEnvironment } from "$lib/engine/environment";
+  import { ResultsWriter } from "$lib/engine/results-writer";
+  import { runInWorker, terminateWorker } from "$lib/engine/worker/pool";
+  import { auth, isAuthenticated } from "$lib/stores/auth";
+  import { isAtLeast } from "$lib/types/roles";
+  import type { SharedRunConfig } from "$lib/supabase/types";
+  import { CPU_MODELS } from "$lib/data/cpu-models";
+  import { OS_MODELS } from "$lib/data/os-models";
+  import { fetchRuntimeVersions } from "$lib/engine/runtime-versions";
+  import { inferDataType } from "$lib/huggingface/parser";
+  import { loadOverrides, getOverride } from "$lib/overrides-cache";
+  import BackendSelector from "$lib/components/BackendSelector.svelte";
+  import FormatIcon from "$lib/components/FormatIcon.svelte";
+  import NetronLink from "$lib/components/NetronLink.svelte";
+  import RunConfigCmp from "$lib/components/RunConfig.svelte";
+  import ProgressBar from "$lib/components/ProgressBar.svelte";
+  import TestQueue from "$lib/components/TestQueue.svelte";
+  import BenchmarkResults from "$lib/components/BenchmarkResults.svelte";
 
   interface ModelEntry {
     hf_model_id: string;
     file_path: string;
     data_type: string;
-    runtime: 'onnx' | 'litert';
+    runtime: "onnx" | "litert";
     size_bytes?: number;
   }
 
   function formatSize(bytes?: number): string {
-    if (!bytes) return '';
+    if (!bytes) return "";
     if (bytes >= 1_073_741_824) return `${(bytes / 1_073_741_824).toFixed(1)}G`;
     if (bytes >= 1_048_576) return `${(bytes / 1_048_576).toFixed(0)}M`;
     if (bytes >= 1024) return `${(bytes / 1024).toFixed(0)}K`;
     return `${bytes}B`;
   }
 
-  const VALID_BACKENDS: Backend[] = ['wasm_1', 'wasm_n', 'webgpu', 'webnn_cpu', 'webnn_gpu', 'webnn_npu'];
+  const VALID_BACKENDS: Backend[] = [
+    "wasm_1",
+    "wasm_n",
+    "webgpu",
+    "webnn_cpu",
+    "webnn_gpu",
+    "webnn_npu",
+  ];
   const VALID_ITERATIONS = [1, 10, 20, 50, 100, 500, 1000, 10000];
 
   const WEBNN_EP_OPTIONS = [
-    { value: '', label: 'Default / Unknown' },
-    { value: 'openvino', label: 'ORT - OpenVINO EP' },
-    { value: 'webgpu', label: 'ORT - WebGPU EP' },
-    { value: 'coreml', label: 'CoreML' },
-    { value: 'litert', label: 'LiteRT' },
-    { value: 'tflite', label: 'TFLite' },
-    { value: 'cpu', label: 'ORT - CPU EP' },
-    { value: 'dml', label: 'ORT - DML EP' },
-    { value: 'qnn', label: 'ORT - QNN EP' },
-    { value: 'nvtensorrtrtx', label: 'ORT - NvTensorRTRTX EP' },
-    { value: 'migraphx', label: 'ORT - MIGraphX EP' },
-    { value: 'vitisai', label: 'ORT - VitisAI EP' },
+    { value: "", label: "Default / Unknown" },
+    { value: "openvino", label: "ORT - OpenVINO EP" },
+    { value: "webgpu", label: "ORT - WebGPU EP" },
+    { value: "coreml", label: "CoreML" },
+    { value: "litert", label: "LiteRT" },
+    { value: "tflite", label: "TFLite" },
+    { value: "cpu", label: "ORT - CPU EP" },
+    { value: "dml", label: "ORT - DML EP" },
+    { value: "qnn", label: "ORT - QNN EP" },
+    { value: "nvtensorrtrtx", label: "ORT - NvTensorRTRTX EP" },
+    { value: "migraphx", label: "ORT - MIGraphX EP" },
+    { value: "vitisai", label: "ORT - VitisAI EP" },
   ] as const;
 
-  function parseHash(): { models: ModelEntry[]; backends: Backend[]; iterations: number; upload: boolean; cpu: string; ort: string; litert: string; webnnEp: string } {
+  function parseHash(): {
+    models: ModelEntry[];
+    backends: Backend[];
+    iterations: number;
+    upload: boolean;
+    cpu: string;
+    ort: string;
+    litert: string;
+    webnnEp: string;
+  } {
     const hash = new URLSearchParams(location.hash.slice(1));
 
-    const models: ModelEntry[] = (hash.get('models') ?? '')
-      .split(',')
+    const models: ModelEntry[] = (hash.get("models") ?? "")
+      .split(",")
       .filter(Boolean)
-      .map(seg => {
-        const [hf_model_id, file_path] = seg.split('|');
-        const fp = file_path ?? 'onnx/model.onnx';
-        const runtime: 'onnx' | 'litert' = (fp.endsWith('.tflite') || fp.endsWith('.litertlm')) ? 'litert' : 'onnx';
-        return { hf_model_id: hf_model_id ?? '', file_path: fp, data_type: inferDataType(fp), runtime };
+      .map((seg) => {
+        const [hf_model_id, file_path] = seg.split("|");
+        const fp = file_path ?? "onnx/model.onnx";
+        const runtime: "onnx" | "litert" =
+          fp.endsWith(".tflite") || fp.endsWith(".litertlm")
+            ? "litert"
+            : "onnx";
+        return {
+          hf_model_id: hf_model_id ?? "",
+          file_path: fp,
+          data_type: inferDataType(fp),
+          runtime,
+        };
       })
-      .filter(m => m.hf_model_id);
+      .filter((m) => m.hf_model_id);
 
-    const rawBackends = (hash.get('backend') ?? '').split(',').filter(Boolean) as Backend[];
-    const backends = rawBackends.filter(b => VALID_BACKENDS.includes(b));
+    const rawBackends = (hash.get("backend") ?? "")
+      .split(",")
+      .filter(Boolean) as Backend[];
+    const backends = rawBackends.filter((b) => VALID_BACKENDS.includes(b));
 
-    const n = parseInt(hash.get('n') ?? '', 10);
+    const n = parseInt(hash.get("n") ?? "", 10);
     const iterations = VALID_ITERATIONS.includes(n) ? n : 50;
 
     return {
       models,
-      backends: backends.length ? backends : ['webgpu'],
+      backends: backends.length ? backends : ["webgpu"],
       iterations,
-      upload: hash.get('upload') === '1',
-      cpu: hash.get('cpu') ?? '',
-      os: hash.get('os') ?? '',
-      ort: hash.get('ort') ?? '',
-      litert: hash.get('litert') ?? '',
-      webnnEp: hash.get('webnn_ep') ?? '',
+      upload: hash.get("upload") === "1",
+      cpu: hash.get("cpu") ?? "",
+      os: hash.get("os") ?? "",
+      ort: hash.get("ort") ?? "",
+      litert: hash.get("litert") ?? "",
+      webnnEp: hash.get("webnn_ep") ?? "",
     };
   }
 
@@ -96,44 +131,56 @@
     if (isRunning) return;
     const params = new URLSearchParams();
     if (hashModels.length) {
-      params.set('models', hashModels.map(m => `${m.hf_model_id}|${m.file_path}`).join(','));
+      params.set(
+        "models",
+        hashModels.map((m) => `${m.hf_model_id}|${m.file_path}`).join(","),
+      );
     }
-    params.set('backend', selectedBackends.join(','));
-    params.set('n', String(iterations));
-    if (saveResults) params.set('upload', '1');
-    if (cpuModel.trim()) params.set('cpu', cpuModel.trim());
-    if (osModel.trim()) params.set('os', osModel.trim());
+    params.set("backend", selectedBackends.join(","));
+    params.set("n", String(iterations));
+    if (saveResults) params.set("upload", "1");
+    if (cpuModel.trim()) params.set("cpu", cpuModel.trim());
+    if (osModel.trim()) params.set("os", osModel.trim());
 
-    if (usesOnnx && ortVersion) params.set('ort', ortVersion);
-    if (usesLitert && litertVersion) params.set('litert', litertVersion);
-    if (webnnEp) params.set('webnn_ep', webnnEp);
+    if (usesOnnx && ortVersion) params.set("ort", ortVersion);
+    if (usesLitert && litertVersion) params.set("litert", litertVersion);
+    if (webnnEp) params.set("webnn_ep", webnnEp);
     replaceState(`#${params}`, {});
   }
 
-  let availableBackends = $state<Backend[]>(['wasm_1']);
-  let selectedBackends = $state<Backend[]>(['webgpu']);
+  let availableBackends = $state<Backend[]>(["wasm_1"]);
+  let selectedBackends = $state<Backend[]>(["webgpu"]);
   let iterations = $state(50);
   let saveResults = $state(false);
   let queue = $state<TestItem[]>([]);
   let results = $state<TestResult[]>([]);
   let isRunning = $state(false);
-  let statusText = $state('');
+  let statusText = $state("");
   let runLogs = $state<string[]>([]);
+  let logsEl = $state<HTMLDivElement | undefined>(undefined);
+
+  $effect(() => {
+    if (logsEl && runLogs.length) {
+      logsEl.scrollTop = logsEl.scrollHeight;
+    }
+  });
   let downloadPercent = $state(0);
+  let downloadLoaded = $state(0);
+  let downloadTotal = $state(0);
   let environment = $state<EnvironmentInfo | null>(null);
   let hashModels = $state<ModelEntry[]>([]);
-  let cpuModel = $state('');
-  let osModel = $state('');
-  let gpuDriverVersion = $state('');
-  let npuDriverVersion = $state('');
+  let cpuModel = $state("");
+  let osModel = $state("");
+  let gpuDriverVersion = $state("");
+  let npuDriverVersion = $state("");
 
-  let ortVersion = $state('');
+  let ortVersion = $state("");
   let ortDevVersions = $state<string[]>([]);
   let ortStableVersions = $state<string[]>([]);
-  let litertVersion = $state('');
+  let litertVersion = $state("");
   let litertDevVersions = $state<string[]>([]);
   let litertStableVersions = $state<string[]>([]);
-  let webnnEp = $state('');
+  let webnnEp = $state("");
   let mounted = $state(false);
   let overridesMap = $state<Map<string, Record<string, number>>>(new Map());
   let queueFlushTimer: ReturnType<typeof setTimeout> | null = null;
@@ -147,16 +194,26 @@
   }
 
   const totalModels = $derived(hashModels.length);
-  const usesOnnx = $derived(hashModels.some(m => m.runtime === 'onnx'));
-  const usesLitert = $derived(hashModels.some(m => m.runtime === 'litert'));
+  const usesOnnx = $derived(hashModels.some((m) => m.runtime === "onnx"));
+  const usesLitert = $derived(hashModels.some((m) => m.runtime === "litert"));
 
-  const completedCount = $derived(queue.filter(i => i.status === 'completed' || i.status === 'error').length);
+  const completedCount = $derived(
+    queue.filter((i) => i.status === "completed" || i.status === "error")
+      .length,
+  );
   const totalQueue = $derived(queue.length);
-  const activeItem = $derived(queue.find(i => i.status === 'downloading' || i.status === 'compiling' || i.status === 'running'));
-  const nextItem = $derived(queue.find(i => i.status === 'pending'));
+  const activeItem = $derived(
+    queue.find(
+      (i) =>
+        i.status === "downloading" ||
+        i.status === "compiling" ||
+        i.status === "running",
+    ),
+  );
+  const nextItem = $derived(queue.find((i) => i.status === "pending"));
 
-  const RUN_MODELS_KEY = 'run_models';
-  const RUN_PREFS_KEY = 'run_prefs';
+  const RUN_MODELS_KEY = "run_models";
+  const RUN_PREFS_KEY = "run_prefs";
 
   interface RunPrefs {
     cpu?: string;
@@ -170,13 +227,23 @@
 
   function loadPrefs(): RunPrefs {
     try {
-      return JSON.parse(localStorage.getItem(RUN_PREFS_KEY) ?? '{}');
-    } catch { return {}; }
+      return JSON.parse(localStorage.getItem(RUN_PREFS_KEY) ?? "{}");
+    } catch {
+      return {};
+    }
   }
 
   function savePrefs() {
     try {
-      const prefs: RunPrefs = { cpu: cpuModel, os: osModel, gpuDriver: gpuDriverVersion, npuDriver: npuDriverVersion, webnnEp, ort: ortVersion, litert: litertVersion };
+      const prefs: RunPrefs = {
+        cpu: cpuModel,
+        os: osModel,
+        gpuDriver: gpuDriverVersion,
+        npuDriver: npuDriverVersion,
+        webnnEp,
+        ort: ortVersion,
+        litert: litertVersion,
+      };
       localStorage.setItem(RUN_PREFS_KEY, JSON.stringify(prefs));
     } catch {}
   }
@@ -195,27 +262,28 @@
     void webnnEp;
     writeHash();
     savePrefs();
-    shareUrl = '';
-    shareId = '';
+    shareUrl = "";
+    shareId = "";
     // Persist current model selection so navigation away doesn't lose it
     try {
-      if (hashModels.length > 0) sessionStorage.setItem(RUN_MODELS_KEY, JSON.stringify(hashModels));
+      if (hashModels.length > 0)
+        sessionStorage.setItem(RUN_MODELS_KEY, JSON.stringify(hashModels));
       else sessionStorage.removeItem(RUN_MODELS_KEY);
     } catch {}
   });
 
   onMount(async () => {
-    window.addEventListener('keydown', handleKeydown);
+    window.addEventListener("keydown", handleKeydown);
 
     // Parse hash first (may come from a shared URL or sessionStorage redirect)
     const parsed = parseHash();
 
     // Priority order: hf_ext_models (from CartPanel) > hash models > persisted run_models
     try {
-      const extRaw = sessionStorage.getItem('hf_ext_models');
+      const extRaw = sessionStorage.getItem("hf_ext_models");
       if (extRaw) {
         const stored: ModelEntry[] = JSON.parse(extRaw);
-        sessionStorage.removeItem('hf_ext_models');
+        sessionStorage.removeItem("hf_ext_models");
         hashModels = stored;
       } else if (parsed.models.length > 0) {
         hashModels = parsed.models;
@@ -232,11 +300,11 @@
     saveResults = parsed.upload;
 
     const prefs = loadPrefs();
-    cpuModel = parsed.cpu || prefs.cpu || '';
-    osModel = parsed.os || prefs.os || '';
-    gpuDriverVersion = prefs.gpuDriver || '';
-    npuDriverVersion = prefs.npuDriver || '';
-    webnnEp = parsed.webnnEp || prefs.webnnEp || '';
+    cpuModel = parsed.cpu || prefs.cpu || "";
+    osModel = parsed.os || prefs.os || "";
+    gpuDriverVersion = prefs.gpuDriver || "";
+    npuDriverVersion = prefs.npuDriver || "";
+    webnnEp = parsed.webnnEp || prefs.webnnEp || "";
 
     availableBackends = await detectAvailableBackends();
     environment = await detectEnvironment();
@@ -247,24 +315,44 @@
       ortStableVersions = v.ort.stable;
       litertDevVersions = v.litert.dev;
       litertStableVersions = v.litert.stable;
-      ortVersion = parsed.ort || prefs.ort || v.ort.dev[0] || v.ort.stable[0] || '';
-      litertVersion = parsed.litert || prefs.litert || v.litert.dev[0] || v.litert.stable[0] || '';
+      ortVersion =
+        parsed.ort || prefs.ort || v.ort.dev[0] || v.ort.stable[0] || "";
+      litertVersion =
+        parsed.litert ||
+        prefs.litert ||
+        v.litert.dev[0] ||
+        v.litert.stable[0] ||
+        "";
     } catch {
-      ortVersion = parsed.ort || prefs.ort || '';
-      litertVersion = parsed.litert || prefs.litert || '';
+      ortVersion = parsed.ort || prefs.ort || "";
+      litertVersion = parsed.litert || prefs.litert || "";
     }
 
-    loadOverrides().then(m => { overridesMap = m; }).catch(() => {});
+    loadOverrides()
+      .then((m) => {
+        overridesMap = m;
+      })
+      .catch(() => {});
 
     mounted = true;
   });
 
   function handleKeydown(e: KeyboardEvent) {
-    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement || e.target instanceof HTMLTextAreaElement) return;
-    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && !isRunning && hashModels.length > 0) {
+    if (
+      e.target instanceof HTMLInputElement ||
+      e.target instanceof HTMLSelectElement ||
+      e.target instanceof HTMLTextAreaElement
+    )
+      return;
+    if (
+      e.key === "Enter" &&
+      (e.ctrlKey || e.metaKey) &&
+      !isRunning &&
+      hashModels.length > 0
+    ) {
       e.preventDefault();
       startBenchmark();
-    } else if (e.key === 'Escape' && isRunning) {
+    } else if (e.key === "Escape" && isRunning) {
       e.preventDefault();
       stopBenchmark();
     }
@@ -272,7 +360,7 @@
 
   onDestroy(() => {
     if (!browser) return;
-    window.removeEventListener('keydown', handleKeydown);
+    window.removeEventListener("keydown", handleKeydown);
     terminateWorker();
   });
 
@@ -313,21 +401,29 @@
     for (const item of queue) {
       if (!isRunning) break;
 
-      item.status = 'downloading';
+      item.status = "downloading";
       queue = [...queue];
-      statusText = `Testing ${item.hf_model_id.split('/')[1]}...`;
+      statusText = `Testing ${item.hf_model_id}...`;
 
       if (writer) {
         await writer.createResult(item, config.iterations);
       }
 
-      const runtimeVersion = item.runtime === 'onnx' ? ortVersion : litertVersion;
-      const fdo = item.runtime === 'onnx' ? getOverride(overridesMap, item.hf_model_id, item.file_path) : undefined;
+      const runtimeVersion =
+        item.runtime === "onnx" ? ortVersion : litertVersion;
+      const fdo =
+        item.runtime === "onnx"
+          ? getOverride(overridesMap, item.hf_model_id, item.file_path)
+          : undefined;
 
       let result: TestResult;
       try {
         result = await runInWorker({
-          modelSource: { kind: 'url', hfModelId: item.hf_model_id, filePath: item.file_path },
+          modelSource: {
+            kind: "url",
+            hfModelId: item.hf_model_id,
+            filePath: item.file_path,
+          },
           runtime: item.runtime,
           backend: item.backend,
           iterations: config.iterations,
@@ -336,25 +432,36 @@
           freeDimensionOverrides: fdo,
           onProgress: (progress) => {
             downloadPercent = progress.percent;
+            downloadLoaded = progress.loaded_bytes;
+            downloadTotal = progress.total_bytes;
             item.progress = progress.percent;
-            item.status = 'downloading';
+            item.status = "downloading";
             scheduleQueueFlush();
           },
           onStatus: (status) => {
             statusText = status;
             runLogs = [...runLogs, status];
-            if (status.includes('Compil') || status.includes('session') || status.includes('Creating')) item.status = 'compiling';
-            else if (status.includes('Inferencing') || status.includes('Warm')) item.status = 'running';
+            if (
+              status.includes("Compil") ||
+              status.includes("session") ||
+              status.includes("Creating")
+            )
+              item.status = "compiling";
+            else if (status.includes("Inferencing") || status.includes("Warm"))
+              item.status = "running";
             queue = [...queue];
+          },
+          onLogs: (logs) => {
+            runLogs = [...runLogs, ...logs];
           },
         });
       } catch (err: any) {
         terminateWorker();
-        const msg = err?.message ?? 'Worker error';
+        const msg = err?.message ?? "Worker error";
         runLogs = [...runLogs, `Error: ${msg}`];
         result = {
           id: item.id,
-          test_item: { ...item, status: 'error', error: msg },
+          test_item: { ...item, status: "error", error: msg },
           metrics: null,
           inference_times: [],
           warmup_ms: 0,
@@ -366,9 +473,18 @@
         };
       }
 
-      if (queueFlushTimer) { clearTimeout(queueFlushTimer); queueFlushTimer = null; }
-      item.status = result.error_message ? 'error' : 'completed';
-      if (result.error_message) item.error = result.error_message;
+      if (queueFlushTimer) {
+        clearTimeout(queueFlushTimer);
+        queueFlushTimer = null;
+      }
+      item.status = result.error_message ? "error" : "completed";
+      if (result.error_message) {
+        item.error = result.error_message;
+        runLogs = [
+          ...runLogs,
+          `Error [${item.hf_model_id} / ${getBackendLabel(item.backend)}]: ${result.error_message}`,
+        ];
+      }
       item.progress = 100;
       results = [...results, result];
       queue = [...queue];
@@ -380,17 +496,20 @@
     }
 
     isRunning = false;
-    statusText = 'Benchmark complete.';
+    statusText = "Benchmark complete.";
   }
 
   function stopBenchmark() {
-    if (queueFlushTimer) { clearTimeout(queueFlushTimer); queueFlushTimer = null; }
+    if (queueFlushTimer) {
+      clearTimeout(queueFlushTimer);
+      queueFlushTimer = null;
+    }
     isRunning = false;
-    statusText = 'Stopped.';
+    statusText = "Stopped.";
   }
 
-  let shareUrl = $state('');
-  let shareId = $state('');
+  let shareUrl = $state("");
+  let shareId = $state("");
   let shareLoading = $state(false);
 
   async function shareConfig() {
@@ -398,7 +517,10 @@
     shareLoading = true;
     try {
       const config: SharedRunConfig = {
-        models: hashModels.map(m => ({ hf_model_id: m.hf_model_id, file_path: m.file_path })),
+        models: hashModels.map((m) => ({
+          hf_model_id: m.hf_model_id,
+          file_path: m.file_path,
+        })),
         backends: selectedBackends,
         iterations,
         upload: saveResults || undefined,
@@ -408,18 +530,18 @@
         litert: usesLitert && litertVersion ? litertVersion : undefined,
         webnn_ep: webnnEp || undefined,
       };
-      const res = await fetch('/api/shared-config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch("/api/shared-config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(config),
       });
-      if (!res.ok) throw new Error('Failed to create share link');
+      if (!res.ok) throw new Error("Failed to create share link");
       const { id } = await res.json();
       shareId = id;
       shareUrl = `${location.origin}/run/s/${id}`;
       await navigator.clipboard.writeText(shareUrl);
     } catch {
-      shareUrl = '';
+      shareUrl = "";
     } finally {
       shareLoading = false;
     }
@@ -427,18 +549,18 @@
 
   async function deleteShareUrl() {
     if (!shareId) return;
-    await fetch(`/api/shared-config?id=${shareId}`, { method: 'DELETE' });
-    shareUrl = '';
-    shareId = '';
+    await fetch(`/api/shared-config?id=${shareId}`, { method: "DELETE" });
+    shareUrl = "";
+    shareId = "";
   }
 
   async function retryItem(item: TestItem) {
     if (isRunning) return;
-    item.status = 'pending';
+    item.status = "pending";
     item.progress = 0;
     queue = [...queue];
     isRunning = true;
-    statusText = `Retrying ${item.hf_model_id.split('/')[1]}...`;
+    statusText = `Retrying ${item.hf_model_id}...`;
 
     const config: RunConfigType = {
       iterations,
@@ -452,7 +574,12 @@
     if (saveResults && authState.user && environment) {
       writer = new ResultsWriter(
         authState.user.id,
-        { ...environment, cpu: cpuModel.trim() || environment.cpu, os: osModel.trim() || environment.os, os_version: environment.os_version },
+        {
+          ...environment,
+          cpu: cpuModel.trim() || environment.cpu,
+          os: osModel.trim() || environment.os,
+          os_version: environment.os_version,
+        },
         ortVersion,
         litertVersion,
         webnnEp,
@@ -461,16 +588,23 @@
       );
     }
 
-    item.status = 'downloading';
+    item.status = "downloading";
     queue = [...queue];
     if (writer) await writer.createResult(item, config.iterations);
 
-    const runtimeVersion = item.runtime === 'onnx' ? ortVersion : litertVersion;
-    const fdo2 = item.runtime === 'onnx' ? getOverride(overridesMap, item.hf_model_id, item.file_path) : undefined;
+    const runtimeVersion = item.runtime === "onnx" ? ortVersion : litertVersion;
+    const fdo2 =
+      item.runtime === "onnx"
+        ? getOverride(overridesMap, item.hf_model_id, item.file_path)
+        : undefined;
     let result: TestResult;
     try {
       result = await runInWorker({
-        modelSource: { kind: 'url', hfModelId: item.hf_model_id, filePath: item.file_path },
+        modelSource: {
+          kind: "url",
+          hfModelId: item.hf_model_id,
+          filePath: item.file_path,
+        },
         runtime: item.runtime,
         backend: item.backend,
         iterations: config.iterations,
@@ -480,24 +614,30 @@
         onProgress: (progress) => {
           downloadPercent = progress.percent;
           item.progress = progress.percent;
-          item.status = 'downloading';
+          item.status = "downloading";
           scheduleQueueFlush();
         },
         onStatus: (status) => {
           statusText = status;
           runLogs = [...runLogs, status];
-          if (status.includes('Compil') || status.includes('session') || status.includes('Creating')) item.status = 'compiling';
-          else if (status.includes('Inferencing') || status.includes('Warm')) item.status = 'running';
+          if (
+            status.includes("Compil") ||
+            status.includes("session") ||
+            status.includes("Creating")
+          )
+            item.status = "compiling";
+          else if (status.includes("Inferencing") || status.includes("Warm"))
+            item.status = "running";
           queue = [...queue];
         },
       });
     } catch (err: any) {
       terminateWorker();
-      const msg = err?.message ?? 'Worker error';
+      const msg = err?.message ?? "Worker error";
       runLogs = [...runLogs, `Error: ${msg}`];
       result = {
         id: item.id,
-        test_item: { ...item, status: 'error', error: msg },
+        test_item: { ...item, status: "error", error: msg },
         metrics: null,
         inference_times: [],
         warmup_ms: 0,
@@ -509,18 +649,33 @@
       };
     }
 
-    if (queueFlushTimer) { clearTimeout(queueFlushTimer); queueFlushTimer = null; }
-    item.status = result.error_message ? 'error' : 'completed';
+    if (queueFlushTimer) {
+      clearTimeout(queueFlushTimer);
+      queueFlushTimer = null;
+    }
+    item.status = result.error_message ? "error" : "completed";
     if (result.error_message) item.error = result.error_message;
     else item.error = undefined;
     item.progress = 100;
-    results = [...results.filter((r) => !(r.test_item.hf_model_id === item.hf_model_id && r.test_item.file_path === item.file_path && r.test_item.backend === item.backend)), result];
+    results = [
+      ...results.filter(
+        (r) =>
+          !(
+            r.test_item.hf_model_id === item.hf_model_id &&
+            r.test_item.file_path === item.file_path &&
+            r.test_item.backend === item.backend
+          ),
+      ),
+      result,
+    ];
     queue = [...queue];
     downloadPercent = 0;
     if (writer) await writer.completeResult(item, result);
 
     isRunning = false;
-    statusText = result.error_message ? `Retry failed: ${result.error_message}` : 'Retry complete.';
+    statusText = result.error_message
+      ? `Retry failed: ${result.error_message}`
+      : "Retry complete.";
   }
 </script>
 
@@ -530,7 +685,7 @@
       <h1>Benchmark</h1>
       <p>
         {#if totalModels > 0}
-          {totalModels} model{totalModels > 1 ? 's' : ''} selected
+          {totalModels} model{totalModels > 1 ? "s" : ""} selected
         {:else}
           Select models from the Model page to benchmark.
         {/if}
@@ -538,7 +693,12 @@
     </div>
     {#if $isAuthenticated && totalModels > 0 && !isRunning}
       <div class="share-row">
-        <button class="btn-share" onclick={shareConfig} disabled={shareLoading} title="Create a short URL to share this benchmark configuration">
+        <button
+          class="btn-share"
+          onclick={shareConfig}
+          disabled={shareLoading}
+          title="Create a short URL to share this benchmark configuration"
+        >
           {#if shareLoading}
             <span class="spinner spinner-sm"></span>
           {:else if shareUrl}
@@ -548,266 +708,358 @@
           {/if}
         </button>
         {#if shareUrl}
-          <button class="btn-share-delete" onclick={deleteShareUrl} title="Delete shared link">Delete</button>
+          <button
+            class="btn-share-delete"
+            onclick={deleteShareUrl}
+            title="Delete shared link">Delete</button
+          >
         {/if}
       </div>
     {/if}
   </header>
 
-  <section class="config-section">
-    <div class="top-config-grid">
-      <BackendSelector bind:selected={selectedBackends} available={availableBackends} />
-      <RunConfigCmp bind:iterations />
-    </div>
-
-    {#if saveResults || environment}
-      <div class="env-rows">
-        {#if saveResults}
-          <div class="env-row">
-            <span class="env-label">CPU<span class="req-badge" class:req-done={cpuModel.trim()}>req</span></span>
-            <input
-              class="cpu-input"
-              class:input-warn={!cpuModel.trim()}
-              type="text"
-              list="cpu-model-list"
-              placeholder="Type your CPU model..."
-              bind:value={cpuModel}
-            />
-            <datalist id="cpu-model-list">
-              {#each CPU_MODELS as model}
-                <option value={model}></option>
-              {/each}
-            </datalist>
-          </div>
-        {/if}
-        {#if environment}
-          <div class="env-row">
-            <span class="env-label">GPU</span>
-            <span class="env-value">{environment.gpu}</span>
-          </div>
-        {/if}
-        {#if saveResults}
-          <div class="env-row">
-            <span class="env-label">GPU Driver{#if isAtLeast($auth.role ?? 'anonymous', 'intel')}<span class="req-badge" class:req-done={gpuDriverVersion.trim()}>req</span>{/if}</span>
-            <input
-              class="cpu-input"
-              class:input-warn={isAtLeast($auth.role ?? 'anonymous', 'intel') && !gpuDriverVersion.trim()}
-              type="text"
-              placeholder="e.g. 32.0.101.8824"
-              bind:value={gpuDriverVersion}
-            />
-          </div>
-          <div class="env-row">
-            <span class="env-label">NPU Driver{#if isAtLeast($auth.role ?? 'anonymous', 'intel')}<span class="req-badge" class:req-done={npuDriverVersion.trim()}>req</span>{/if}</span>
-            <input
-              class="cpu-input"
-              class:input-warn={isAtLeast($auth.role ?? 'anonymous', 'intel') && !npuDriverVersion.trim()}
-              type="text"
-              placeholder="e.g. 32.0.100.4778"
-              bind:value={npuDriverVersion}
-            />
-          </div>
-        {/if}
-        {#if saveResults}
-          <div class="env-row">
-            <span class="env-label">OS<span class="req-badge" class:req-done={osModel.trim()}>req</span></span>
-            <input
-              class="cpu-input"
-              class:input-warn={!osModel.trim()}
-              type="text"
-              list="os-model-list"
-              placeholder="Type your OS..."
-              bind:value={osModel}
-            />
-            <datalist id="os-model-list">
-              {#each OS_MODELS as os}
-                <option value={os}></option>
-              {/each}
-            </datalist>
-          </div>
-        {/if}
-        {#if environment}
-          <div class="env-row">
-            <span class="env-label">Browser</span>
-            <span class="env-value">{environment.browser} {environment.browser_version}</span>
-          </div>
-        {/if}
-        <div class="env-row">
-          <span class="env-label">WebNN EP</span>
-          <select class="version-select" bind:value={webnnEp}>
-            {#each WEBNN_EP_OPTIONS as opt}
-              <option value={opt.value}>{opt.label}</option>
-            {/each}
-          </select>
-        </div>
-        {#if usesOnnx && ortVersion}
-          <div class="env-row">
-            <span class="env-label">ORT Web</span>
-            <select class="version-select" bind:value={ortVersion}>
-              {#if ortDevVersions.length}
-                <optgroup label="Dev">
-                  {#each ortDevVersions as v}
-                    <option value={v}>{v}</option>
-                  {/each}
-                </optgroup>
-              {/if}
-              {#if ortStableVersions.length}
-                <optgroup label="Stable">
-                  {#each ortStableVersions as v}
-                    <option value={v}>{v}</option>
-                  {/each}
-                </optgroup>
-              {/if}
-            </select>
-          </div>
-        {/if}
-        {#if usesLitert && litertVersion}
-          <div class="env-row">
-            <span class="env-label">LiteRT.js</span>
-            <select class="version-select" bind:value={litertVersion}>
-              {#if litertDevVersions.length}
-                <optgroup label="Dev">
-                  {#each litertDevVersions as v}
-                    <option value={v}>{v}</option>
-                  {/each}
-                </optgroup>
-              {/if}
-              {#if litertStableVersions.length}
-                <optgroup label="Stable">
-                  {#each litertStableVersions as v}
-                    <option value={v}>{v}</option>
-                  {/each}
-                </optgroup>
-              {/if}
-            </select>
-          </div>
-        {/if}
-      </div>
-    {/if}
-
-    {#if hashModels.length > 0}
-      <span class="models-label">Models <span class="models-count">{totalModels}</span></span>
-      <ul class="model-list">
-        {#each hashModels as m}
-          {@const ext = m.file_path.endsWith('.litertlm') ? 'litertlm' : m.file_path.endsWith('.tflite') ? 'tflite' : 'onnx'}
-          <li class="model-item">
-            <div class="model-item-left">
-              <div class="model-item-top">
-                <span class="model-item-repo">{m.hf_model_id}</span>
-                {#if m.data_type}
-                  <span class="dtype-chip" data-dtype={m.data_type}>{m.data_type === 'quantized' ? 'quant' : m.data_type}</span>
-                {/if}
-              </div>
-              <div class="model-item-bottom">
-                <FormatIcon format={ext} size={14} hfModelId={m.hf_model_id} filePath={m.file_path} />
-                <NetronLink hfModelId={m.hf_model_id} filePath={m.file_path} />
-                <span class="model-item-name">{m.file_path}</span>
-              </div>
-            </div>
-          </li>
-        {/each}
-      </ul>
-    {/if}
-
-    <div class="actions">
-      {#if !isRunning}
-        <label class="save-results-label">
-          <span class="custom-checkbox" class:checked={saveResults}>
-            {#if saveResults}
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <polyline points="20 6 9 17 4 12"/>
-              </svg>
-            {/if}
-          </span>
-          <input type="checkbox" bind:checked={saveResults} />
-          Upload results
-        </label>
-        {#if saveResults}
-          {#if $isAuthenticated}
-            <p class="upload-disclosure">
-              Your CPU model, GPU, OS, and browser will be saved alongside the benchmark scores to make the results meaningful
-            </p>
-          {:else}
-            <p class="upload-disclosure upload-disclosure-warn">
-              <a href="/login">Sign in</a> to upload results - we need an account to attribute the data.
-            </p>
-          {/if}
-        {/if}
-        <button class="btn-primary" onclick={startBenchmark} disabled={totalModels === 0 || (saveResults && (!$isAuthenticated || !cpuModel.trim() || !osModel.trim() || (isAtLeast($auth.role ?? 'anonymous', 'intel') && (!gpuDriverVersion.trim() || !npuDriverVersion.trim()))))} title="Ctrl+Enter">
-          Run Benchmark <kbd class="kbd-hint">Ctrl+Enter</kbd>
-        </button>
-        {#if saveResults && $isAuthenticated && (!cpuModel.trim() || !osModel.trim())}
-          <p class="action-hint action-hint-warn">
-            Fill in your CPU and OS above to enable result upload
-          </p>
-        {:else if saveResults && $isAuthenticated && isAtLeast($auth.role ?? 'anonymous', 'intel') && (!gpuDriverVersion.trim() || !npuDriverVersion.trim())}
-          <p class="action-hint action-hint-warn">
-            GPU Driver and NPU Driver versions are required for intel/admin roles
-          </p>
-        {/if}
-        {#if totalModels === 0}
-          <p class="action-hint">No models selected. <a href="/browse">Browse models</a> to pick one, or <a href="/custom">upload your own</a>.</p>
-        {/if}
-      {:else}
-        <button class="btn-stop" onclick={stopBenchmark} title="Esc">Stop <kbd class="kbd-hint">Esc</kbd></button>
-      {/if}
-    </div>
-  </section>
-
   {#if isRunning || statusText}
     <section class="status-section">
       {#if isRunning && totalQueue > 0}
         <div class="progress-summary">
-          <span class="progress-count">{completedCount}/{totalQueue} complete</span>
+          <span class="progress-count"
+            >{completedCount}/{totalQueue} complete</span
+          >
           {#if activeItem}
-            <span class="progress-current">Running: {activeItem.hf_model_id.split('/')[1]} on {activeItem.backend}</span>
+            <span class="progress-current"
+              >Running: {activeItem.hf_model_id} on {activeItem.backend}</span
+            >
           {/if}
           {#if nextItem && !activeItem}
-            <span class="progress-next">Next: {nextItem.hf_model_id.split('/')[1]} on {nextItem.backend}</span>
+            <span class="progress-next"
+              >Next: {nextItem.hf_model_id} on {nextItem.backend}</span
+            >
           {:else if nextItem}
-            <span class="progress-next">Next: {nextItem.hf_model_id.split('/')[1]} on {nextItem.backend}</span>
+            <span class="progress-next"
+              >Next: {nextItem.hf_model_id} on {nextItem.backend}</span
+            >
           {/if}
         </div>
       {/if}
       <p class="status-text">{statusText}</p>
-      {#if downloadPercent > 0 && downloadPercent < 100}
-        <ProgressBar percent={downloadPercent} label="Downloading" />
-      {/if}
-    </section>
-  {/if}
-
-  {#if queue.length > 0}
-    <section class="queue-section">
-      <TestQueue {queue} {isRunning} onretry={retryItem} />
-    </section>
-  {/if}
-
-  {#if runLogs.length > 0}
-    <section class="logs-section">
-      <h3 class="logs-title">Logs ({runLogs.length})</h3>
-      <div class="logs-container">
-        {#each runLogs as log}
-          <div class="log-line">{log}</div>
-        {/each}
+      <div
+        class="progress-bar-slot"
+        class:progress-bar-hidden={downloadPercent <= 0 ||
+          downloadPercent >= 100}
+      >
+        <ProgressBar percent={downloadPercent} label="Downloading" loadedBytes={downloadLoaded} totalBytes={downloadTotal} />
       </div>
     </section>
   {/if}
 
+  {#if queue.length > 0 || runLogs.length > 0}
+    <div class="queue-logs-grid">
+      {#if queue.length > 0}
+        <section class="queue-section">
+          <TestQueue {queue} {isRunning} onretry={retryItem} />
+        </section>
+      {/if}
+      {#if runLogs.length > 0}
+        <section class="logs-section">
+          <h3 class="logs-title">Logs ({runLogs.length})</h3>
+          <div class="logs-container" bind:this={logsEl}>
+            {#each runLogs as log}
+              <div class="log-line">{log}</div>
+            {/each}
+          </div>
+        </section>
+      {/if}
+    </div>
+  {/if}
+
   {#if results.length > 0}
     <section class="results-section">
-      <BenchmarkResults {results} />
+      <BenchmarkResults {results} backends={selectedBackends} />
     </section>
   {/if}
 
+  {#if !isRunning}
+    <section class="config-section">
+      <div class="top-config-grid">
+        <BackendSelector
+          bind:selected={selectedBackends}
+          available={availableBackends}
+        />
+        <RunConfigCmp bind:iterations />
+      </div>
+
+      {#if saveResults || environment}
+        <div class="env-rows">
+          {#if saveResults}
+            <div class="env-row">
+              <span class="env-label"
+                >CPU<span class="req-badge" class:req-done={cpuModel.trim()}
+                  >req</span
+                ></span
+              >
+              <input
+                class="cpu-input"
+                class:input-warn={!cpuModel.trim()}
+                type="text"
+                list="cpu-model-list"
+                placeholder="Type your CPU model..."
+                bind:value={cpuModel}
+              />
+              <datalist id="cpu-model-list">
+                {#each CPU_MODELS as model}
+                  <option value={model}></option>
+                {/each}
+              </datalist>
+            </div>
+          {/if}
+          {#if environment}
+            <div class="env-row">
+              <span class="env-label">GPU</span>
+              <span class="env-value">{environment.gpu}</span>
+            </div>
+          {/if}
+          {#if saveResults}
+            <div class="env-row">
+              <span class="env-label"
+                >GPU Driver{#if isAtLeast($auth.role ?? "anonymous", "intel")}<span
+                    class="req-badge"
+                    class:req-done={gpuDriverVersion.trim()}>req</span
+                  >{/if}</span
+              >
+              <input
+                class="cpu-input"
+                class:input-warn={isAtLeast(
+                  $auth.role ?? "anonymous",
+                  "intel",
+                ) && !gpuDriverVersion.trim()}
+                type="text"
+                placeholder="e.g. 32.0.101.8824"
+                bind:value={gpuDriverVersion}
+              />
+            </div>
+            <div class="env-row">
+              <span class="env-label"
+                >NPU Driver{#if isAtLeast($auth.role ?? "anonymous", "intel")}<span
+                    class="req-badge"
+                    class:req-done={npuDriverVersion.trim()}>req</span
+                  >{/if}</span
+              >
+              <input
+                class="cpu-input"
+                class:input-warn={isAtLeast(
+                  $auth.role ?? "anonymous",
+                  "intel",
+                ) && !npuDriverVersion.trim()}
+                type="text"
+                placeholder="e.g. 32.0.100.4778"
+                bind:value={npuDriverVersion}
+              />
+            </div>
+          {/if}
+          {#if saveResults}
+            <div class="env-row">
+              <span class="env-label"
+                >OS<span class="req-badge" class:req-done={osModel.trim()}
+                  >req</span
+                ></span
+              >
+              <input
+                class="cpu-input"
+                class:input-warn={!osModel.trim()}
+                type="text"
+                list="os-model-list"
+                placeholder="Type your OS..."
+                bind:value={osModel}
+              />
+              <datalist id="os-model-list">
+                {#each OS_MODELS as os}
+                  <option value={os}></option>
+                {/each}
+              </datalist>
+            </div>
+          {/if}
+          {#if environment}
+            <div class="env-row">
+              <span class="env-label">Browser</span>
+              <span class="env-value"
+                >{environment.browser} {environment.browser_version}</span
+              >
+            </div>
+          {/if}
+          <div class="env-row">
+            <span class="env-label">WebNN EP</span>
+            <select class="version-select" bind:value={webnnEp}>
+              {#each WEBNN_EP_OPTIONS as opt}
+                <option value={opt.value}>{opt.label}</option>
+              {/each}
+            </select>
+          </div>
+          {#if usesOnnx && ortVersion}
+            <div class="env-row">
+              <span class="env-label">ORT Web</span>
+              <select class="version-select" bind:value={ortVersion}>
+                {#if ortDevVersions.length}
+                  <optgroup label="Dev">
+                    {#each ortDevVersions as v}
+                      <option value={v}>{v}</option>
+                    {/each}
+                  </optgroup>
+                {/if}
+                {#if ortStableVersions.length}
+                  <optgroup label="Stable">
+                    {#each ortStableVersions as v}
+                      <option value={v}>{v}</option>
+                    {/each}
+                  </optgroup>
+                {/if}
+              </select>
+            </div>
+          {/if}
+          {#if usesLitert && litertVersion}
+            <div class="env-row">
+              <span class="env-label">LiteRT.js</span>
+              <select class="version-select" bind:value={litertVersion}>
+                {#if litertDevVersions.length}
+                  <optgroup label="Dev">
+                    {#each litertDevVersions as v}
+                      <option value={v}>{v}</option>
+                    {/each}
+                  </optgroup>
+                {/if}
+                {#if litertStableVersions.length}
+                  <optgroup label="Stable">
+                    {#each litertStableVersions as v}
+                      <option value={v}>{v}</option>
+                    {/each}
+                  </optgroup>
+                {/if}
+              </select>
+            </div>
+          {/if}
+        </div>
+      {/if}
+
+      {#if hashModels.length > 0}
+        <span class="models-label"
+          >Models <span class="models-count">{totalModels}</span></span
+        >
+        <ul class="model-list">
+          {#each hashModels as m}
+            {@const ext = m.file_path.endsWith(".litertlm")
+              ? "litertlm"
+              : m.file_path.endsWith(".tflite")
+                ? "tflite"
+                : "onnx"}
+            <li class="model-item">
+              <div class="model-item-left">
+                <div class="model-item-top">
+                  <span class="model-item-repo">{m.hf_model_id}</span>
+                  {#if m.data_type}
+                    <span class="dtype-chip" data-dtype={m.data_type}
+                      >{m.data_type === "quantized"
+                        ? "quant"
+                        : m.data_type}</span
+                    >
+                  {/if}
+                </div>
+                <div class="model-item-bottom">
+                  <FormatIcon
+                    format={ext}
+                    size={14}
+                    hfModelId={m.hf_model_id}
+                    filePath={m.file_path}
+                  />
+                  <NetronLink
+                    hfModelId={m.hf_model_id}
+                    filePath={m.file_path}
+                  />
+                  <span class="model-item-name">{m.file_path}</span>
+                </div>
+              </div>
+            </li>
+          {/each}
+        </ul>
+      {/if}
+
+      <div class="actions">
+        {#if !isRunning}
+          <label class="save-results-label">
+            <span class="custom-checkbox" class:checked={saveResults}>
+              {#if saveResults}
+                <svg
+                  width="10"
+                  height="10"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="3.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              {/if}
+            </span>
+            <input type="checkbox" bind:checked={saveResults} />
+            Upload results
+          </label>
+          {#if saveResults}
+            {#if $isAuthenticated}
+              <p class="upload-disclosure">
+                Your CPU model, GPU, OS, and browser will be saved alongside the
+                benchmark scores to make the results meaningful
+              </p>
+            {:else}
+              <p class="upload-disclosure upload-disclosure-warn">
+                <a href="/login">Sign in</a> to upload results - we need an account
+                to attribute the data.
+              </p>
+            {/if}
+          {/if}
+          <button
+            class="btn-primary"
+            onclick={startBenchmark}
+            disabled={totalModels === 0 ||
+              (saveResults &&
+                (!$isAuthenticated ||
+                  !cpuModel.trim() ||
+                  !osModel.trim() ||
+                  (isAtLeast($auth.role ?? "anonymous", "intel") &&
+                    (!gpuDriverVersion.trim() || !npuDriverVersion.trim()))))}
+            title="Ctrl+Enter"
+          >
+            Run Benchmark <kbd class="kbd-hint">Ctrl+Enter</kbd>
+          </button>
+          {#if saveResults && $isAuthenticated && (!cpuModel.trim() || !osModel.trim())}
+            <p class="action-hint action-hint-warn">
+              Fill in your CPU and OS above to enable result upload
+            </p>
+          {:else if saveResults && $isAuthenticated && isAtLeast($auth.role ?? "anonymous", "intel") && (!gpuDriverVersion.trim() || !npuDriverVersion.trim())}
+            <p class="action-hint action-hint-warn">
+              GPU Driver and NPU Driver versions are required for intel/admin
+              roles
+            </p>
+          {/if}
+          {#if totalModels === 0}
+            <p class="action-hint">
+              No models selected. <a href="/browse">Browse models</a> to pick
+              one, or <a href="/custom">upload your own</a>.
+            </p>
+          {/if}
+        {:else}
+          <button class="btn-stop" onclick={stopBenchmark} title="Esc"
+            >Stop <kbd class="kbd-hint">Esc</kbd></button
+          >
+        {/if}
+      </div>
+    </section>
+  {/if}
 </div>
 
 <style>
   .run-page {
     max-width: 100%;
-  }
-
-  .logs-section {
-    margin-bottom: var(--space-3);
   }
 
   .logs-title {
@@ -818,12 +1070,37 @@
   }
 
   .logs-container {
-    max-height: 160px;
+    height: 200px;
     overflow-y: auto;
+    scroll-behavior: smooth;
     border: 1px solid var(--color-border);
     border-radius: var(--radius-base);
     padding: var(--space-1);
     background: var(--color-surface);
+  }
+
+  .logs-container::-webkit-scrollbar {
+    width: 1px;
+    height: 3px;
+  }
+
+  .logs-container::-webkit-scrollbar-button {
+    width: 0;
+    height: 0;
+    display: none;
+  }
+
+  .logs-container::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .logs-container::-webkit-scrollbar-thumb {
+    background-color: var(--color-border-strong);
+    border-radius: 3px;
+  }
+
+  .logs-section:hover .logs-container::-webkit-scrollbar-thumb {
+    background-color: var(--color-primary);
   }
 
   .log-line {
@@ -848,7 +1125,6 @@
     gap: var(--space-2);
     margin-top: var(--space-6);
   }
-
 
   .upload-disclosure {
     font-size: var(--text-xs);
@@ -913,7 +1189,10 @@
     background: transparent;
     color: transparent;
     flex-shrink: 0;
-    transition: border-color var(--transition-base), background var(--transition-base), color var(--transition-base);
+    transition:
+      border-color var(--transition-base),
+      background var(--transition-base),
+      color var(--transition-base);
   }
 
   .save-results-label:hover .custom-checkbox {
@@ -996,8 +1275,6 @@
     cursor: not-allowed;
   }
 
-
-
   .btn-share-delete {
     font-family: var(--font-ui);
     font-size: var(--text-base);
@@ -1050,8 +1327,35 @@
     margin-bottom: var(--space-half);
   }
 
-  .queue-section, .results-section {
+  .progress-bar-slot {
+    min-height: 24px;
+  }
+
+  .progress-bar-hidden {
+    visibility: hidden;
+  }
+
+  .queue-logs-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-3);
     margin-bottom: var(--space-3);
+    align-items: start;
+  }
+
+  .queue-section,
+  .logs-section {
+    min-width: 0;
+  }
+
+  .results-section {
+    margin-bottom: var(--space-3);
+  }
+
+  @media (max-width: 768px) {
+    .queue-logs-grid {
+      grid-template-columns: 1fr;
+    }
   }
 
   .top-config-grid {
@@ -1095,7 +1399,9 @@
     text-transform: uppercase;
     color: var(--color-error);
     opacity: 0.85;
-    transition: color var(--transition-base), border-color var(--transition-base);
+    transition:
+      color var(--transition-base),
+      border-color var(--transition-base);
   }
 
   .req-badge.req-done {
@@ -1184,12 +1490,14 @@
     border: 1px solid var(--color-border);
     border-radius: var(--radius-base);
     min-width: 0;
-    transition: border-color var(--transition-base), background var(--transition-base);
+    transition:
+      border-color var(--transition-base),
+      background var(--transition-base);
   }
 
   .model-item:hover {
     border-color: var(--color-primary);
-    background:var(--color-accent-light);
+    background: var(--color-accent-light);
   }
 
   .model-item-left {
@@ -1231,9 +1539,11 @@
     min-width: 0;
   }
 
-
   /* dtype-chip and size-chip use global styles from app.css */
-  .dtype-chip, .size-chip { margin-left: auto; }
+  .dtype-chip,
+  .size-chip {
+    margin-left: auto;
+  }
 
   .version-select {
     color: var(--color-text-secondary);
@@ -1242,7 +1552,9 @@
   }
 
   @media (max-width: 768px) {
-    .env-rows { grid-template-columns: repeat(2, 1fr); }
+    .env-rows {
+      grid-template-columns: repeat(2, 1fr);
+    }
   }
 
   @media (max-width: 640px) {
@@ -1262,8 +1574,12 @@
       font-size: var(--text-sm);
     }
 
-    .env-rows { grid-template-columns: 1fr; }
-    .top-config-grid { grid-template-columns: 1fr; }
+    .env-rows {
+      grid-template-columns: 1fr;
+    }
+    .top-config-grid {
+      grid-template-columns: 1fr;
+    }
 
     .actions {
       flex-direction: column;

@@ -93,8 +93,8 @@ function validateOverrides(obj: any, lineNum: number): void {
     throw new Error(`Row ${lineNum}: overrides must be an object`);
   }
   for (const [k, v] of Object.entries(obj)) {
-    if (typeof v !== 'number' || v <= 0 || !Number.isInteger(v)) {
-      throw new Error(`Row ${lineNum}: "${k}" must be a positive integer`);
+    if (typeof v !== 'number' || v < 0 || !Number.isInteger(v)) {
+      throw new Error(`Row ${lineNum}: "${k}" must be a non-negative integer`);
     }
   }
 }

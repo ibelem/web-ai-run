@@ -528,16 +528,6 @@
   },
   {
     "hf_model_id": "jonathandinu/face-parsing",
-    "file_path": "onnx/model_fp16.onnx",
-    "overrides": {
-      "batch_size": 1,
-      "num_channels": 3,
-      "height": 512,
-      "width": 512
-    }
-  },
-  {
-    "hf_model_id": "jonathandinu/face-parsing",
     "file_path": "onnx/model_quantized.onnx",
     "overrides": {
       "batch_size": 1,
@@ -642,14 +632,6 @@
   {
     "hf_model_id": "mixedbread-ai/mxbai-embed-large-v1",
     "file_path": "onnx/model.onnx",
-    "overrides": {
-      "batch_size": 5,
-      "sequence_length": 18
-    }
-  },
-  {
-    "hf_model_id": "mixedbread-ai/mxbai-rerank-base-v1",
-    "file_path": "onnx/model_fp16.onnx",
     "overrides": {
       "batch_size": 5,
       "sequence_length": 18
@@ -1621,21 +1603,6 @@
   },
   {
     "hf_model_id": "webml/models-moved",
-    "file_path": "segment-anything/sam-b-decoder.onnx",
-    "overrides": {
-      "num_points": 2
-    }
-  },
-  {
-    "hf_model_id": "webml/models-moved",
-    "file_path": "segment-anything/sam-b-encoder.onnx",
-    "overrides": {
-      "image_height": 224,
-      "image_width": 224
-    }
-  },
-  {
-    "hf_model_id": "webml/models-moved",
     "file_path": "tinyyolov2-8.onnx",
     "overrides": {
       "None": 1
@@ -2385,16 +2352,6 @@
     "overrides": {
       "batch_size": 1,
       "sequence_length": 50
-    }
-  },
-  {
-    "hf_model_id": "xenova/distilgpt2",
-    "file_path": "onnx/decoder_merged_model_fp16.onnx",
-    "overrides": {
-      "batch_size": 1,
-      "sequence_length": 16,
-      "attention_mask_sequence_length": 16,
-      "past_sequence_length": 16
     }
   },
   {
@@ -3712,15 +3669,6 @@
   },
   {
     "hf_model_id": "xenova/vit-gpt2-image-captioning",
-    "file_path": "onnx/decoder_model_fp16.onnx",
-    "overrides": {
-      "batch_size": 1,
-      "decoder_sequence_length": 168,
-      "encoder_sequence_length": 168
-    }
-  },
-  {
-    "hf_model_id": "xenova/vit-gpt2-image-captioning",
     "file_path": "onnx/decoder_model_merged_fp16.onnx",
     "overrides": {
       "batch_size": 1,
@@ -3761,15 +3709,6 @@
   {
     "hf_model_id": "xenova/vit-gpt2-image-captioning",
     "file_path": "onnx/decoder_model.onnx",
-    "overrides": {
-      "batch_size": 1,
-      "decoder_sequence_length": 168,
-      "encoder_sequence_length": 168
-    }
-  },
-  {
-    "hf_model_id": "xenova/vit-gpt2-image-captioning",
-    "file_path": "onnx/decoder_with_past_model_fp16.onnx",
     "overrides": {
       "batch_size": 1,
       "decoder_sequence_length": 168,

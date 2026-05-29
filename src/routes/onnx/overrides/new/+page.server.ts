@@ -61,7 +61,7 @@ function parseOverridesString(raw: string): Record<string, number> {
     const [key, val] = pair.split(':').map(s => s.trim());
     if (!key) throw new Error(`Invalid pair: "${pair}"`);
     const num = parseInt(val, 10);
-    if (isNaN(num) || num <= 0) throw new Error(`Invalid value for "${key}": must be a positive integer`);
+    if (isNaN(num) || num < 0) throw new Error(`Invalid value for "${key}": must be a non-negative integer`);
     result[key] = num;
   }
   if (Object.keys(result).length === 0) throw new Error('At least one override is required');

@@ -10,7 +10,7 @@ export interface BackendDef {
 
 export const BACKENDS: BackendDef[] = [
   { id: 'wasm_1',     label: 'Wasm',           description: 'CPU via WebAssembly, single thread. Works in every browser.',                                        runtime: 'both', requiresFlag: false },
-  { id: 'wasm_n',     label: 'Wasm (T)', description: 'CPU via WebAssembly with multi-threading (Threads). Requires SharedArrayBuffer (most modern browsers).',        runtime: 'both', requiresFlag: false },
+  { id: 'wasm_n',     label: 'Wasm N', description: 'CPU via WebAssembly with multi-threading (Threads). Requires SharedArrayBuffer (most modern browsers).',        runtime: 'both', requiresFlag: false },
   { id: 'webgpu',     label: 'WebGPU',         description: 'GPU acceleration via the WebGPU API. Fast for large models on modern desktop browsers.',             runtime: 'both', requiresFlag: false },
   { id: 'webnn_cpu',  label: 'WebNN CPU',      description: 'Hardware-accelerated neural network inference on CPU via WebNN. Requires a Chrome/Edge flag.',        runtime: 'both', requiresFlag: true  },
   { id: 'webnn_gpu',  label: 'WebNN GPU',      description: 'Hardware-accelerated neural network inference on GPU via WebNN. Requires a Chrome/Edge flag.',        runtime: 'both', requiresFlag: true  },

@@ -3,10 +3,10 @@ import { getOrtCdnUrl, getLiteRtCdnUrl } from '$lib/engine/runtime-loader';
 
 describe('runtime-loader', () => {
   it('getOrtCdnUrl builds correct jsdelivr URL', () => {
-    const url = getOrtCdnUrl('1.21.0', 'webgpu');
+    const url = getOrtCdnUrl('1.21.0');
     expect(url).toContain('jsdelivr');
     expect(url).toContain('1.21.0');
-    expect(url).toContain('webgpu');
+    expect(url).toContain('jspi');
   });
 
   it('getLiteRtCdnUrl builds correct URL', () => {

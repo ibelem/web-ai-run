@@ -11,6 +11,7 @@ export interface WorkerRunOptions {
   freeDimensionOverrides?: Record<string, number>;
   onProgress?: (progress: DownloadProgress) => void;
   onStatus?: (status: string) => void;
+  onLogs?: (logs: string[]) => void;
 }
 
 let workerInstance: Worker | null = null;
@@ -52,6 +53,9 @@ export function runInWorker(options: WorkerRunOptions): Promise<TestResult> {
           break;
         case 'status':
           options.onStatus?.(msg.status);
+          break;
+        case 'logs':
+          options.onLogs?.(msg.logs);
           break;
         case 'result':
           worker.removeEventListener('message', handleMessage);

@@ -8,6 +8,7 @@
   let fileName = $state('');
   let parseError = $state('');
   let isDragOver = $state(false);
+  let importing = $state(false);
 
   type CheckStatus = 'idle' | 'checking' | 'ok' | 'not-found' | 'error';
   let checkStatuses = $state<Record<string, CheckStatus>>({});
@@ -197,6 +198,34 @@
         </div>
       {/if}
 
+      {#if parsedModels.some(m => checkStatuses[`${m.hf_model_id}::${m.file_path}`] === 'not-found')}
+        {@const notFoundModels = parsedModels.filter(m => checkStatuses[`${m.hf_model_id}::${m.file_path}`] === 'not-found')}
+        <div class="not-found-section">
+          <div class="not-found-label">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            Not found ({notFoundModels.length})
+          </div>
+          <div class="preview-table-wrap">
+            <table class="preview-table">
+              <thead>
+                <tr>
+                  <th>hf_model_id</th>
+                  <th>file_path</th>
+                </tr>
+              </thead>
+              <tbody>
+                {#each notFoundModels as m, i (i)}
+                  <tr class="row-not-found">
+                    <td class="cell-mono">{m.hf_model_id}</td>
+                    <td class="cell-mono">{m.file_path}</td>
+                  </tr>
+                {/each}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      {/if}
+
       <div class="preview-table-wrap">
         <table class="preview-table">
           <thead>
@@ -240,14 +269,25 @@
 
   <!-- Submit -->
   <form method="POST" use:enhance={() => {
+    importing = true;
     return async ({ result, update }) => {
       if (result.type === 'redirect') invalidateOverridesCache();
       await update();
+      importing = false;
     };
   }}>
     <input type="hidden" name="data" value={data} />
     <div class="submit-row">
-      <button type="submit" class="btn-import" disabled={!data.trim()}>Import</button>
+      <button type="submit" class="btn-import" disabled={!data.trim() || importing}>
+        {#if importing}
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" class="spin">
+            <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+          </svg>
+          Importing…
+        {:else}
+          Import
+        {/if}
+      </button>
     </div>
   </form>
 </div>
@@ -441,16 +481,7 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-2);
-    padding: var(--space-3);
-    background: var(--color-surface-sunken);
     border-radius: var(--radius-base);
-  }
-
-  .format-example h4 {
-    font-size: var(--text-xs);
-    font-weight: 600;
-    color: var(--color-text-secondary);
-    margin-bottom: 4px;
   }
 
   .format-example pre {
@@ -509,6 +540,33 @@
   .check-not-found { color: var(--color-error); }
   .check-error { color: var(--color-warning, #f59e0b); }
   .check-total { color: var(--color-text-muted); }
+
+  /* Not-found section */
+  .not-found-section {
+    margin-bottom: var(--space-2);
+    border: 1px solid var(--color-error, #dc2626);
+    border-radius: var(--radius-base);
+    overflow: hidden;
+  }
+
+  .not-found-label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 6px var(--space-2);
+    background: var(--color-danger-light, #fef2f2);
+    color: var(--color-error, #dc2626);
+    font-size: var(--text-xs);
+    font-weight: 600;
+  }
+
+  .not-found-section .preview-table-wrap {
+    overflow-x: auto;
+  }
+
+  .row-not-found td {
+    color: var(--color-error, #dc2626);
+  }
 
   /* Preview table */
   .preview-table-wrap {
@@ -571,6 +629,9 @@
   }
 
   .btn-import {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
     font-family: var(--font-ui);
     font-size: var(--text-base);
     font-weight: 500;
