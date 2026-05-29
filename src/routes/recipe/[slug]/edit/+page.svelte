@@ -267,9 +267,6 @@
                   bind:value={recipeModels[i].hf_model_id}
                   onclick={(e) => e.stopPropagation()}
                 />
-                {#if m.data_type}
-                  <span class="dtype-chip" data-dtype={m.data_type}>{m.data_type === 'quantized' ? 'quant' : m.data_type}</span>
-                {/if}
               </div>
               <div class="model-item-bottom">
                 <FormatIcon format={ext} size={14} />
@@ -280,30 +277,37 @@
                   bind:value={recipeModels[i].file_path}
                   onclick={(e) => e.stopPropagation()}
                 />
-                {#if m.size_bytes}
-                  <span class="model-item-size">{formatSize(m.size_bytes)}</span>
-                {/if}
               </div>
             </div>
-            {#if ck !== 'idle'}
-              <span class="check-icon check-{ck}" title={ck === 'ok' ? 'File reachable' : ck === 'not-found' ? '404 Not Found' : ck === 'checking' ? 'Checking…' : 'Request error'}>
-                {#if ck === 'checking'}
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" class="spin"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
-                {:else if ck === 'ok'}
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
-                {:else if ck === 'not-found'}
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                {:else}
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-                {/if}
-              </span>
-            {/if}
-            <button class="remove-btn" onclick={() => removeModel(i)} aria-label="Remove">
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round">
-                <line x1="18" y1="6" x2="6" y2="18"/>
-                <line x1="6" y1="6" x2="18" y2="18"/>
-              </svg>
-            </button>
+            <div class="model-item-meta">
+              {#if m.data_type}
+                <span class="dtype-chip" data-dtype={m.data_type}>{m.data_type === 'quantized' ? 'quant' : m.data_type}</span>
+              {/if}
+              {#if m.size_bytes}
+                <span class="model-item-size">{formatSize(m.size_bytes)}</span>
+              {/if}
+            </div>
+            <div class="model-item-actions">
+              <button class="remove-btn" onclick={() => removeModel(i)} aria-label="Remove">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round">
+                  <line x1="18" y1="6" x2="6" y2="18"/>
+                  <line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
+              {#if ck !== 'idle'}
+                <span class="check-icon check-{ck}" title={ck === 'ok' ? 'File reachable' : ck === 'not-found' ? '404 Not Found' : ck === 'checking' ? 'Checking…' : 'Request error'}>
+                  {#if ck === 'checking'}
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" class="spin"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                  {:else if ck === 'ok'}
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+                  {:else if ck === 'not-found'}
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                  {:else}
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                  {/if}
+                </span>
+              {/if}
+            </div>
           </li>
         {/each}
       </ul>
@@ -648,8 +652,8 @@
 
   .model-item {
     display: flex;
-    align-items: flex-start;
-    gap: 8px;
+    align-items: center;
+    gap: 6px;
     padding: 8px 10px;
     background: var(--color-surface-raised);
     border: 1px solid var(--color-border);
@@ -681,9 +685,19 @@
     min-width: 0;
   }
 
-  .model-item-top :global(.dtype-chip),
-  .model-item-bottom .model-item-size {
-    margin-left: auto;
+  .model-item-meta {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 3px;
+    flex-shrink: 0;
+  }
+
+  .model-item-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
     flex-shrink: 0;
   }
 
@@ -845,10 +859,7 @@
   .check-icon {
     display: inline-flex;
     align-items: center;
-    justify-content: center;
     flex-shrink: 0;
-    width: 18px;
-    height: 18px;
   }
 
   .check-checking { color: var(--color-text-muted); }
