@@ -8,7 +8,7 @@
   import { buildTestQueue } from '$lib/engine/queue';
   import { detectEnvironment } from '$lib/engine/environment';
   import { ResultsWriter } from '$lib/engine/results-writer';
-  import { runInWorker, isWorkerSupported, terminateWorker } from '$lib/engine/worker/pool';
+  import { runInWorker, terminateWorker } from '$lib/engine/worker/pool';
   import { auth, isAuthenticated } from '$lib/stores/auth';
   import { isAtLeast } from '$lib/types/roles';
   import type { SharedRunConfig } from '$lib/supabase/types';
@@ -120,7 +120,6 @@
   let runLogs = $state<string[]>([]);
   let downloadPercent = $state(0);
   let environment = $state<EnvironmentInfo | null>(null);
-  let useWorker = $state(true);
   let hashModels = $state<ModelEntry[]>([]);
   let cpuModel = $state('');
   let osModel = $state('');
@@ -239,8 +238,6 @@
 
     availableBackends = await detectAvailableBackends();
     environment = await detectEnvironment();
-    useWorker = isWorkerSupported();
-
     // Fetch latest runtime versions from npm, then apply hash > prefs > default order
     try {
       const v = await fetchRuntimeVersions();

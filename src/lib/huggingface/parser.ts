@@ -1,4 +1,17 @@
 export const MODEL_EXTENSIONS = ['.onnx', '.tflite', '.litertlm'];
+
+export const DTYPE_ORDER = ['fp32', 'fp16', 'bf16', 'fp8', 'int8', 'uint8', 'int4', 'uint4', 'q4', 'q4f16', 'bnb4', 'quantized'];
+
+export function sortByDtype<T extends { dataType: string }>(variants: T[]): T[] {
+  return [...variants].sort((a, b) => {
+    const ai = DTYPE_ORDER.indexOf(a.dataType);
+    const bi = DTYPE_ORDER.indexOf(b.dataType);
+    if (ai >= 0 && bi >= 0) return ai - bi;
+    if (ai >= 0) return -1;
+    if (bi >= 0) return 1;
+    return a.dataType.localeCompare(b.dataType);
+  });
+}
 // Matches .onnx.data (old style) and .onnx_data, .onnx_data_1, .onnx_data_N (new style)
 const SKIP_PATTERNS = ['.onnx.data', '.onnx_data'];
 

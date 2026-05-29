@@ -6,6 +6,7 @@
     id: string;
     dataType: string;
     sizeBytes: number;
+    filePath?: string;
   }
 
   interface Props {
@@ -52,6 +53,13 @@
   );
 
   const hasSelection = $derived(variants.some((v) => selectedIds.has(v.id)));
+
+  // When there's only one variant, show its real file_path instead of the stripped base name
+  const displayPath = $derived(
+    variants.length === 1 && variants[0].filePath
+      ? variants[0].filePath
+      : `${filePath}.${format}`
+  );
 </script>
 
 <div class="model-card" class:has-selection={hasSelection} role="group" aria-label="Model: {hfModelId}">
@@ -66,9 +74,9 @@
       <span class="info-repo" title={hfModelId}>{hfModelId}</span>
     </div>
     <div class="card-row card-bottom">
-      <FormatIcon {format} size={14} {hfModelId} filePath="{filePath}.{format}" />
-      <NetronLink {hfModelId} filePath="{filePath}.{format}" />
-      <span class="info-file" title="{filePath}.{format}">{filePath}.{format}</span>
+      <FormatIcon {format} size={14} {hfModelId} filePath={displayPath} />
+      <NetronLink {hfModelId} filePath={displayPath} />
+      <span class="info-file" title={displayPath}>{displayPath}</span>
       {#if maxSize()}
         <span class="info-size" title={sizeTooltip}>{maxSize()}</span>
       {/if}

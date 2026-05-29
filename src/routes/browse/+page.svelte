@@ -11,7 +11,7 @@
   import type { ModelRow } from './+page.ts';
   import { loadModels, invalidateModelCache, type FetchMode } from '$lib/model-cache';
   import { createClient } from '$lib/supabase/client';
-  import { inferFormat } from '$lib/huggingface/parser';
+  import { inferFormat, DTYPE_ORDER } from '$lib/huggingface/parser';
 
   let { data } = $props<{ data: { initialSearch: string } }>();
 
@@ -141,7 +141,6 @@
   })());
   const formats = $derived([...new Set(allModels.map((m) => inferFormat(m.file_path)))].sort());
   const orgs = $derived([...new Set(allModels.map((m) => m.source_org))].sort());
-  const DTYPE_ORDER = ['fp32', 'fp16', 'bf16', 'fp8', 'int8', 'uint8', 'int4', 'uint4', 'q4'];
   const dataTypes = $derived(
     [...new Set([...DTYPE_ORDER, ...allModels.map((m) => m.data_type)])]
       .filter(dt => DTYPE_ORDER.includes(dt) || allModels.some(m => m.data_type === dt))

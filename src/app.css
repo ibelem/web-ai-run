@@ -71,7 +71,7 @@
   /* Theme: Light (default) */
   --color-surface: #FFFFFF;
   --color-surface-raised: #FFFFFF;
-  --color-surface-sunken: #F5F7FA;
+  --color-surface-sunken: rgba(245, 247, 250, 0.5);
   --color-surface-alt: #EDF2F7;
   --color-page-bg: transparent;
   --color-text-primary: #181818;
@@ -143,7 +143,7 @@
   --color-runtime-litert: #0953DE;
 
   /* Semantic colors */
-  --color-success: #38A169;
+  --color-success: rgba(9, 83, 222, 1);
   --color-error: #ff0081;
   --color-warning: #ff0081;
   --color-info: #00C7FD;
@@ -220,7 +220,7 @@
   --color-runtime-litert: #63B3ED;
 
   /* Semantic dark */
-  --color-success: #68D391;
+  --color-success:rgba(0, 199, 253, 1);
   --color-error: #FC8181;
   --color-warning: #F6E05E;
   --color-info: #00C7FD;

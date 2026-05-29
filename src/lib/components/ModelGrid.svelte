@@ -1,6 +1,6 @@
 <script lang="ts">
   import ModelCard from './ModelCard.svelte';
-  import { inferFormat, stripExt } from '$lib/huggingface/parser';
+  import { inferFormat, stripExt, sortByDtype } from '$lib/huggingface/parser';
 
   interface Model {
     id: string;
@@ -20,7 +20,7 @@
     format: string;
     task: string;
     inLibrary: boolean;
-    variants: { id: string; dataType: string; sizeBytes: number }[];
+    variants: { id: string; dataType: string; sizeBytes: number; filePath: string }[];
   }
 
   interface Props {
@@ -53,10 +53,10 @@
         });
       }
       const group = map.get(key)!;
-      group.variants.push({ id: m.id, dataType: m.data_type, sizeBytes: m.size_bytes });
+      group.variants.push({ id: m.id, dataType: m.data_type, sizeBytes: m.size_bytes, filePath: m.file_path });
       if (libIds.has(m.id)) group.inLibrary = true;
     }
-    return [...map.values()];
+    return [...map.values()].map(g => ({ ...g, variants: sortByDtype(g.variants) }));
   }
 
   const groups = $derived(groupModels(models, inLibraryIds));
