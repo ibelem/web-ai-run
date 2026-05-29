@@ -9,15 +9,19 @@ export class ResultsWriter {
   private ortVersion: string;
   private litertVersion: string;
   private webnnEp: string;
+  private gpuDriverVersion: string;
+  private npuDriverVersion: string;
   private resultIds = new Map<string, string>();
 
-  constructor(userId: string, environment: EnvironmentInfo, ortVersion: string, litertVersion: string, webnnEp: string = '') {
+  constructor(userId: string, environment: EnvironmentInfo, ortVersion: string, litertVersion: string, webnnEp: string = '', gpuDriverVersion: string = '', npuDriverVersion: string = '') {
     this.runId = crypto.randomUUID();
     this.userId = userId;
     this.environment = environment;
     this.ortVersion = ortVersion;
     this.litertVersion = litertVersion;
     this.webnnEp = webnnEp;
+    this.gpuDriverVersion = gpuDriverVersion;
+    this.npuDriverVersion = npuDriverVersion;
   }
 
   async createResult(item: TestItem, iterations: number): Promise<string | null> {
@@ -38,6 +42,8 @@ export class ResultsWriter {
       ort_version: item.runtime === 'onnx' ? this.ortVersion : '',
       litert_version: item.runtime === 'litert' ? this.litertVersion : '',
       webnn_ep: this.webnnEp || 'Default / Unknown',
+      gpu_driver_version: this.gpuDriverVersion || null,
+      npu_driver_version: this.npuDriverVersion || null,
       iterations,
     };
 

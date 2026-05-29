@@ -66,16 +66,20 @@ function detectOS(ua: string): { name: string; version: string } {
     const match = ua.match(/Windows NT ([\d.]+)/);
     return { name: 'Windows', version: match?.[1] ?? '' };
   }
+  if (ua.includes('iPhone') || ua.includes('iPad') || ua.includes('iPod')) {
+    const match = ua.match(/CPU(?:\s+iPhone)?\s+OS\s+([\d_]+)/);
+    return { name: 'iOS', version: match?.[1]?.replace(/_/g, '.') ?? '' };
+  }
   if (ua.includes('Mac OS X')) {
     const match = ua.match(/Mac OS X ([\d_]+)/);
     return { name: 'macOS', version: match?.[1]?.replace(/_/g, '.') ?? '' };
   }
-  if (ua.includes('Linux')) {
-    return { name: 'Linux', version: '' };
-  }
   if (ua.includes('Android')) {
     const match = ua.match(/Android ([\d.]+)/);
     return { name: 'Android', version: match?.[1] ?? '' };
+  }
+  if (ua.includes('Linux')) {
+    return { name: 'Linux', version: '' };
   }
   return { name: 'Unknown', version: '' };
 }

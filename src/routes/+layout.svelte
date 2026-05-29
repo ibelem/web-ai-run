@@ -26,8 +26,14 @@
 
     if (browser) {
       isCrossOriginIsolated = window.crossOriginIsolated ?? false;
-      isJspiSupported = typeof (WebAssembly as any).Suspending === 'function' ||
-                        typeof (WebAssembly as any).SuspendablePromise === 'function';
+      // WebAssembly.Suspending exists in Chrome 131+ unconditionally, but JSPI
+      // only works when stack-switching is enabled. Constructing it throws when disabled.
+      try {
+        new (WebAssembly as any).Suspending(() => {});
+        isJspiSupported = true;
+      } catch {
+        isJspiSupported = false;
+      }
       isWebnnAvailable = typeof (navigator as any).ml !== 'undefined';
     }
 

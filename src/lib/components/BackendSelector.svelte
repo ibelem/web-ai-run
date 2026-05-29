@@ -34,7 +34,6 @@
         title={avail ? backend.description : `${unavailableReason(backend)} ${backend.description}`}
         aria-label="{backend.label} ({avail ? 'available' : 'unavailable'})"
       >
-        <span class="backend-dot" class:available={avail} aria-hidden="true"></span>
         <span class="backend-label-text">{backend.label}</span>
         {#if !avail}<span class="backend-unavail-text" aria-hidden="true">N/A</span>{/if}
       </button>
@@ -104,33 +103,15 @@
     border-color: var(--color-primary);
   }
 
-  .backend-btn.active .backend-dot.available {
-    background: var(--color-text-on-primary);
-    border-color: var(--color-text-on-primary);
-  }
-
   .backend-btn.unavailable {
     opacity: 0.5;
     cursor: not-allowed;
   }
 
-  .backend-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    flex-shrink: 0;
-    background: none;
-    border: 1.5px solid var(--color-text-muted);
-  }
-
-  .backend-dot.available {
-    background: var(--color-success);
-    border-color: var(--color-success);
-  }
-
   .backend-unavail-text {
     font-family: var(--font-ui);
     font-size: 9px;
+    line-height: 1;
     font-weight: 600;
     color: var(--color-text-muted);
     text-transform: uppercase;

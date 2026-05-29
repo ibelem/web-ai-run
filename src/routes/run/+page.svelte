@@ -10,6 +10,7 @@
   import { ResultsWriter } from '$lib/engine/results-writer';
   import { runInWorker, isWorkerSupported, terminateWorker } from '$lib/engine/worker/pool';
   import { auth, isAuthenticated } from '$lib/stores/auth';
+  import { isAtLeast } from '$lib/types/roles';
   import type { SharedRunConfig } from '$lib/supabase/types';
   import { CPU_MODELS } from '$lib/data/cpu-models';
   import { OS_MODELS } from '$lib/data/os-models';
@@ -123,6 +124,8 @@
   let hashModels = $state<ModelEntry[]>([]);
   let cpuModel = $state('');
   let osModel = $state('');
+  let gpuDriverVersion = $state('');
+  let npuDriverVersion = $state('');
 
   let ortVersion = $state('');
   let ortDevVersions = $state<string[]>([]);
@@ -157,6 +160,8 @@
   interface RunPrefs {
     cpu?: string;
     os?: string;
+    gpuDriver?: string;
+    npuDriver?: string;
     webnnEp?: string;
     ort?: string;
     litert?: string;
@@ -170,7 +175,7 @@
 
   function savePrefs() {
     try {
-      const prefs: RunPrefs = { cpu: cpuModel, os: osModel, webnnEp, ort: ortVersion, litert: litertVersion };
+      const prefs: RunPrefs = { cpu: cpuModel, os: osModel, gpuDriver: gpuDriverVersion, npuDriver: npuDriverVersion, webnnEp, ort: ortVersion, litert: litertVersion };
       localStorage.setItem(RUN_PREFS_KEY, JSON.stringify(prefs));
     } catch {}
   }
@@ -228,6 +233,8 @@
     const prefs = loadPrefs();
     cpuModel = parsed.cpu || prefs.cpu || '';
     osModel = parsed.os || prefs.os || '';
+    gpuDriverVersion = prefs.gpuDriver || '';
+    npuDriverVersion = prefs.npuDriver || '';
     webnnEp = parsed.webnnEp || prefs.webnnEp || '';
 
     availableBackends = await detectAvailableBackends();
@@ -297,6 +304,8 @@
         ortVersion,
         litertVersion,
         webnnEp,
+        gpuDriverVersion.trim(),
+        npuDriverVersion.trim(),
       );
     }
 
@@ -443,6 +452,9 @@
         { ...environment, cpu: cpuModel.trim() || environment.cpu, os: osModel.trim() || environment.os, os_version: environment.os_version },
         ortVersion,
         litertVersion,
+        webnnEp,
+        gpuDriverVersion.trim(),
+        npuDriverVersion.trim(),
       );
     }
 
@@ -547,9 +559,10 @@
       <div class="env-rows">
         {#if saveResults}
           <div class="env-row">
-            <span class="env-label">CPU</span>
+            <span class="env-label">CPU<span class="req-badge" class:req-done={cpuModel.trim()}>req</span></span>
             <input
               class="cpu-input"
+              class:input-warn={!cpuModel.trim()}
               type="text"
               list="cpu-model-list"
               placeholder="Type your CPU model..."
@@ -570,9 +583,32 @@
         {/if}
         {#if saveResults}
           <div class="env-row">
-            <span class="env-label">OS</span>
+            <span class="env-label">GPU Driver{#if isAtLeast($auth.role ?? 'anonymous', 'intel')}<span class="req-badge" class:req-done={gpuDriverVersion.trim()}>req</span>{/if}</span>
             <input
               class="cpu-input"
+              class:input-warn={isAtLeast($auth.role ?? 'anonymous', 'intel') && !gpuDriverVersion.trim()}
+              type="text"
+              placeholder="e.g. 32.0.101.8824"
+              bind:value={gpuDriverVersion}
+            />
+          </div>
+          <div class="env-row">
+            <span class="env-label">NPU Driver{#if isAtLeast($auth.role ?? 'anonymous', 'intel')}<span class="req-badge" class:req-done={npuDriverVersion.trim()}>req</span>{/if}</span>
+            <input
+              class="cpu-input"
+              class:input-warn={isAtLeast($auth.role ?? 'anonymous', 'intel') && !npuDriverVersion.trim()}
+              type="text"
+              placeholder="e.g. 32.0.100.4778"
+              bind:value={npuDriverVersion}
+            />
+          </div>
+        {/if}
+        {#if saveResults}
+          <div class="env-row">
+            <span class="env-label">OS<span class="req-badge" class:req-done={osModel.trim()}>req</span></span>
+            <input
+              class="cpu-input"
+              class:input-warn={!osModel.trim()}
               type="text"
               list="os-model-list"
               placeholder="Type your OS..."
@@ -692,12 +728,16 @@
             </p>
           {/if}
         {/if}
-        <button class="btn-primary" onclick={startBenchmark} disabled={totalModels === 0 || (saveResults && (!$isAuthenticated || !cpuModel.trim() || !osModel.trim()))} title="Ctrl+Enter">
+        <button class="btn-primary" onclick={startBenchmark} disabled={totalModels === 0 || (saveResults && (!$isAuthenticated || !cpuModel.trim() || !osModel.trim() || (isAtLeast($auth.role ?? 'anonymous', 'intel') && (!gpuDriverVersion.trim() || !npuDriverVersion.trim()))))} title="Ctrl+Enter">
           Run Benchmark <kbd class="kbd-hint">Ctrl+Enter</kbd>
         </button>
         {#if saveResults && $isAuthenticated && (!cpuModel.trim() || !osModel.trim())}
           <p class="action-hint action-hint-warn">
             Fill in your CPU and OS above to enable result upload
+          </p>
+        {:else if saveResults && $isAuthenticated && isAtLeast($auth.role ?? 'anonymous', 'intel') && (!gpuDriverVersion.trim() || !npuDriverVersion.trim())}
+          <p class="action-hint action-hint-warn">
+            GPU Driver and NPU Driver versions are required for intel/admin roles
           </p>
         {/if}
         {#if totalModels === 0}
@@ -823,9 +863,8 @@
   }
 
   .action-hint {
-    font-size: var(--text-sm);
+    font-size: var(--text-xs);
     color: var(--color-text-secondary);
-    margin-top: var(--space-1);
   }
 
   .action-hint a {
@@ -838,7 +877,7 @@
   }
 
   .action-hint-warn {
-    color: var(--color-warning, #d97706);
+    color: var(--color-warning);
   }
 
   .save-results-label {
@@ -1030,12 +1069,34 @@
   }
 
   .env-label {
+    display: inline-flex;
+    align-items: center;
     font-size: var(--text-xs);
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.06em;
     color: var(--color-text-muted);
     white-space: nowrap;
+  }
+
+  .req-badge {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 0;
+    padding: 1px 4px 0 4px;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--color-error);
+    opacity: 0.85;
+    transition: color var(--transition-base), border-color var(--transition-base);
+  }
+
+  .req-badge.req-done {
+    color: var(--color-text-muted);
+    border-color: var(--color-border);
+    opacity: 0.6;
   }
 
   .env-value {
@@ -1052,6 +1113,16 @@
   .cpu-input {
     width: 100%;
     min-width: 0;
+  }
+
+  .cpu-input.input-warn {
+    border-color: var(--color-warning, #f59e0b) !important;
+  }
+
+  .cpu-input.input-warn:focus,
+  .cpu-input.input-warn:focus-visible {
+    border-color: var(--color-warning, #f59e0b) !important;
+    outline-color: var(--color-warning, #f59e0b);
   }
 
   .models-label {

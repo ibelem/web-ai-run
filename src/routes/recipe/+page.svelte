@@ -107,13 +107,27 @@
       <span class="card-date">{formatDate(recipe.updated_at)}</span>
     </div>
     {#if showOwner}
+      {@const formats = [...new Set(recipe.models.map((m: any) => m.file_path.endsWith('.tflite') ? 'tflite' : m.file_path.endsWith('.litertlm') ? 'litertlm' : 'onnx'))]}
       <div class="card-owner">
-        {#if recipe.owner_avatar_url}
-          <img src={recipe.owner_avatar_url} alt="" class="owner-avatar" crossorigin="anonymous" />
-        {:else}
-          <span class="owner-avatar owner-avatar-placeholder">{(recipe.owner_display_name ?? '?')[0].toUpperCase()}</span>
-        {/if}
-        <span class="owner-name">{recipe.owner_display_name ?? 'Unknown'}</span>
+        <div class="card-owner-left">
+          {#if recipe.owner_avatar_url}
+            <img src={recipe.owner_avatar_url} alt="" class="owner-avatar" crossorigin="anonymous" />
+          {:else}
+            <span class="owner-avatar owner-avatar-placeholder">{(recipe.owner_display_name ?? '?')[0].toUpperCase()}</span>
+          {/if}
+          <span class="owner-name">{recipe.owner_display_name ?? 'Unknown'}</span>
+        </div>
+        <div class="card-formats">
+          {#each formats as fmt}
+            {#if fmt === 'onnx'}
+              <img src="/icons/onnx-icon.svg" width="14" height="14" alt="onnx" title="ONNX" class="fmt-badge" />
+            {:else if fmt === 'tflite'}
+              <img src="/icons/litert-icon.svg" width="14" height="14" alt="tflite" title="TFLite / LiteRT" class="fmt-badge" />
+            {:else if fmt === 'litertlm'}
+              <img src="/icons/litertlm-icon.svg" width="14" height="14" alt="litertlm" title="LiteRT LM" class="fmt-badge" />
+            {/if}
+          {/each}
+        </div>
       </div>
     {/if}
     <div class="card-models">
@@ -435,7 +449,28 @@
   .card-owner {
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: 5px;
+  }
+
+  .card-owner-left {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .card-formats {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+
+  .fmt-badge {
+    display: block;
+    opacity: 0.75;
   }
 
   .owner-avatar {
