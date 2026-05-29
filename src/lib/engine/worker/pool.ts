@@ -18,7 +18,7 @@ function getWorker(): Worker {
   if (!workerInstance) {
     workerInstance = new Worker(
       new URL('./inference.worker.ts', import.meta.url),
-      { type: 'module' }
+      { type: 'classic' }
     );
   }
   return workerInstance;

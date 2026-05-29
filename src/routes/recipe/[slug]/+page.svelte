@@ -119,6 +119,30 @@
   }
 
   let exportOpen = $state(false);
+
+  type CheckStatus = 'idle' | 'checking' | 'ok' | 'not-found' | 'error';
+  let checkStatuses = $state<Record<string, CheckStatus>>({});
+  let checking = $state(false);
+
+  async function checkAllModels() {
+    checking = true;
+    const initial: Record<string, CheckStatus> = {};
+    for (const m of data.recipe.models) {
+      initial[`${m.hf_model_id}::${m.file_path}`] = 'checking';
+    }
+    checkStatuses = initial;
+    await Promise.all(data.recipe.models.map(async (m: any) => {
+      const key = `${m.hf_model_id}::${m.file_path}`;
+      const url = `https://huggingface.co/${m.hf_model_id}/resolve/main/${m.file_path}`;
+      try {
+        const res = await fetch(url, { method: 'HEAD' });
+        checkStatuses[key] = res.ok ? 'ok' : res.status === 404 ? 'not-found' : 'error';
+      } catch {
+        checkStatuses[key] = 'error';
+      }
+    }));
+    checking = false;
+  }
 </script>
 
 <div class="recipe-detail">
@@ -131,6 +155,14 @@
       <button class="btn-run" onclick={() => runRecipe(data.recipe)}>Run</button>
       <button class="btn-share" onclick={copyShareLink}>
         {copyFeedback ? 'Copied!' : 'Share'}
+      </button>
+      <button class="btn-check" onclick={checkAllModels} disabled={checking} title="Check if all model files are reachable on Hugging Face">
+        {#if checking}
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" class="spin"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+        {:else}
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        {/if}
+        Check
       </button>
       <div class="export-wrap">
         <button class="btn-export" onclick={() => exportOpen = !exportOpen}>Export ▾</button>
@@ -157,6 +189,7 @@
     <ul class="model-list">
       {#each data.recipe.models as m (`${m.hf_model_id}::${m.file_path}`)}
         {@const ext = getFormat(m.file_path)}
+        {@const ck = checkStatuses[`${m.hf_model_id}::${m.file_path}`] ?? 'idle'}
         <li class="model-item">
           <div class="model-item-left">
             <div class="model-item-top">
@@ -174,6 +207,19 @@
               {/if}
             </div>
           </div>
+          {#if ck !== 'idle'}
+            <span class="check-icon check-{ck}" title={ck === 'ok' ? 'File reachable' : ck === 'not-found' ? '404 Not Found' : ck === 'checking' ? 'Checking…' : 'Request error'}>
+              {#if ck === 'checking'}
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" class="spin"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+              {:else if ck === 'ok'}
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+              {:else if ck === 'not-found'}
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              {:else}
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              {/if}
+            </span>
+          {/if}
         </li>
       {/each}
     </ul>
@@ -301,6 +347,51 @@
     border-color: var(--color-error);
     color: var(--color-text-on-primary);
   }
+
+  .btn-check {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-family: var(--font-ui);
+    font-size: var(--text-base);
+    font-weight: 500;
+    padding: var(--space-1) var(--space-3);
+    border-radius: var(--radius-base);
+    border: 1px solid var(--color-border);
+    background: none;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: border-color var(--transition-base), color var(--transition-base);
+  }
+
+  .btn-check:hover:not(:disabled) {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+  }
+
+  .btn-check:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .check-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+  }
+
+  .check-checking { color: var(--color-text-muted); }
+  .check-ok { color: var(--color-success); }
+  .check-not-found { color: var(--color-error); }
+  .check-error { color: var(--color-warning, #f59e0b); }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spin { animation: spin 0.8s linear infinite; }
 
   .export-wrap {
     position: relative;

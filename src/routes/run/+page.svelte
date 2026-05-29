@@ -754,9 +754,6 @@
     </section>
   {/if}
 
-  <footer class="page-footer">
-    <p class="footer-note">WebNN requires <code>#enable-experimental-webassembly-features</code> (JSPI Required) in <code>chrome://flags</code></p>
-  </footer>
 </div>
 
 <style>
@@ -975,27 +972,6 @@
 
   .btn-share-delete:hover {
     background: rgba(229, 62, 62, 0.06);
-  }
-
-  .page-footer {
-    margin-top: var(--space-6);
-    padding-top: var(--space-3);
-    border-top: 1px solid var(--color-border);
-    text-align: center;
-  }
-
-  .footer-note {
-    font-size: var(--text-xs);
-    color: var(--color-text-muted);
-    margin: 0;
-  }
-
-  .footer-note code {
-    font-family: var(--font-mono);
-    font-size: 11px;
-    padding: 1px 4px;
-    border-radius: var(--radius-sm);
-    background: var(--color-surface-sunken);
   }
 
   .status-section {

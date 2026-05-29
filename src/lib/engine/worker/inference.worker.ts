@@ -16,6 +16,9 @@ export type WorkerResponse =
   | { type: 'status'; id: string; status: string }
   | { type: 'result'; id: string; result: TestResult };
 
+let litertLoaded = false;
+let litertMode: string | null = null;
+
 const HF_MAIN = 'https://huggingface.co';
 const HF_MIRROR = 'https://hf-mirror.com';
 const HF_TEST_PATH = '/webml/models-moved/resolve/main/01.onnx';
@@ -61,7 +64,7 @@ function getOrtCdnUrl(version: string): string {
 
 
 function getLiteRtCdnUrl(version: string): string {
-  return `https://cdn.jsdelivr.net/npm/@litertjs/core@${version}/dist/litert.mjs`;
+  return `https://esm.sh/@litertjs/core@${version}`;
 }
 
 function getOrtExecutionProvider(backend: Backend): any {
@@ -278,21 +281,39 @@ async function runLiteRt(req: WorkerRequest, modelBuffer: ArrayBuffer): Promise<
   const needsThreads = backend === 'wasm_n';
 
   if (litert.loadLiteRt) {
-    const wasmRoot = `https://cdn.jsdelivr.net/npm/@litertjs/core@${runtimeVersion}/dist/wasm`;
-    if (needsJspi) {
-      log(id, `Loading LiteRT WASM with JSPI for ${backend}...`);
-      await litert.loadLiteRt(wasmRoot, { jspi: true });
-    } else if (needsThreads) {
-      log(id, `Loading LiteRT WASM with threads...`);
+    const wasmRoot = `https://cdn.jsdelivr.net/npm/@litertjs/core@${runtimeVersion}/wasm`;
+    const requiredMode = needsJspi ? 'jspi' : (needsThreads ? 'threaded' : 'standard');
+
+    if (litertLoaded && litertMode !== requiredMode) {
+      log(id, `Switching LiteRT WASM mode from ${litertMode} to ${requiredMode}, unloading...`);
+      try { litert.unloadLiteRt(); } catch {}
+      litertLoaded = false;
+    }
+
+    if (!litertLoaded) {
+      log(id, `Loading LiteRT WASM (${requiredMode})...`);
+      // Inject locateFile so emscripten fetches .wasm from jsdelivr, not the worker origin.
+      (globalThis as any).Module = {
+        locateFile: (path: string) => `${wasmRoot}/${path}`,
+      };
       try {
-        await litert.loadLiteRt(wasmRoot, { threads: true });
-      } catch {
-        log(id, `Threads unavailable, falling back to single-threaded...`);
-        await litert.loadLiteRt(wasmRoot, { threads: false });
+        if (needsJspi) {
+          await litert.loadLiteRt(wasmRoot, { jspi: true });
+        } else if (needsThreads) {
+          try {
+            await litert.loadLiteRt(wasmRoot, { threads: true });
+          } catch {
+            log(id, `Threads unavailable, falling back to single-threaded...`);
+            await litert.loadLiteRt(wasmRoot, { threads: false });
+          }
+        } else {
+          await litert.loadLiteRt(wasmRoot, { threads: false });
+        }
+        litertLoaded = true;
+        litertMode = requiredMode;
+      } finally {
+        (globalThis as any).Module = undefined;
       }
-    } else {
-      log(id, `Loading LiteRT WASM (standard)...`);
-      await litert.loadLiteRt(wasmRoot, { threads: false });
     }
   }
 

@@ -1,6 +1,7 @@
 <script lang="ts">
   import '../app.css';
   import { onMount } from 'svelte';
+  import { browser } from '$app/environment';
   import { page } from '$app/stores';
   import { initTheme, toggleTheme, theme } from '$lib/stores/theme';
   import { auth, isAuthenticated } from '$lib/stores/auth';
@@ -13,12 +14,22 @@
 
   let { data, children } = $props();
   let gravatarFailed = $state(false);
+  let isCrossOriginIsolated = $state(false);
+  let isJspiSupported = $state(false);
+  let isWebnnAvailable = $state(false);
 
   const supabase = createClient();
 
   onMount(() => {
     initTheme();
     cart.init();
+
+    if (browser) {
+      isCrossOriginIsolated = window.crossOriginIsolated ?? false;
+      isJspiSupported = typeof (WebAssembly as any).Suspending === 'function' ||
+                        typeof (WebAssembly as any).SuspendablePromise === 'function';
+      isWebnnAvailable = typeof (navigator as any).ml !== 'undefined';
+    }
 
     const role: Role = data.session?.user?.app_metadata?.role ?? 'anonymous';
     auth.set({
@@ -302,7 +313,40 @@
 
 
 <footer class="site-footer">
-  <span>&copy; {new Date().getFullYear()} Web AI Benchmark</span>
+  <span class="footer-copy">&copy; {new Date().getFullYear()} Web AI Benchmark</span>
+  <span class="footer-sep">·</span>
+  <div class="footer-caps">
+    <span class="footer-cap" class:cap-ok={isWebnnAvailable} class:cap-warn={!isWebnnAvailable}
+      title="WebNN API availability - navigator.ml must be defined">
+      {#if isWebnnAvailable}
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960"><path d="M420-340h120v-100h100v-120H540v-100H420v100H320v120h100v100Zm60 260q-139-35-229.5-159.5T160-516v-244l320-120 320 120v244q0 152-90.5 276.5T480-80Zm0-84q104-33 172-132t68-220v-189l-240-90-240 90v189q0 121 68 220t172 132Zm0-316Z"/></svg>
+        WebNN Available
+      {:else}
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960"><path d="M480-280q17 0 28.5-11.5T520-320q0-17-11.5-28.5T480-360q-17 0-28.5 11.5T440-320q0 17 11.5 28.5T480-280Zm-40-160h80v-240h-80v240ZM330-120 120-330v-300l210-210h300l210 210v300L630-120H330Zm34-80h232l164-164v-232L596-760H364L200-596v232l164 164Zm116-280Z"/></svg>
+        WebNN Unavailable
+      {/if}
+    </span>
+    <span class="footer-cap" class:cap-ok={isCrossOriginIsolated} class:cap-warn={!isCrossOriginIsolated}
+      title="Cross Origin Isolated enables SharedArrayBuffer for multi-thread testing (COOP + COEP headers required)">
+      {#if isCrossOriginIsolated}
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960"><path d="M420-340h120v-100h100v-120H540v-100H420v100H320v120h100v100Zm60 260q-139-35-229.5-159.5T160-516v-244l320-120 320 120v244q0 152-90.5 276.5T480-80Zm0-84q104-33 172-132t68-220v-189l-240-90-240 90v189q0 121 68 220t172 132Zm0-316Z"/></svg>
+        Cross Origin Isolated
+      {:else}
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960"><path d="M480-280q17 0 28.5-11.5T520-320q0-17-11.5-28.5T480-360q-17 0-28.5 11.5T440-320q0 17 11.5 28.5T480-280Zm-40-160h80v-240h-80v240ZM330-120 120-330v-300l210-210h300l210 210v300L630-120H330Zm34-80h232l164-164v-232L596-760H364L200-596v232l164 164Zm116-280Z"/></svg>
+        Cross Origin Not Isolated
+      {/if}
+    </span>
+    <span class="footer-cap" class:cap-ok={isJspiSupported} class:cap-warn={!isJspiSupported}
+      title="JSPI (WebAssembly Promise Integration) is required for WebNN and WebGPU with LiteRT.js. Enable #enable-experimental-webassembly-features in chrome://flags">
+      {#if isJspiSupported}
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960"><path d="M420-340h120v-100h100v-120H540v-100H420v100H320v120h100v100Zm60 260q-139-35-229.5-159.5T160-516v-244l320-120 320 120v244q0 152-90.5 276.5T480-80Zm0-84q104-33 172-132t68-220v-189l-240-90-240 90v189q0 121 68 220t172 132Zm0-316Z"/></svg>
+        JSPI Enabled
+      {:else}
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960"><path d="M480-280q17 0 28.5-11.5T520-320q0-17-11.5-28.5T480-360q-17 0-28.5 11.5T440-320q0 17 11.5 28.5T480-280Zm-40-160h80v-240h-80v240ZM330-120 120-330v-300l210-210h300l210 210v300L630-120H330Zm34-80h232l164-164v-232L596-760H364L200-596v232l164 164Zm116-280Z"/></svg>
+        JSPI Disabled
+      {/if}
+    </span>
+  </div>
 </footer>
 
 <style>
@@ -639,11 +683,52 @@
 
   .site-footer {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: center;
     gap: var(--space-2);
-    padding: var(--space-2) var(--space-2) var(--space-6) var(--space-2);
+    padding: var(--space-2) var(--space-3) var(--space-6) var(--space-3);
     font-size: var(--text-xs);
+    color: var(--color-text-muted);
+  }
+
+  .footer-copy {
+    flex-shrink: 0;
+  }
+
+  .footer-sep {
+    color: var(--color-border-strong);
+    user-select: none;
+  }
+
+  .footer-caps {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+  }
+
+  .footer-cap {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: var(--text-xs);
+    font-family: var(--font-ui);
+    cursor: default;
+  }
+
+  .footer-cap svg {
+    width: 13px;
+    height: 13px;
+    flex-shrink: 0;
+    fill: currentColor;
+  }
+
+  .cap-ok {
+    color: var(--color-primary);
+  }
+
+  .cap-warn {
     color: var(--color-text-muted);
   }
 </style>
