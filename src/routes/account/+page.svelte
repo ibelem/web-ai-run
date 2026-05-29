@@ -8,22 +8,22 @@
 
   let { data, form } = $props<{ data: any; form: any }>();
 
+  // svelte-ignore state_referenced_locally
   let sharedConfigs = $state([...data.sharedConfigs]);
   let saving = $state(false);
 
   const supabase = createClient();
 
   // True if user signed in via OAuth (has a provider-managed avatar)
-  const hasOAuthPhoto = !!(
-    data.session?.user?.user_metadata?.avatar_url ||
-    data.session?.user?.user_metadata?.picture
-  );
+  // svelte-ignore state_referenced_locally
+  const hasOAuthPhoto = !!(data.session?.user?.user_metadata?.avatar_url || data.session?.user?.user_metadata?.picture);
 
+  // svelte-ignore state_referenced_locally
   let uploadedAvatarUrl = $state<string | null>(!hasOAuthPhoto ? (data.profile?.avatar_url ?? null) : null);
   let avatarUploading = $state(false);
   let avatarError = $state('');
   let gravatarFailedAccount = $state(false);
-  let fileInput: HTMLInputElement;
+  let fileInput = $state<HTMLInputElement>(undefined!);
 
   async function handleAvatarFile(e: Event) {
     const file = (e.target as HTMLInputElement).files?.[0];

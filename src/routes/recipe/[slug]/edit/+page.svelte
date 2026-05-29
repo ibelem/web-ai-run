@@ -10,7 +10,9 @@
 
   let { data } = $props();
 
+  // svelte-ignore state_referenced_locally
   let recipeName = $state(data.recipe.name);
+  // svelte-ignore state_referenced_locally
   let visibility = $state<'personal' | 'public'>(data.recipe.visibility);
   let saving = $state(false);
   let errorMessage = $state('');
@@ -41,11 +43,14 @@
   }
 
   // Current models in the recipe
+  // svelte-ignore state_referenced_locally
   let recipeModels = $state<RecipeModel[]>([...data.recipe.models]);
 
   type LinkRow = { label: string; url: string };
 
+  // svelte-ignore state_referenced_locally
   let description = $state((data.recipe as any).description ?? '');
+  // svelte-ignore state_referenced_locally
   let links = $state<LinkRow[]>(
     (data.recipe as any).links?.length
       ? (data.recipe as any).links.map((l: any) => ({ label: l.label ?? '', url: l.url }))

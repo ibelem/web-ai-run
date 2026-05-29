@@ -219,22 +219,6 @@
     color: var(--color-text-on-primary);
   }
 
-  .error-row td {
-    padding: 2px 8px 4px;
-    border-bottom: none;
-    font-size: 11px;
-  }
-
-  .error-msg {
-    color: var(--color-error);
-    word-break: break-word;
-  }
-
-  .error-suggestion {
-    color: var(--color-text-secondary);
-    font-weight: 500;
-    margin-left: var(--space-1);
-  }
 
   @keyframes spin { to { transform: rotate(360deg); } }
   .spin { animation: spin 0.8s linear infinite; }

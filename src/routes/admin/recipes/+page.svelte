@@ -3,6 +3,7 @@
 
   let { data, form } = $props<{ data: any; form: any }>();
 
+  // svelte-ignore state_referenced_locally
   let featuredList = $state([...data.recipes.filter((r: any) => r.featured)]
     .sort((a: any, b: any) => {
       const ao = a.featured_order ?? Infinity;
@@ -12,6 +13,7 @@
     })
   );
 
+  // svelte-ignore state_referenced_locally
   let unfeaturedList = $state([...data.recipes.filter((r: any) => !r.featured)]);
 
   let communitySearch = $state('');

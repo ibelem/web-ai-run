@@ -719,16 +719,6 @@
     cursor: not-allowed;
   }
 
-  .tag {
-    font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: 600;
-    padding: 1px 5px;
-    border-radius: var(--radius-sm);
-    border: 1px solid var(--color-border);
-    line-height: 1.4;
-    flex-shrink: 0;
-  }
 
   /* dtype-chip and size-chip use global styles from app.css */
 </style>

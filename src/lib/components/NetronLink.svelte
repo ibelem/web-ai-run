@@ -5,7 +5,7 @@
     size?: number;
   }
   let { hfModelId, filePath, size = 15 }: Props = $props();
-  const href = `https://ibelem.github.io/netron/?url=https://huggingface.co/${hfModelId}/resolve/main/${filePath}`;
+  const href = $derived(`https://ibelem.github.io/netron/?url=https://huggingface.co/${hfModelId}/resolve/main/${filePath}`);
 </script>
 
 <a

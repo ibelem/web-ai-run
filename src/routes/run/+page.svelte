@@ -1539,9 +1539,7 @@
     min-width: 0;
   }
 
-  /* dtype-chip and size-chip use global styles from app.css */
-  .dtype-chip,
-  .size-chip {
+  .dtype-chip {
     margin-left: auto;
   }
 

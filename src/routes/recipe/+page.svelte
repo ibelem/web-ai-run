@@ -4,6 +4,7 @@
 
   let { data } = $props();
 
+  // svelte-ignore state_referenced_locally
   let recipes = $state<Recipe[]>(data.recipes);
   $effect(() => { recipes = data.recipes; });
 

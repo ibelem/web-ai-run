@@ -15,6 +15,7 @@
 
   let { data } = $props<{ data: { initialSearch: string } }>();
 
+  // svelte-ignore state_referenced_locally
   let searchQuery = $state(data.initialSearch);
   let selectedFormats = $state<Set<string>>(new Set());
   let selectedOrgs = $state<Set<string>>(new Set());

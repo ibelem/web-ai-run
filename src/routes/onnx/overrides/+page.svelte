@@ -534,10 +534,6 @@
     display: none;
   }
 
-  .col-status {
-    width: 50px;
-    text-align: center;
-  }
 
   .btn-check {
     display: inline-flex;
@@ -653,13 +649,6 @@
       padding-top: 6px;
     }
 
-    .col-status {
-      flex: 0 0 auto;
-      width: auto;
-      padding-top: 6px;
-      padding-right: 8px;
-      text-align: left;
-    }
 
     .col-actions {
       flex: 0 0 auto;

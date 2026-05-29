@@ -54,6 +54,7 @@
   // Submit state
   let submitting = $state(false);
   let mergeResult = $state('');
+  // svelte-ignore state_referenced_locally
   let formError = $state(form?.error ?? '');
 
   // Derived: a model row is invalid if any required field is missing
