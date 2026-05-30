@@ -31,7 +31,6 @@
   import NetronLink from "$lib/components/NetronLink.svelte";
   import RunConfigCmp from "$lib/components/RunConfig.svelte";
   import ProgressBar from "$lib/components/ProgressBar.svelte";
-  import TestQueue from "$lib/components/TestQueue.svelte";
   import BenchmarkResults from "$lib/components/BenchmarkResults.svelte";
 
   interface ModelEntry {
@@ -752,13 +751,11 @@
     </section>
   {/if}
 
-  {#if queue.length > 0 || runLogs.length > 0}
+  {#if queue.length > 0 || results.length > 0}
     <div class="queue-logs-grid">
-      {#if queue.length > 0}
-        <section class="queue-section">
-          <TestQueue {queue} {isRunning} onretry={retryItem} />
-        </section>
-      {/if}
+      <section class="results-section">
+        <BenchmarkResults {results} backends={selectedBackends} {queue} {isRunning} onretry={retryItem} />
+      </section>
       {#if runLogs.length > 0}
         <section class="logs-section">
           <h3 class="logs-title">Logs ({runLogs.length})</h3>
@@ -770,12 +767,6 @@
         </section>
       {/if}
     </div>
-  {/if}
-
-  {#if results.length > 0}
-    <section class="results-section">
-      <BenchmarkResults {results} backends={selectedBackends} />
-    </section>
   {/if}
 
   {#if !isRunning}
@@ -1343,13 +1334,9 @@
     align-items: start;
   }
 
-  .queue-section,
+  .results-section,
   .logs-section {
     min-width: 0;
-  }
-
-  .results-section {
-    margin-bottom: var(--space-3);
   }
 
   @media (max-width: 768px) {

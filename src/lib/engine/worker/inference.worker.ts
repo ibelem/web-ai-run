@@ -366,36 +366,31 @@ async function runLiteRt(req: WorkerRequest, modelBuffer: ArrayBuffer): Promise<
 
     if (!litertLoaded) {
       log(id, `Loading LiteRT WASM (${requiredMode})...`);
-      (globalThis as any).Module = {
+      // Emscripten in a worker resolves .wasm and pthread worker JS relative to
+      // self.location.href (our inference worker URL, not the CDN).
+      // - locateFile: redirects .wasm binary fetches to the CDN
+      // - mainScriptUrlOrBlob: redirects pthread sub-worker spawning to the CDN
+      //   threaded JS file (otherwise pthreads load our inference worker as their
+      //   host script and hang waiting for an em-pthread init that never arrives)
+      const moduleOverrides: Record<string, any> = {
         locateFile: (path: string) => `${wasmRoot}/${path}`,
       };
+      if (needsThreads) {
+        // Workers can't be spawned from a cross-origin URL even if it's CORS-accessible.
+        // Fetch the threaded JS as text and create a same-origin blob URL for pthreads.
+        const threadedJsUrl = `${wasmRoot}/litert_wasm_threaded_internal.js`;
+        const resp = await fetch(threadedJsUrl);
+        const text = await resp.text();
+        moduleOverrides['mainScriptUrlOrBlob'] = URL.createObjectURL(
+          new Blob([text], { type: 'application/javascript' })
+        );
+      }
+      (globalThis as any).Module = moduleOverrides;
       try {
         if (needsJspi) {
           await litert.loadLiteRt(wasmRoot, { jspi: true });
         } else if (needsThreads) {
-          try {
-            await Promise.race([
-              litert.loadLiteRt(wasmRoot, { threads: true }),
-              new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000)),
-            ]);
-          } catch (e: any) {
-            if (e?.message?.includes('already load')) {
-              litertLoaded = true;
-              litertMode = requiredMode;
-            } else {
-              log(id, `Threads unavailable, falling back to single-threaded...`);
-              try {
-                await litert.loadLiteRt(wasmRoot, { threads: false });
-              } catch (e2: any) {
-                if (e2?.message?.includes('already load')) {
-                  litertLoaded = true;
-                  litertMode = 'standard';
-                } else {
-                  throw e2;
-                }
-              }
-            }
-          }
+          await litert.loadLiteRt(wasmRoot, { threads: true });
         } else {
           await litert.loadLiteRt(wasmRoot, { threads: false });
         }

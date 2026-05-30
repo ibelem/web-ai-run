@@ -14,12 +14,10 @@
 
   const supabase = createClient();
 
-  // True if user signed in via OAuth (has a provider-managed avatar)
-  // svelte-ignore state_referenced_locally
-  const hasOAuthPhoto = !!(data.session?.user?.user_metadata?.avatar_url || data.session?.user?.user_metadata?.picture);
+  const oauthAvatarUrl = data.session?.user?.user_metadata?.avatar_url ?? data.session?.user?.user_metadata?.picture ?? null;
 
   // svelte-ignore state_referenced_locally
-  let uploadedAvatarUrl = $state<string | null>(!hasOAuthPhoto ? (data.profile?.avatar_url ?? null) : null);
+  let uploadedAvatarUrl = $state<string | null>(data.profile?.avatar_url ?? null);
   let avatarUploading = $state(false);
   let avatarError = $state('');
   let gravatarFailedAccount = $state(false);
@@ -305,16 +303,15 @@
             <div class="avatar-upload-area">
               <button
                 class="avatar-button"
-                onclick={() => !hasOAuthPhoto && fileInput?.click()}
-                aria-label={hasOAuthPhoto ? 'Avatar' : 'Click to upload photo'}
-                disabled={avatarUploading || hasOAuthPhoto}
+                onclick={() => fileInput?.click()}
+                aria-label="Click to upload photo"
+                disabled={avatarUploading}
                 type="button"
               >
                 {#if uploadedAvatarUrl}
                   <img src={uploadedAvatarUrl} alt="Avatar" class="avatar" loading="lazy" crossorigin="anonymous" />
-                {:else if hasOAuthPhoto}
-                  {@const oauthAvatar = data.session?.user?.user_metadata?.avatar_url ?? data.session?.user?.user_metadata?.picture}
-                  <img src={oauthAvatar} alt="Avatar" class="avatar" loading="lazy" crossorigin="anonymous" />
+                {:else if oauthAvatarUrl}
+                  <img src={oauthAvatarUrl} alt="Avatar" class="avatar" loading="lazy" crossorigin="anonymous" />
                 {:else if data.profile.email && !gravatarFailedAccount}
                   <img
                     src={gravatarUrl(data.profile.email, 256)}
@@ -332,37 +329,35 @@
                 {/if}
               </button>
 
-              {#if !hasOAuthPhoto}
-                <input
-                  bind:this={fileInput}
-                  type="file"
-                  accept="image/*"
-                  class="avatar-file-input"
-                  onchange={handleAvatarFile}
-                />
-                <div class="avatar-actions">
+              <input
+                bind:this={fileInput}
+                type="file"
+                accept="image/*"
+                class="avatar-file-input"
+                onchange={handleAvatarFile}
+              />
+              <div class="avatar-actions">
+                <button
+                  type="button"
+                  class="btn-sm"
+                  onclick={() => fileInput?.click()}
+                  disabled={avatarUploading}
+                >
+                  {uploadedAvatarUrl ? 'Change photo' : 'Upload photo'}
+                </button>
+                {#if uploadedAvatarUrl}
                   <button
                     type="button"
-                    class="btn-sm"
-                    onclick={() => fileInput?.click()}
+                    class="btn-sm btn-sm-danger"
+                    onclick={removeAvatar}
                     disabled={avatarUploading}
                   >
-                    {uploadedAvatarUrl ? 'Change photo' : 'Upload photo'}
+                    Remove
                   </button>
-                  {#if uploadedAvatarUrl}
-                    <button
-                      type="button"
-                      class="btn-sm btn-sm-danger"
-                      onclick={removeAvatar}
-                      disabled={avatarUploading}
-                    >
-                      Remove
-                    </button>
-                  {/if}
-                </div>
-                {#if avatarError}
-                  <p class="avatar-error">{avatarError}</p>
                 {/if}
+              </div>
+              {#if avatarError}
+                <p class="avatar-error">{avatarError}</p>
               {/if}
             </div>
 

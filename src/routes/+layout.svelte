@@ -11,8 +11,10 @@
   import { createClient } from '$lib/supabase/client';
   import type { Role } from '$lib/types/roles';
   import { gravatarUrl } from '$lib/utils/gravatar';
+  import { clearModelCache } from '$lib/engine/model-cache';
 
   let { data, children } = $props();
+  let cacheClearState = $state<'idle' | 'done'>('idle');
   let gravatarFailed = $state(false);
   let isCrossOriginIsolated = $state(false);
   let isJspiSupported = $state(false);
@@ -223,17 +225,17 @@
           onclick={() => showUserMenu = !showUserMenu}
           aria-expanded={showUserMenu}
         >
-          {#if data.session?.user?.user_metadata?.avatar_url || data.session?.user?.user_metadata?.picture}
+          {#if data.profileAvatarUrl}
             <img
-              src={data.session.user.user_metadata.avatar_url ?? data.session.user.user_metadata.picture}
+              src={data.profileAvatarUrl}
               alt="Avatar"
               class="nav-avatar"
               loading="lazy"
               crossorigin="anonymous"
             />
-          {:else if data.profileAvatarUrl}
+          {:else if data.session?.user?.user_metadata?.avatar_url || data.session?.user?.user_metadata?.picture}
             <img
-              src={data.profileAvatarUrl}
+              src={data.session.user.user_metadata.avatar_url ?? data.session.user.user_metadata.picture}
               alt="Avatar"
               class="nav-avatar"
               loading="lazy"
@@ -353,6 +355,23 @@
         JSPI Disabled
       {/if}
     </span>
+    <button
+      class="footer-cap footer-clear-cache"
+      title="Clear locally cached model files (OPFS / Cache API). Models will re-download on the next run."
+      onclick={async () => {
+        await clearModelCache();
+        cacheClearState = 'done';
+        setTimeout(() => { cacheClearState = 'idle'; }, 2000);
+      }}
+    >
+      {#if cacheClearState === 'done'}
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960"><path d="M382-240 154-468l57-57 171 171 367-367 57 57-424 424Z"/></svg>
+        Cache Cleared
+      {:else}
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960"><path d="M280-120q-33 0-56.5-23.5T200-200v-520h-40v-80h200v-40h240v40h200v80h-40v520q0 33-23.5 56.5T680-120H280Zm400-600H280v520h400v-520ZM360-280h80v-360h-80v360Zm160 0h80v-360h-80v360ZM280-720v520-520Z"/></svg>
+        Clear Model Cache
+      {/if}
+    </button>
   </div>
 </footer>
 
@@ -747,5 +766,18 @@
 
   .cap-warn {
     color: var(--color-text-muted);
+  }
+
+  .footer-clear-cache {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    color: var(--color-text-muted);
+    transition: color var(--transition-base);
+  }
+
+  .footer-clear-cache:hover {
+    color: var(--color-text-secondary);
   }
 </style>
