@@ -45,6 +45,7 @@ export class ResultsWriter {
       gpu_driver_version: this.gpuDriverVersion || null,
       npu_driver_version: this.npuDriverVersion || null,
       iterations,
+      started_at: new Date().toISOString(),
     };
 
     const { data, error } = await (this.supabase

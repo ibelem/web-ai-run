@@ -210,7 +210,8 @@
         <table class="results-table">
           <thead>
             <tr>
-              <th>Model</th>
+              <th>HuggingFace ID</th>
+              <th>Model Path</th>
               <th>Backend</th>
               <th>Data Type</th>
               {#if showAllColumns}
@@ -245,9 +246,8 @@
           <tbody>
             {#each sortedResults as result}
               <tr>
-                <td class="cell-model" title={result.model_id}>
-                  {modelName(result.model_id)}
-                </td>
+                <td class="cell-model" title={result.model_id}>{result.model_id}</td>
+                <td class="cell-path" title={result.file_path}>{result.file_path}</td>
                 <td><span class="badge">{getBackendLabel(result.backend)}</span></td>
                 <td><span class="badge">{result.data_type}</span></td>
                 {#if showAllColumns}
@@ -322,7 +322,7 @@
   }
 
   .results-table th {
-    text-align: left;
+    text-align: center;
     padding: var(--space-1) var(--space-1);
     border-bottom: 1px solid var(--color-border-strong);
     color: var(--color-text-muted);
@@ -347,24 +347,31 @@
     border-bottom: 1px solid var(--color-border);
     color: var(--color-text-primary);
     white-space: nowrap;
+    text-align: center;
   }
 
   .results-table tbody tr:hover {
     background: var(--color-nav-item-hover);
   }
 
-  .cell-model {
+  .cell-model,
+  .cell-path {
     font-family: var(--font-mono);
     font-size: var(--text-sm);
-    max-width: 200px;
+    max-width: 10vw;
+    width: 10vw;
     overflow: hidden;
     text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .cell-path {
+    color: var(--color-text-muted);
   }
 
   .cell-metric {
     font-family: var(--font-mono);
     font-size: var(--text-sm);
-    text-align: right;
   }
 
   .cell-info {

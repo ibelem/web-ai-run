@@ -56,7 +56,7 @@
 
   function formatDuration(startedAt: string, completedAt: string | null): string {
     if (!completedAt) return 'running...';
-    const ms = new Date(completedAt).getTime() - new Date(startedAt).getTime();
+    const ms = Math.max(0, new Date(completedAt).getTime() - new Date(startedAt).getTime());
     if (ms < 1000) return `${ms}ms`;
     return `${(ms / 1000).toFixed(1)}s`;
   }
@@ -186,12 +186,11 @@
               <table class="results-table">
                 <thead>
                   <tr>
-                    <th>Model</th>
+                    <th>HuggingFace ID</th>
+                    <th>Model Path</th>
                     <th>Data Type</th>
                     <th>Status</th>
                     <th>Avg (ms)</th>
-                    <th>p90 (ms)</th>
-                    <th>Throughput</th>
                     <th>Duration</th>
                     <th></th>
                   </tr>
@@ -199,14 +198,11 @@
                 <tbody>
                   {#each group.rows as result (result.id)}
                     <tr>
-                      <td class="cell-model" title={result.model_id}>
-                        {result.model_id.split('/').pop() ?? result.model_id}
-                      </td>
+                      <td class="cell-model" title={result.model_id}>{result.model_id}</td>
+                      <td class="cell-path" title={result.file_path}>{result.file_path}</td>
                       <td><span class="badge badge-dtype">{result.data_type}</span></td>
-                      <td><span class="status-dot {statusClass(result.status)}"></span> {result.status}</td>
+                      <td><span class="status-dot {statusClass(result.status)}" title={result.status}></span></td>
                       <td class="cell-metric">{result.average_ms?.toFixed(1) ?? '—'}</td>
-                      <td class="cell-metric">{result.p90_ms?.toFixed(1) ?? '—'}</td>
-                      <td class="cell-metric">{result.throughput_fps ? `${result.throughput_fps.toFixed(1)} fps` : '—'}</td>
                       <td class="cell-duration">{formatDuration(result.started_at, result.completed_at)}</td>
                       <td class="cell-action">
                         <a class="run-again-link" href={runAgainHref(result)} title="Run again">↺</a>
@@ -388,7 +384,7 @@
   }
 
   .results-table th {
-    text-align: left;
+    text-align: center;
     padding: var(--space-1) var(--space-1);
     border-bottom: 1px solid var(--color-border-strong);
     color: var(--color-text-muted);
@@ -404,6 +400,7 @@
     border-bottom: 1px solid var(--color-border);
     color: var(--color-text-primary);
     white-space: nowrap;
+    text-align: center;
   }
 
   .results-table tbody tr:last-child td {
@@ -414,18 +411,24 @@
     background: var(--color-nav-item-hover);
   }
 
-  .cell-model {
+  .cell-model,
+  .cell-path {
     font-family: var(--font-mono);
     font-size: var(--text-sm);
-    max-width: 200px;
+    max-width: 10vw;
+    width: 10vw;
     overflow: hidden;
     text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .cell-path {
+    color: var(--color-text-muted);
   }
 
   .cell-metric {
     font-family: var(--font-mono);
     font-size: var(--text-sm);
-    text-align: right;
   }
 
   .cell-duration {

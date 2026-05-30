@@ -504,6 +504,8 @@
     border-collapse: collapse;
     font-size: var(--text-xs);
     font-family: var(--font-mono);
+    border-left: 1px solid var(--color-border);
+    border-right: 1px solid var(--color-border);
   }
 
   .results-table th {
@@ -512,6 +514,7 @@
     font-weight: 500;
     font-size: 11px;
     color: var(--color-text-muted);
+    border-top: 1px solid var(--color-border);
     border-bottom: 1px solid var(--color-border);
     white-space: nowrap;
   }
@@ -536,10 +539,6 @@
 
   .results-table tbody tr:nth-child(even) {
     background: var(--color-surface-sunken);
-  }
-
-  .results-table tr:last-child td {
-    border-bottom: none;
   }
 
   .model-col {

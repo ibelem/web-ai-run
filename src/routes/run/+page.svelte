@@ -829,6 +829,12 @@
     </section>
   {/if}
 
+  {#if isRunning}
+    <div class="run-controls">
+      <button class="btn-stop" onclick={stopBenchmark} title="Esc">Stop <kbd class="kbd-hint">Esc</kbd></button>
+    </div>
+  {/if}
+
   </div>
 
   {#if runLogs.length > 0 && !isRunning}
@@ -1332,6 +1338,13 @@
     color: var(--color-warning);
     font-weight: 600;
     text-decoration: underline;
+  }
+
+  .run-controls {
+    display: flex;
+    justify-content: center;
+    margin-top: var(--space-2);
+    margin-bottom: var(--space-3);
   }
 
   .btn-stop {
