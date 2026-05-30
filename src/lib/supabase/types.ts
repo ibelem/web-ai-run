@@ -111,7 +111,6 @@ export interface Database {
           cpu: string;
           gpu: string;
           os: string;
-          os_version: string;
           browser: string;
           browser_version: string;
           metrics: BenchmarkMetrics | null;
@@ -131,7 +130,6 @@ export interface Database {
           cpu: string;
           gpu: string;
           os: string;
-          os_version: string;
           browser: string;
           browser_version: string;
           metrics?: BenchmarkMetrics | null;

@@ -1,4 +1,4 @@
-import type { Backend, TestResult, DownloadProgress, BenchmarkMetrics } from '../types';
+import type { Backend, TestResult, DownloadProgress, BenchmarkMetrics, WebNNCapability } from '../types';
 
 export interface WorkerRequest {
   type: 'run';
@@ -20,6 +20,129 @@ export type WorkerResponse =
 
 let litertLoaded = false;
 let litertMode: string | null = null;
+let litertLoadedVersion: string | null = null;
+
+interface CaptureState {
+  partitions: number | undefined;
+  total_nodes: number;
+  supported_nodes: number;
+  unsupported_ops: Set<string>;
+}
+
+// Global active capture pointer — toggled per-run. Console wrappers are installed
+// ONCE at module load (below) so emscripten/ORT WASM modules see them, since they
+// bind console.log refs at WASM init.
+let activeCapture: CaptureState | null = null;
+
+// Temporary debug: set to true to see all messages reaching the tap
+const TAP_DEBUG = true;
+
+function tapMessage(msg: string) {
+  if (!activeCapture) return;
+  const state = activeCapture;
+
+  if (TAP_DEBUG && (msg.includes('WebNN') || msg.includes('not delegatable') || msg.includes('Unsupported'))) {
+    // Use the original log (wrapped one would recurse) — but we lost that ref here.
+    // Stash on globalThis to bypass; this is just for debugging.
+    (globalThis as any).__webnnTapDebug?.(`[TAP] ${msg.slice(0, 300)}`);
+  }
+
+  // ONNX Runtime Web: "...number of partitions supported by WebNN: 1 number of nodes in the graph: 102 number of nodes supported by WebNN: 102"
+  const ortM = msg.match(/number of partitions supported by WebNN:\s*(\d+)[\s\S]*?number of nodes in the graph:\s*(\d+)[\s\S]*?number of nodes supported by WebNN:\s*(\d+)/i);
+  if (ortM) {
+    state.partitions = +ortM[1];
+    state.total_nodes = +ortM[2];
+    state.supported_nodes = +ortM[3];
+    if (TAP_DEBUG) (globalThis as any).__webnnTapDebug?.(`[TAP-MATCH-ORT-CAP] partitions=${ortM[1]} total=${ortM[2]} supported=${ortM[3]}`);
+    return;
+  }
+  // ONNX unsupported operator (base_op_builder.cc): "Unsupported operator: Foo" / "Unsupported op type: Foo" / "Unsupported op Foo"
+  const ortOp = msg.match(/Unsupported (?:operator|op(?:\s+type)?)\s*:?\s*(\w+)/i);
+  if (ortOp) {
+    state.unsupported_ops.add(ortOp[1]);
+    if (TAP_DEBUG) (globalThis as any).__webnnTapDebug?.(`[TAP-MATCH-ORT-OP] op=${ortOp[1]}`);
+    return;
+  }
+
+  // LiteRT.js TFLite WebNN delegate: "...number of nodes in the graph: 70, number of nodes supported by WebNN: 70..."
+  // Trailing comma may be absent depending on locale/version.
+  const litertM = msg.match(/number of nodes in the graph[:\s]+(\d+)[\s,]+number of nodes supported by WebNN[:\s]+(\d+)/i);
+  if (litertM) {
+    state.total_nodes = +litertM[1];
+    state.supported_nodes = +litertM[2];
+    if (TAP_DEBUG) (globalThis as any).__webnnTapDebug?.(`[TAP-MATCH-LITERT] total=${litertM[1]} supported=${litertM[2]}`);
+    return;
+  }
+  // LiteRT: "I0530 ... graph_builder.cc:1399] SQUARE not delegatable: INVALID_ARGUMENT: Unsupported op."
+  const litertOp = msg.match(/\b([A-Z][A-Z0-9_]+)\s+not delegatable:[\s\S]*?Unsupported op/);
+  if (litertOp) {
+    state.unsupported_ops.add(litertOp[1]);
+    return;
+  }
+}
+
+function stringifyArgs(args: any[]): string {
+  return args.map(a => {
+    if (typeof a === 'string') return a;
+    try { return JSON.stringify(a); } catch { return String(a); }
+  }).join(' ');
+}
+
+// Install global console wrappers ONCE at module load. Emscripten and ORT WASM
+// resolve `console.log`/`console.error` references during WASM module init, so
+// any swap done later (e.g. inside runOrt/runLiteRt) wouldn't be seen by them.
+{
+  const orig = {
+    log: console.log.bind(console),
+    info: console.info.bind(console),
+    warn: console.warn.bind(console),
+    error: console.error.bind(console),
+    debug: console.debug.bind(console),
+    trace: console.trace.bind(console),
+  };
+  (globalThis as any).__webnnTapDebug = (msg: string) => orig.log(msg);
+  const wrap = (fn: (...a: any[]) => void) => (...args: any[]) => {
+    if (activeCapture) {
+      try { tapMessage(stringifyArgs(args)); } catch {}
+    }
+    fn(...args);
+  };
+  console.log = wrap(orig.log);
+  console.info = wrap(orig.info);
+  console.warn = wrap(orig.warn);
+  console.error = wrap(orig.error);
+  console.debug = wrap(orig.debug);
+  console.trace = wrap(orig.trace);
+}
+
+function startWebNNCapture(): { state: CaptureState; restore: () => void } {
+  const state: CaptureState = {
+    partitions: undefined,
+    total_nodes: 0,
+    supported_nodes: 0,
+    unsupported_ops: new Set<string>(),
+  };
+  activeCapture = state;
+  return {
+    state,
+    restore: () => { if (activeCapture === state) activeCapture = null; },
+  };
+}
+
+function finalizeCapture(state: CaptureState, backend: Backend): WebNNCapability | null {
+  if (TAP_DEBUG) (globalThis as any).__webnnTapDebug?.(`[TAP-FINALIZE] backend=${backend} total=${state.total_nodes} supported=${state.supported_nodes} ops=${[...state.unsupported_ops].join(',')} partitions=${state.partitions}`);
+  if (!backend.startsWith('webnn_')) return null;
+  if (state.total_nodes === 0 && state.supported_nodes === 0 && state.unsupported_ops.size === 0 && state.partitions === undefined) {
+    return null;
+  }
+  const out: WebNNCapability = {
+    total_nodes: state.total_nodes,
+    supported_nodes: state.supported_nodes,
+    unsupported_ops: [...state.unsupported_ops].sort(),
+  };
+  if (state.partitions !== undefined) out.partitions = state.partitions;
+  return out;
+}
 
 const HF_MAIN = 'https://huggingface.co';
 const HF_MIRROR = 'https://hf-mirror.com';
@@ -252,12 +375,21 @@ async function runOrt(req: WorkerRequest, modelBuffer: ArrayBuffer): Promise<Tes
     sessionOptions.preferredOutputLocation = 'ml-tensor';
   }
 
-  if (req.freeDimensionOverrides && Object.keys(req.freeDimensionOverrides).length > 0) {
+  if (backend.startsWith('webnn_') && req.freeDimensionOverrides && Object.keys(req.freeDimensionOverrides).length > 0) {
     sessionOptions.freeDimensionOverrides = req.freeDimensionOverrides;
     log(id, `freeDimensionOverrides: ${JSON.stringify(req.freeDimensionOverrides)}`);
   }
 
-  const session = await ort.InferenceSession.create(modelBuffer, sessionOptions);
+  const captureWebnn = backend.startsWith('webnn_');
+  const cap = captureWebnn ? startWebNNCapture() : null;
+
+  let session: any;
+  try {
+    session = await ort.InferenceSession.create(modelBuffer, sessionOptions);
+  } catch (e) {
+    cap?.restore();
+    throw e;
+  }
   const compilationMs = performance.now() - compilationStart;
   log(id, `Compilation Time: ${compilationMs.toFixed(2)} ms`);
 
@@ -289,6 +421,10 @@ async function runOrt(req: WorkerRequest, modelBuffer: ArrayBuffer): Promise<Tes
     warmupTimes.push(elapsed);
     if (i === 0) firstInferenceMs = elapsed;
   }
+
+  // First warmup run is past — WebNN delegate has logged everything it will. Restore console.
+  cap?.restore();
+  const webnn_capability = cap ? finalizeCapture(cap.state, backend) : null;
   log(id, `Warmup times: [${warmupTimes.map(t => t.toFixed(2)).join(', ')}] ms`);
   log(id, `First Inference Time: ${firstInferenceMs.toFixed(2)} ms`);
   log(id, `Time to First Inference: ${(compilationMs + firstInferenceMs).toFixed(2)} ms`);
@@ -335,6 +471,7 @@ async function runOrt(req: WorkerRequest, modelBuffer: ArrayBuffer): Promise<Tes
     started_at: startedAt,
     completed_at: new Date().toISOString(),
     error_message: null,
+    webnn_capability,
   };
 }
 
@@ -357,11 +494,12 @@ async function runLiteRt(req: WorkerRequest, modelBuffer: ArrayBuffer): Promise<
     const wasmRoot = `https://cdn.jsdelivr.net/npm/@litertjs/core@${runtimeVersion}/wasm`;
     const requiredMode = needsJspi ? 'jspi' : (needsThreads ? 'threaded' : 'standard');
 
-    if (litertLoaded && litertMode !== requiredMode) {
-      log(id, `Switching LiteRT WASM mode from ${litertMode} to ${requiredMode}, unloading...`);
+    if (litertLoaded && (litertMode !== requiredMode || litertLoadedVersion !== runtimeVersion)) {
+      log(id, `Reloading LiteRT WASM (${litertLoadedVersion} → ${runtimeVersion}, ${litertMode} → ${requiredMode})...`);
       try { litert.unloadLiteRt(); } catch {}
       litertLoaded = false;
       litertMode = null;
+      litertLoadedVersion = null;
     }
 
     if (!litertLoaded) {
@@ -396,10 +534,12 @@ async function runLiteRt(req: WorkerRequest, modelBuffer: ArrayBuffer): Promise<
         }
         litertLoaded = true;
         litertMode = requiredMode;
+        litertLoadedVersion = runtimeVersion;
       } catch (e: any) {
         if (e?.message?.includes('already load')) {
           litertLoaded = true;
           litertMode = requiredMode;
+          litertLoadedVersion = runtimeVersion;
         } else {
           throw e;
         }
@@ -419,7 +559,17 @@ async function runLiteRt(req: WorkerRequest, modelBuffer: ArrayBuffer): Promise<
     const deviceType = backend.replace('webnn_', '');
     compileOpts.webNNOptions = { devicePreference: deviceType };
   }
-  const model = await litert.loadAndCompile(new Uint8Array(modelBuffer), compileOpts);
+
+  const captureWebnn = isWebNN;
+  const cap = captureWebnn ? startWebNNCapture() : null;
+
+  let model: any;
+  try {
+    model = await litert.loadAndCompile(new Uint8Array(modelBuffer), compileOpts);
+  } catch (e) {
+    cap?.restore();
+    throw e;
+  }
   const compilationMs = performance.now() - compilationStart;
   log(id, `Load+Compile Time: ${compilationMs.toFixed(2)} ms`);
 
@@ -504,6 +654,10 @@ async function runLiteRt(req: WorkerRequest, modelBuffer: ArrayBuffer): Promise<
     }
     if (!isWebGPU && Array.isArray(outputs)) outputs.forEach((t: any) => t.delete?.());
   }
+  // First warmup is past — TFLite WebNN delegate has logged everything it will. Restore console.
+  cap?.restore();
+  const webnn_capability = cap ? finalizeCapture(cap.state, backend) : null;
+
   log(id, `Warmup times: [${warmupTimes.map(t => t.toFixed(2)).join(', ')}] ms`);
   log(id, `First Inference Time: ${firstInferenceMs.toFixed(2)} ms`);
   log(id, `Time to First Inference: ${(compilationMs + firstInferenceMs).toFixed(2)} ms`);
@@ -581,6 +735,7 @@ async function runLiteRt(req: WorkerRequest, modelBuffer: ArrayBuffer): Promise<
     started_at: startedAt,
     completed_at: new Date().toISOString(),
     error_message: null,
+    webnn_capability,
   };
 }
 

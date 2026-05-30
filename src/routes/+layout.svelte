@@ -12,6 +12,7 @@
   import type { Role } from '$lib/types/roles';
   import { gravatarUrl } from '$lib/utils/gravatar';
   import { clearModelCache } from '$lib/engine/model-cache';
+  import { isRunning as isRunningStore } from '$lib/stores/benchmark';
 
   let { data, children } = $props();
   let cacheClearState = $state<'idle' | 'done'>('idle');
@@ -94,7 +95,7 @@
 </script>
 
 <a href="#main-content" class="skip-link">Skip to main content</a>
-<nav class="top-bar">
+<nav class="top-bar" class:hidden={$isRunningStore}>
   <div class="nav-left">
     <button
       class="hamburger"
@@ -321,7 +322,7 @@
 />
 
 
-<footer class="site-footer">
+<footer class="site-footer" class:hidden={$isRunningStore}>
   <span class="footer-copy">&copy; {new Date().getFullYear()} <a href="https://webai.run">Web AI Benchmark</a></span>
   <span class="footer-sep">·</span>
   <div class="footer-caps">
@@ -705,6 +706,10 @@
     main {
       padding: var(--space-2);
     }
+  }
+
+  .hidden {
+    display: none !important;
   }
 
   .site-footer {

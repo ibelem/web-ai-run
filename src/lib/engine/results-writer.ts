@@ -1,4 +1,5 @@
 import { createClient } from '$lib/supabase/client';
+import { PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY } from '$env/static/public';
 import type { TestItem, TestResult, EnvironmentInfo } from './types';
 
 export class ResultsWriter {
@@ -36,7 +37,6 @@ export class ResultsWriter {
       cpu: this.environment.cpu,
       gpu: this.environment.gpu,
       os: this.environment.os,
-      os_version: this.environment.os_version,
       browser: this.environment.browser,
       browser_version: this.environment.browser_version,
       ort_version: item.runtime === 'onnx' ? this.ortVersion : '',
@@ -53,7 +53,10 @@ export class ResultsWriter {
       .select('id')
       .single();
 
-    if (error || !data) return null;
+    if (error || !data) {
+      console.error('[ResultsWriter] createResult failed:', error?.message);
+      return null;
+    }
 
     this.resultIds.set(item.id, (data as { id: string }).id);
     return (data as { id: string }).id;
@@ -80,9 +83,13 @@ export class ResultsWriter {
       throughput_fps:     m?.throughput_fps     ?? null,
       inference_times:    result.inference_times ?? [],
       logs:               result.logs ?? [],
+      webnn_capability:   result.webnn_capability ?? null,
     };
 
-    await (this.supabase.from('results') as any).update(update).eq('id', dbId);
+    console.log('[ResultsWriter] completeResult update payload:', { dbId, webnn_capability: update.webnn_capability });
+
+    const { error } = await (this.supabase.from('results') as any).update(update).eq('id', dbId);
+    if (error) console.error('[ResultsWriter] completeResult failed:', error.message, { dbId, status: update.status });
   }
 
   async markTimeout(item: TestItem, phase: 'download' | 'compilation' | 'inference'): Promise<void> {
@@ -96,7 +103,67 @@ export class ResultsWriter {
       logs: [`[timeout] phase=${phase}`],
     };
 
-    await (this.supabase.from('results') as any).update(update).eq('id', dbId);
+    const { error } = await (this.supabase.from('results') as any).update(update).eq('id', dbId);
+    if (error) console.error('[ResultsWriter] markTimeout failed:', error.message);
+  }
+
+  async markStopped(item: TestItem): Promise<void> {
+    const dbId = this.resultIds.get(item.id);
+    if (!dbId) return;
+
+    const update = {
+      status: 'error',
+      error_message: 'Stopped by user',
+      completed_at: new Date().toISOString(),
+    };
+
+    const { error } = await (this.supabase.from('results') as any).update(update).eq('id', dbId);
+    if (error) console.error('[ResultsWriter] markStopped failed:', error.message);
+  }
+
+  private accessToken: string | null = null;
+
+  async cacheAccessToken(): Promise<void> {
+    try {
+      const { data } = await this.supabase.auth.getSession();
+      this.accessToken = data.session?.access_token ?? null;
+    } catch {
+      this.accessToken = null;
+    }
+  }
+
+  /**
+   * Best-effort sync mark for in-flight rows on tab close. Uses fetch keepalive so
+   * the request survives the unload — async fetch would be cancelled.
+   * Requires accessToken to be cached ahead of time (auth.getSession is async).
+   */
+  markCrashedSync(item: TestItem): void {
+    const dbId = this.resultIds.get(item.id);
+    if (!dbId || !this.accessToken) return;
+
+    try {
+      const url = `${PUBLIC_SUPABASE_URL}/rest/v1/results?id=eq.${dbId}`;
+      const body = JSON.stringify({
+        status: 'crashed',
+        error_message: 'Tab closed or browser crashed during run',
+        completed_at: new Date().toISOString(),
+      });
+      fetch(url, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': PUBLIC_SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${this.accessToken}`,
+          'Prefer': 'return=minimal',
+        },
+        body,
+        keepalive: true,
+      }).catch(() => {});
+    } catch {}
+  }
+
+  hasResultId(item: TestItem): boolean {
+    return this.resultIds.has(item.id);
   }
 
   getRunId(): string {

@@ -10,10 +10,10 @@
 <div class="run-config">
   <div class="config-row">
     <span class="config-label">Iterations</span>
-    <div class="iter-group">
+    <div class="segment-group">
       {#each iterationOptions as opt}
         <button
-          class="iter-btn"
+          class="segment-btn"
           class:active={iterations === opt}
           onclick={() => iterations = opt}
         >{opt}</button>
@@ -46,57 +46,55 @@
     text-transform: uppercase;
     letter-spacing: 0.06em;
     color: var(--color-text-muted);
-    white-space: nowrap;
   }
 
-  .iter-group {
-    display: grid;
-    grid-template-columns: repeat(8, 1fr);
-    gap: var(--space-half);
-  }
-
-  .iter-btn {
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    padding: var(--space-half) var(--space-1);
-    min-height: 28px;
+  .segment-group {
+    display: flex;
+    align-items: stretch;
+    width: 100%;
     border: 1px solid var(--color-border);
     border-radius: var(--radius-base);
-    background: var(--color-surface);
+    overflow: hidden;
+  }
+
+  .segment-btn {
+    flex: 1 1 0;
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    padding: 5px 4px;
+    min-height: 28px;
+    border: none;
+    border-left: 1px solid var(--color-border);
+    background: none;
     color: var(--color-text-secondary);
     cursor: pointer;
-    transition: all var(--transition-base);
     white-space: nowrap;
-    width: 100%;
     text-align: center;
+    transition: background var(--transition-base), color var(--transition-base);
   }
 
-  @media (pointer: coarse) {
-    .iter-btn { min-height: 28px; padding: var(--space-1) var(--space-3); }
+  .segment-btn:first-child {
+    border-left: none;
   }
 
-  @media (max-width: 640px) {
-    .iter-group { grid-template-columns: repeat(4, 1fr); }
+  .segment-btn:hover {
+    background: var(--color-accent-light);
+    color: var(--color-primary);
   }
 
-  @media (max-width: 360px) {
-    .iter-group { grid-template-columns: repeat(4, 1fr); }
-  }
-
-  .iter-btn:hover {
-    border-color: var(--color-border-strong);
-  }
-
-  .iter-btn.active {
+  .segment-btn.active {
     background: var(--color-primary);
     color: var(--color-text-on-primary);
-    border-color: var(--color-primary);
   }
+
+  .segment-btn.active + .segment-btn {
+    border-left-color: var(--color-primary);
+  }
+
 
   .iter-warning {
     font-size: var(--text-sm);
     color: var(--color-warning, #d97706);
     margin: 0;
   }
-
 </style>

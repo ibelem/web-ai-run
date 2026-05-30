@@ -1,6 +1,6 @@
 export type Backend = 'wasm_1' | 'wasm_n' | 'webgpu' | 'webnn_cpu' | 'webnn_gpu' | 'webnn_npu';
 
-export type TestStatus = 'pending' | 'downloading' | 'compiling' | 'running' | 'completed' | 'error';
+export type TestStatus = 'pending' | 'downloading' | 'compiling' | 'running' | 'uploading' | 'completed' | 'error';
 
 export interface TestItem {
   id: string;
@@ -26,6 +26,13 @@ export interface BenchmarkMetrics {
   throughput_fps: number;
 }
 
+export interface WebNNCapability {
+  partitions?: number;
+  total_nodes: number;
+  supported_nodes: number;
+  unsupported_ops: string[];
+}
+
 export interface TestResult {
   id: string;
   test_item: TestItem;
@@ -38,6 +45,7 @@ export interface TestResult {
   completed_at: string | null;
   error_message: string | null;
   logs?: string[];
+  webnn_capability?: WebNNCapability | null;
 }
 
 export interface DownloadProgress {
@@ -53,7 +61,6 @@ export interface EnvironmentInfo {
   gpu: string;
   gpu_vendor: string;
   os: string;
-  os_version: string;
   browser: string;
   browser_version: string;
   memory_gb: number;

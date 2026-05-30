@@ -46,6 +46,11 @@ export function invalidateOverridesCache(): void {
   } catch {}
 }
 
+export async function syncOverridesCache(): Promise<void> {
+  const entries = await fetchOverrides();
+  writeCache(entries);
+}
+
 async function fetchOverrides(): Promise<CacheEntry[]> {
   const supabase = createClient();
   const PAGE = 1000;

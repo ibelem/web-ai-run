@@ -1,7 +1,7 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
   import { invalidateAll } from '$app/navigation';
-  import { invalidateOverridesCache } from '$lib/overrides-cache';
+  import { invalidateOverridesCache, syncOverridesCache } from '$lib/overrides-cache';
 
   let { data, form } = $props<{
     data: {
@@ -17,6 +17,31 @@
     return item.updated_by === data.userId;
   }
 
+  let filterQuery = $state('');
+  const filteredOverrides = $derived(
+    filterQuery.trim()
+      ? data.overrides.filter(m =>
+          m.hf_model_id.toLowerCase().includes(filterQuery.toLowerCase()) ||
+          m.file_path.toLowerCase().includes(filterQuery.toLowerCase())
+        )
+      : data.overrides
+  );
+
+  let syncing = $state(false);
+  let syncDone = $state(false);
+
+  async function handleSync() {
+    syncing = true;
+    syncDone = false;
+    try {
+      await syncOverridesCache();
+      syncDone = true;
+      setTimeout(() => { syncDone = false; }, 2000);
+    } finally {
+      syncing = false;
+    }
+  }
+
   let editingId = $state<string | null>(null);
   let editValue = $state('');
 
@@ -27,11 +52,11 @@
   async function checkAllModels() {
     checking = true;
     const initial: Record<string, CheckStatus> = {};
-    for (const m of data.overrides) {
+    for (const m of filteredOverrides) {
       initial[m.id] = 'checking';
     }
     checkStatuses = initial;
-    await Promise.all(data.overrides.map(async (m: { id: string; hf_model_id: string; file_path: string }) => {
+    await Promise.all(filteredOverrides.map(async (m: { id: string; hf_model_id: string; file_path: string }) => {
       const url = `https://huggingface.co/${m.hf_model_id}/resolve/main/${m.file_path}`;
       try {
         const res = await fetch(url, { method: 'HEAD' });
@@ -74,6 +99,7 @@
     </div>
     <div class="page-header-actions">
       {#if data.overrides.length > 0}
+        <input class="search-input" type="search" placeholder="Filter models…" bind:value={filterQuery} />
         <button class="btn btn-check" onclick={checkAllModels} disabled={checking} title="Check if all model files are reachable on HuggingFace">
           {#if checking}
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" class="spin"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
@@ -85,6 +111,16 @@
       {/if}
       <a href="/onnx/overrides/import" class="btn btn-secondary">Import</a>
       <a href="/onnx/overrides/new" class="btn btn-primary">Add Override</a>
+      <button class="btn btn-sync" onclick={handleSync} disabled={syncing} title="Force re-fetch overrides from database into local cache">
+        {#if syncing}
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" class="spin"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+        {:else if syncDone}
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        {:else}
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        {/if}
+        {syncDone ? 'Synced!' : 'Sync Cache'}
+      </button>
     </div>
   </header>
 
@@ -115,7 +151,7 @@
           </tr>
         </thead>
         <tbody>
-          {#each pairItems(data.overrides) as [left, right]}
+          {#each pairItems(filteredOverrides) as [left, right]}
             <tr>
               <!-- Left item -->
               <td class="cell-repo">
@@ -535,6 +571,46 @@
   }
 
 
+  .search-input {
+    font-family: var(--font-ui);
+    font-size: var(--text-sm);
+    padding: 5px 10px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-base);
+    background: var(--color-surface);
+    color: var(--color-text-primary);
+    width: 200px;
+    transition: border-color var(--transition-base);
+  }
+
+  .search-input:focus-visible {
+    border-color: var(--color-focus-ring);
+    outline: none;
+  }
+
+  .btn-sync {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-weight: 500;
+    white-space: nowrap;
+    cursor: pointer;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    color: var(--color-text-secondary);
+    transition: border-color var(--transition-base), color var(--transition-base);
+  }
+
+  .btn-sync:hover:not(:disabled) {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+  }
+
+  .btn-sync:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
   .btn-check {
     display: inline-flex;
     align-items: center;
@@ -596,6 +672,13 @@
       flex-wrap: wrap;
       gap: var(--space-1);
       width: 100%;
+    }
+
+    .search-input {
+      flex: 1 1 100%;
+      width: 100%;
+      box-sizing: border-box;
+      order: -1;
     }
 
     .page-header-text p {

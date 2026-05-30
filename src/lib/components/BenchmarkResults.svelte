@@ -121,6 +121,20 @@
     })
   );
 
+  const webnnBackends = $derived(
+    BACKEND_ORDER.filter(b => b.startsWith('webnn_') && backends.includes(b))
+  );
+
+  // Rows where at least one WebNN backend has partial delegation (supported < total)
+  const partialDelegationRows = $derived.by(() => {
+    return sortedRows.filter(row =>
+      webnnBackends.some(b => {
+        const cap = row.byBackend[b]?.webnn_capability;
+        return cap && cap.supported_nodes < cap.total_nodes;
+      })
+    );
+  });
+
   const totalPages = $derived(Math.ceil(sortedRows.length / PAGE_SIZE));
   const pagedRows = $derived(
     sortedRows.length <= PAGE_SIZE
@@ -233,16 +247,38 @@
 </script>
 
 <div class="results-wrapper">
-  <div class="results-header">
+  <div class="results-header" class:hidden={isRunning}>
     <h3 class="results-title">Results ({filteredRows.length})</h3>
-    {#if modelRows.length > PAGE_SIZE}
-      <input
-        class="results-filter"
-        type="text"
-        placeholder="Filter by model..."
-        bind:value={filterQuery}
-      />
-    {/if}
+    <div class="results-header-right">
+      {#if modelRows.length > PAGE_SIZE}
+        <input
+          class="results-filter"
+          type="text"
+          placeholder="Filter by model..."
+          bind:value={filterQuery}
+        />
+      {/if}
+      {#if results.length > 0}
+        <div class="export-bar">
+          <div class="export-group">
+            <span class="export-group-icon">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            </span>
+            <button class="export-group-btn" onclick={() => copyAs('markdown')} title="Copy as Markdown" class:active={copyFeedback === 'markdown'}>MD</button>
+            <button class="export-group-btn" onclick={() => copyAs('json')} title="Copy as JSON" class:active={copyFeedback === 'json'}>JSON</button>
+            <button class="export-group-btn" onclick={() => copyAs('csv')} title="Copy as CSV" class:active={copyFeedback === 'csv'}>CSV</button>
+          </div>
+          <div class="export-group">
+            <span class="export-group-icon">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            </span>
+            <button class="export-group-btn" onclick={saveMarkdown} title="Download Markdown">MD</button>
+            <button class="export-group-btn" onclick={saveJSON} title="Download JSON">JSON</button>
+            <button class="export-group-btn" onclick={saveCSV} title="Download CSV">CSV</button>
+          </div>
+        </div>
+      {/if}
+    </div>
   </div>
 
   {#if pagedRows.length > 0}
@@ -304,6 +340,10 @@
                       <span class="status-icon status-running" title="{qi.status}">
                         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="spin"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
                       </span>
+                    {:else if qi.status === 'uploading'}
+                      <span class="status-icon status-uploading" title="Uploading to database">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="spin"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                      </span>
                     {:else if qi.status === 'error'}
                       <span class="status-icon status-error" title="{qi.error ?? 'Error'}{suggestAlternative(b) ? '\n' + suggestAlternative(b) : ''}">
                         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -323,41 +363,55 @@
       </table>
     </div>
 
-    {#if results.length > 0}
-      <div class="results-footer">
-        <div class="export-bar">
-          <button class="export-btn" onclick={() => copyAs('markdown')} title="Copy Markdown">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-            <span>{copyFeedback === 'markdown' ? 'Copied!' : 'MD'}</span>
-          </button>
-          <button class="export-btn" onclick={() => copyAs('json')} title="Copy JSON">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-            <span>{copyFeedback === 'json' ? 'Copied!' : 'JSON'}</span>
-          </button>
-          <button class="export-btn" onclick={() => copyAs('csv')} title="Copy CSV">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-            <span>{copyFeedback === 'csv' ? 'Copied!' : 'CSV'}</span>
-          </button>
-          <button class="export-btn" onclick={saveMarkdown} title="Save Markdown">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            <span>MD</span>
-          </button>
-          <button class="export-btn" onclick={saveJSON} title="Save JSON">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            <span>JSON</span>
-          </button>
-          <button class="export-btn" onclick={saveCSV} title="Save CSV">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            <span>CSV</span>
-          </button>
-        </div>
-        {#if totalPages > 1}
-          <div class="pagination">
-            <button class="page-btn" disabled={currentPage === 1} onclick={() => currentPage--}>Prev</button>
-            <span class="page-info">{currentPage}/{totalPages}</span>
-            <button class="page-btn" disabled={currentPage === totalPages} onclick={() => currentPage++}>Next</button>
-          </div>
-        {/if}
+    {#if totalPages > 1}
+      <div class="pagination">
+        <button class="page-btn" disabled={currentPage === 1} onclick={() => currentPage--}>Prev</button>
+        <span class="page-info">{currentPage}/{totalPages}</span>
+        <button class="page-btn" disabled={currentPage === totalPages} onclick={() => currentPage++}>Next</button>
+      </div>
+    {/if}
+
+    {#if partialDelegationRows.length > 0 && webnnBackends.length > 0}
+      <h4 class="capability-title">WebNN Partial Delegation ({partialDelegationRows.length})</h4>
+      <div class="results-table-wrapper">
+        <table class="results-table capability-table">
+          <thead>
+            <tr>
+              <th class="th-model" rowspan="2">HuggingFace ID</th>
+              <th class="th-file" rowspan="2">File</th>
+              {#each webnnBackends as b}
+                <th class="th-cap" colspan="4">{getBackendLabel(b)}</th>
+              {/each}
+            </tr>
+            <tr class="cap-subhead">
+              {#each webnnBackends as _b}
+                <th>Partitions</th>
+                <th>Total</th>
+                <th>Supported</th>
+                <th>Unsupported</th>
+              {/each}
+            </tr>
+          </thead>
+          <tbody>
+            {#each partialDelegationRows as row}
+              <tr>
+                <td class="model-col" title={row.hf_model_id}>{row.hf_model_id}</td>
+                <td class="file-col" title={row.file_path}>{row.file_path}</td>
+                {#each webnnBackends as b}
+                  {@const cap = row.byBackend[b]?.webnn_capability}
+                  {#if cap}
+                    <td class="cap-num cap-group-start">{cap.partitions ?? '-'}</td>
+                    <td class="cap-num">{cap.total_nodes}</td>
+                    <td class="cap-num cap-num-supported" class:cap-partial={cap.supported_nodes < cap.total_nodes}>{cap.supported_nodes}</td>
+                    <td class="cap-ops" title={cap.unsupported_ops.join(', ')}>{cap.unsupported_ops.length > 0 ? cap.unsupported_ops.join(', ') : '-'}</td>
+                  {:else}
+                    <td class="cell-na cap-group-start" colspan="4">-</td>
+                  {/if}
+                {/each}
+              </tr>
+            {/each}
+          </tbody>
+        </table>
       </div>
     {/if}
   {:else}
@@ -366,18 +420,31 @@
 </div>
 
 <style>
+  .hidden {
+    display: none !important;
+  }
+
   .results-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: var(--space-2);
     margin-bottom: var(--space-1);
+    flex-wrap: wrap;
   }
 
   .results-title {
     font-size: var(--text-sm);
     font-weight: 500;
     color: var(--color-text-secondary);
+    flex-shrink: 0;
+  }
+
+  .results-header-right {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+    flex-wrap: wrap;
   }
 
   .metric-toggles {
@@ -478,8 +545,8 @@
   .model-col {
     font-weight: 500;
     color: var(--color-text-primary);
-    width: 15%;
-    max-width: 15%;
+    width: 15vw;
+    max-width: 15vw;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -487,8 +554,8 @@
   }
 
   .file-col {
-    width: 15%;
-    max-width: 15%;
+    width: 15vw;
+    max-width: 15vw;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -515,6 +582,7 @@
   .status-pending { color: var(--color-text-muted); }
   .status-downloading { color: var(--color-text-secondary); animation: blink 1.2s ease-in-out infinite; }
   .status-running { color: var(--color-primary); }
+  .status-uploading { color: var(--color-warning, #f59e0b); }
   .status-error { color: var(--color-error); }
 
   .cell-na {
@@ -540,25 +608,55 @@
     color: var(--color-text-on-primary);
   }
 
-  .results-footer {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-2);
-    margin-top: var(--space-2);
-    flex-wrap: wrap;
-  }
-
   .export-bar {
     display: flex;
+    align-items: center;
     gap: var(--space-1);
-    flex-wrap: wrap;
+  }
+
+  .export-group {
+    display: inline-flex;
+    align-items: stretch;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-base);
+    overflow: hidden;
+  }
+
+  .export-group-icon {
+    display: flex;
+    align-items: center;
+    padding: 0 6px;
+    color: var(--color-text-muted);
+    border-right: 1px solid var(--color-border);
+  }
+
+  .export-group-btn {
+    font-family: var(--font-ui);
+    font-size: var(--text-xs);
+    font-weight: 500;
+    padding: 3px 7px;
+    border: none;
+    border-left: 1px solid var(--color-border);
+    background: none;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    transition: background var(--transition-base), color var(--transition-base);
+  }
+
+  .export-group-btn:first-of-type {
+    border-left: none;
+  }
+
+  .export-group-btn:hover, .export-group-btn.active {
+    background: var(--color-accent-light);
+    color: var(--color-primary);
   }
 
   .pagination {
     display: flex;
     align-items: center;
     gap: var(--space-1);
+    margin-top: var(--space-1);
   }
 
   .page-btn {
@@ -589,32 +687,60 @@
     color: var(--color-text-muted);
   }
 
-  .export-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    font-family: var(--font-ui);
-    font-size: var(--text-xs);
-    font-weight: 500;
-    padding: 4px 8px;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-base);
-    background: none;
-    color: var(--color-text-secondary);
-    cursor: pointer;
-    transition: border-color var(--transition-base), color var(--transition-base), background var(--transition-base);
-  }
-
-  .export-btn:hover {
-    border-color: var(--color-primary);
-    color: var(--color-primary);
-    background: var(--color-accent-light);
-  }
 
   .no-results {
     font-size: var(--text-sm);
     color: var(--color-text-muted);
     padding: var(--space-2) 0;
+  }
+
+  .capability-title {
+    font-size: var(--text-sm);
+    font-weight: 500;
+    color: var(--color-text-secondary);
+    margin: var(--space-3) 0 var(--space-1);
+  }
+
+  .capability-table th,
+  .capability-table td {
+    text-align: center;
+  }
+
+  .capability-table .th-cap,
+  .capability-table .th-file,
+  .capability-table .cap-subhead th:nth-child(4n + 1),
+  .capability-table .cap-group-start,
+  .capability-table .file-col {
+    border-left: 1px solid var(--color-border);
+  }
+
+  .capability-table .cap-subhead th {
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .cap-num {
+    font-family: var(--font-mono);
+    color: var(--color-text-primary);
+  }
+
+  .cap-num-supported.cap-partial {
+    color: var(--color-warning, #f59e0b);
+    font-weight: 600;
+  }
+
+  .cap-ops {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--color-error);
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: center;
   }
 
   @keyframes spin { to { transform: rotate(360deg); } }

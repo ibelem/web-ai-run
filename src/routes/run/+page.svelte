@@ -19,6 +19,7 @@
   import { ResultsWriter } from "$lib/engine/results-writer";
   import { runInWorker, terminateWorker } from "$lib/engine/worker/pool";
   import { auth, isAuthenticated } from "$lib/stores/auth";
+  import { isRunning as isRunningStore } from "$lib/stores/benchmark";
   import { isAtLeast } from "$lib/types/roles";
   import type { SharedRunConfig } from "$lib/supabase/types";
   import { CPU_MODELS } from "$lib/data/cpu-models";
@@ -154,9 +155,13 @@
   let queue = $state<TestItem[]>([]);
   let results = $state<TestResult[]>([]);
   let isRunning = $state(false);
+  $effect(() => { isRunningStore.set(isRunning); });
+  let activeWriter: ResultsWriter | null = null;
+  let currentRunItem: TestItem | null = null;
   let statusText = $state("");
   let runLogs = $state<string[]>([]);
   let logsEl = $state<HTMLDivElement | undefined>(undefined);
+  let logsCopied = $state(false);
 
   $effect(() => {
     if (logsEl && runLogs.length) {
@@ -273,6 +278,7 @@
 
   onMount(async () => {
     window.addEventListener("keydown", handleKeydown);
+    window.addEventListener("beforeunload", handleBeforeUnload);
 
     // Parse hash first (may come from a shared URL or sessionStorage redirect)
     const parsed = parseHash();
@@ -357,9 +363,22 @@
     }
   }
 
+  function handleBeforeUnload(e: BeforeUnloadEvent) {
+    if (!isRunning || !activeWriter || !currentRunItem) return;
+    if (!activeWriter.hasResultId(currentRunItem)) return;
+
+    // Best-effort sync write using fetch keepalive
+    activeWriter.markCrashedSync(currentRunItem);
+
+    // Show browser confirmation prompt — gives user a chance to cancel close
+    e.preventDefault();
+    e.returnValue = "";
+  }
+
   onDestroy(() => {
     if (!browser) return;
     window.removeEventListener("keydown", handleKeydown);
+    window.removeEventListener("beforeunload", handleBeforeUnload);
     terminateWorker();
   });
 
@@ -387,7 +406,6 @@
           ...environment,
           cpu: cpuModel.trim() || environment.cpu,
           os: osModel.trim() || environment.os,
-          os_version: environment.os_version,
         },
         ortVersion,
         litertVersion,
@@ -396,9 +414,12 @@
         npuDriverVersion.trim(),
       );
     }
+    activeWriter = writer;
+    if (writer) await writer.cacheAccessToken();
 
     for (const item of queue) {
       if (!isRunning) break;
+      currentRunItem = item;
 
       item.status = "downloading";
       queue = [...queue];
@@ -448,7 +469,7 @@
               item.status = "compiling";
             else if (status.includes("Inferencing") || status.includes("Warm"))
               item.status = "running";
-            queue = [...queue];
+            scheduleQueueFlush();
           },
           onLogs: (logs) => {
             runLogs = [...runLogs, ...logs];
@@ -476,13 +497,19 @@
         clearTimeout(queueFlushTimer);
         queueFlushTimer = null;
       }
-      item.status = result.error_message ? "error" : "completed";
       if (result.error_message) {
+        item.status = "error";
         item.error = result.error_message;
         runLogs = [
           ...runLogs,
           `Error [${item.hf_model_id} / ${getBackendLabel(item.backend)}]: ${result.error_message}`,
         ];
+      } else if (writer) {
+        item.status = "uploading";
+        statusText = `Uploading results for ${item.hf_model_id}...`;
+        runLogs = [...runLogs, `Uploading results for ${item.hf_model_id} · ${getBackendLabel(item.backend)}...`];
+      } else {
+        item.status = "completed";
       }
       item.progress = 100;
       results = [...results, result];
@@ -491,20 +518,39 @@
 
       if (writer) {
         await writer.completeResult(item, result);
+        item.status = "completed";
+        runLogs = [...runLogs, `Saved ${item.hf_model_id} · ${getBackendLabel(item.backend)}`];
+        queue = [...queue];
       }
+      currentRunItem = null;
     }
 
     isRunning = false;
+    activeWriter = null;
+    currentRunItem = null;
     statusText = "Benchmark complete.";
   }
 
-  function stopBenchmark() {
+  async function stopBenchmark() {
     if (queueFlushTimer) {
       clearTimeout(queueFlushTimer);
       queueFlushTimer = null;
     }
     isRunning = false;
     statusText = "Stopped.";
+    terminateWorker();
+
+    // Mark the in-flight row as error in the database
+    if (activeWriter && currentRunItem && activeWriter.hasResultId(currentRunItem)) {
+      const item = currentRunItem;
+      item.status = "error";
+      item.error = "Stopped by user";
+      queue = [...queue];
+      await activeWriter.markStopped(item);
+      runLogs = [...runLogs, `Stopped ${item.hf_model_id} · ${getBackendLabel(item.backend)}`];
+    }
+    activeWriter = null;
+    currentRunItem = null;
   }
 
   let shareUrl = $state("");
@@ -577,7 +623,6 @@
           ...environment,
           cpu: cpuModel.trim() || environment.cpu,
           os: osModel.trim() || environment.os,
-          os_version: environment.os_version,
         },
         ortVersion,
         litertVersion,
@@ -586,6 +631,9 @@
         npuDriverVersion.trim(),
       );
     }
+    activeWriter = writer;
+    currentRunItem = item;
+    if (writer) await writer.cacheAccessToken();
 
     item.status = "downloading";
     queue = [...queue];
@@ -627,7 +675,7 @@
             item.status = "compiling";
           else if (status.includes("Inferencing") || status.includes("Warm"))
             item.status = "running";
-          queue = [...queue];
+          scheduleQueueFlush();
         },
       });
     } catch (err: any) {
@@ -652,9 +700,17 @@
       clearTimeout(queueFlushTimer);
       queueFlushTimer = null;
     }
-    item.status = result.error_message ? "error" : "completed";
-    if (result.error_message) item.error = result.error_message;
-    else item.error = undefined;
+    if (result.error_message) {
+      item.status = "error";
+      item.error = result.error_message;
+    } else if (writer) {
+      item.status = "uploading";
+      statusText = `Uploading results for ${item.hf_model_id}...`;
+      runLogs = [...runLogs, `Uploading results for ${item.hf_model_id} · ${getBackendLabel(item.backend)}...`];
+    } else {
+      item.status = "completed";
+      item.error = undefined;
+    }
     item.progress = 100;
     results = [
       ...results.filter(
@@ -669,17 +725,26 @@
     ];
     queue = [...queue];
     downloadPercent = 0;
-    if (writer) await writer.completeResult(item, result);
+
+    if (writer) {
+      await writer.completeResult(item, result);
+      item.status = "completed";
+      item.error = undefined;
+      runLogs = [...runLogs, `Saved ${item.hf_model_id} · ${getBackendLabel(item.backend)}`];
+      queue = [...queue];
+    }
 
     isRunning = false;
+    activeWriter = null;
+    currentRunItem = null;
     statusText = result.error_message
       ? `Retry failed: ${result.error_message}`
       : "Retry complete.";
   }
 </script>
 
-<div class="run-page">
-  <header class="page-header page-header-row">
+<div class="run-page" class:run-page-running={isRunning}>
+  <header class="page-header page-header-row" class:hidden={isRunning}>
     <div>
       <h1>Benchmark</h1>
       <p>
@@ -717,56 +782,82 @@
     {/if}
   </header>
 
-  {#if isRunning || statusText}
+  <div class="running-center" class:running-center-active={isRunning}>
+  {#if isRunning}
     <section class="status-section">
       {#if isRunning && totalQueue > 0}
-        <div class="progress-summary">
-          <span class="progress-count"
-            >{completedCount}/{totalQueue} complete</span
-          >
-          {#if activeItem}
-            <span class="progress-current"
-              >Running: {activeItem.hf_model_id} on {activeItem.backend}</span
-            >
-          {/if}
-          {#if nextItem && !activeItem}
-            <span class="progress-next"
-              >Next: {nextItem.hf_model_id} on {nextItem.backend}</span
-            >
-          {:else if nextItem}
-            <span class="progress-next"
-              >Next: {nextItem.hf_model_id} on {nextItem.backend}</span
-            >
-          {/if}
+        <div class="status-row status-row-top">
+          <span class="status-model" title={activeItem?.hf_model_id ?? nextItem?.hf_model_id ?? ''}>
+            {activeItem?.hf_model_id ?? nextItem?.hf_model_id ?? ''}
+          </span>
+          <span class="progress-count">Queue: {completedCount}/{totalQueue}</span>
         </div>
       {/if}
       <p class="status-text">{statusText}</p>
       <div
         class="progress-bar-slot"
-        class:progress-bar-hidden={downloadPercent <= 0 ||
-          downloadPercent >= 100}
+        class:progress-bar-hidden={downloadPercent <= 0 || downloadPercent >= 100}
       >
         <ProgressBar percent={downloadPercent} label="Downloading" loadedBytes={downloadLoaded} totalBytes={downloadTotal} />
       </div>
+      {#if isRunning && totalQueue > 0 && (activeItem || nextItem)}
+        <div class="status-row status-row-bottom">
+          <span class="progress-current">
+            {#if activeItem}
+              <span class="status-fmt-icon status-fmt-icon-blink">
+                <FormatIcon format={activeItem.file_path.endsWith('.tflite') ? 'tflite' : activeItem.file_path.endsWith('.litertlm') ? 'litertlm' : 'onnx'} size={13} />
+              </span>
+              <span class="status-text-clip">Running: {activeItem.file_path} · {activeItem.backend}</span>
+            {/if}
+          </span>
+          <span class="progress-next">
+            {#if nextItem}
+              <span class="status-fmt-icon">
+                <FormatIcon format={nextItem.file_path.endsWith('.tflite') ? 'tflite' : nextItem.file_path.endsWith('.litertlm') ? 'litertlm' : 'onnx'} size={13} />
+              </span>
+              <span class="status-text-clip">Next: {nextItem.file_path} · {nextItem.backend}</span>
+            {/if}
+          </span>
+        </div>
+      {/if}
     </section>
   {/if}
 
   {#if queue.length > 0 || results.length > 0}
-    <div class="queue-logs-grid">
-      <section class="results-section">
-        <BenchmarkResults {results} backends={selectedBackends} {queue} {isRunning} onretry={retryItem} />
-      </section>
-      {#if runLogs.length > 0}
-        <section class="logs-section">
-          <h3 class="logs-title">Logs ({runLogs.length})</h3>
-          <div class="logs-container" bind:this={logsEl}>
-            {#each runLogs as log}
-              <div class="log-line">{log}</div>
-            {/each}
-          </div>
-        </section>
-      {/if}
-    </div>
+    <section class="results-section" class:results-section-running={isRunning}>
+      <BenchmarkResults {results} backends={selectedBackends} {queue} {isRunning} onretry={retryItem} />
+    </section>
+  {/if}
+
+  </div>
+
+  {#if runLogs.length > 0 && !isRunning}
+    <section class="logs-section">
+      <div class="logs-header">
+        <h3 class="logs-title">Logs ({runLogs.length})</h3>
+        <div class="export-group">
+          <span class="export-group-icon">
+            {#if logsCopied}
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            {:else}
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            {/if}
+          </span>
+          <button class="export-group-btn" class:active={logsCopied} onclick={async () => {
+            await navigator.clipboard.writeText(runLogs.join('\n'));
+            logsCopied = true;
+            setTimeout(() => { logsCopied = false; }, 2000);
+          }} title="Copy all logs">
+            {logsCopied ? 'Copied!' : 'Copy'}
+          </button>
+        </div>
+      </div>
+      <div class="logs-container" bind:this={logsEl}>
+        {#each runLogs as log}
+          <div class="log-line">{log}</div>
+        {/each}
+      </div>
+    </section>
   {/if}
 
   {#if !isRunning}
@@ -974,62 +1065,40 @@
 
       <div class="actions">
         {#if !isRunning}
-          <label class="save-results-label">
-            <span class="custom-checkbox" class:checked={saveResults}>
-              {#if saveResults}
-                <svg
-                  width="10"
-                  height="10"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="3.5"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  aria-hidden="true"
-                >
-                  <polyline points="20 6 9 17 4 12" />
-                </svg>
-              {/if}
+          <label class="ios-switch-label" title={saveResults ? 'Results will be saved to database' : 'Click to save results to database'}>
+            <input type="checkbox" class="ios-switch-input" bind:checked={saveResults} />
+            <span class="ios-switch-track">
+              <span class="ios-switch-thumb"></span>
             </span>
-            <input type="checkbox" bind:checked={saveResults} />
-            Upload results
+            <span class="ios-switch-text">Upload results</span>
           </label>
-          {#if saveResults}
-            {#if $isAuthenticated}
-              <p class="upload-disclosure">
-                Your CPU model, GPU, OS, and browser will be saved alongside the
-                benchmark scores to make the results meaningful
-              </p>
-            {:else}
-              <p class="upload-disclosure upload-disclosure-warn">
-                <a href="/login">Sign in</a> to upload results - we need an account
-                to attribute the data.
-              </p>
-            {/if}
-          {/if}
-          <button
-            class="btn-primary"
-            onclick={startBenchmark}
-            disabled={totalModels === 0 ||
-              (saveResults &&
-                (!$isAuthenticated ||
-                  !cpuModel.trim() ||
-                  !osModel.trim() ||
-                  (isAtLeast($auth.role ?? "anonymous", "intel") &&
-                    (!gpuDriverVersion.trim() || !npuDriverVersion.trim()))))}
-            title="Ctrl+Enter"
-          >
-            Run Benchmark <kbd class="kbd-hint">Ctrl+Enter</kbd>
-          </button>
-          {#if saveResults && $isAuthenticated && (!cpuModel.trim() || !osModel.trim())}
+          <div class="run-action-row">
+            <button
+              class="btn-primary"
+              onclick={startBenchmark}
+              disabled={totalModels === 0 ||
+                (saveResults &&
+                  (!$isAuthenticated ||
+                    !cpuModel.trim() ||
+                    !osModel.trim() ||
+                    (isAtLeast($auth.role ?? "anonymous", "intel") &&
+                      (!gpuDriverVersion.trim() || !npuDriverVersion.trim()))))}
+              title="Ctrl+Enter"
+            >
+              Run Benchmark <kbd class="kbd-hint">Ctrl+Enter</kbd>
+            </button>
+          </div>
+          {#if saveResults && !$isAuthenticated}
+            <p class="action-hint action-hint-warn">
+              <a href="/login">Sign in</a> to save results — we need an account to attribute the data.
+            </p>
+          {:else if saveResults && $isAuthenticated && (!cpuModel.trim() || !osModel.trim())}
             <p class="action-hint action-hint-warn">
               Fill in your CPU and OS above to enable result upload
             </p>
           {:else if saveResults && $isAuthenticated && isAtLeast($auth.role ?? "anonymous", "intel") && (!gpuDriverVersion.trim() || !npuDriverVersion.trim())}
             <p class="action-hint action-hint-warn">
-              GPU Driver and NPU Driver versions are required for intel/admin
-              roles
+              GPU Driver and NPU Driver versions are required for intel/admin roles
             </p>
           {/if}
           {#if totalModels === 0}
@@ -1053,15 +1122,78 @@
     max-width: 100%;
   }
 
+  .run-page-running {
+    min-height: calc(100dvh - 56px);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .running-center {
+    display: contents;
+  }
+
+  .running-center-active {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-2);
+    width: 100%;
+  }
+
+  .logs-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--space-1);
+  }
+
   .logs-title {
     font-size: var(--text-sm);
     font-weight: 500;
-    margin-bottom: var(--space-1);
     color: var(--color-text-secondary);
   }
 
+  .export-group {
+    display: inline-flex;
+    align-items: stretch;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-base);
+    overflow: hidden;
+  }
+
+  .export-group-icon {
+    display: flex;
+    align-items: center;
+    padding: 0 6px;
+    color: var(--color-text-muted);
+    border-right: 1px solid var(--color-border);
+  }
+
+  .export-group-btn {
+    font-family: var(--font-ui);
+    font-size: var(--text-xs);
+    font-weight: 500;
+    padding: 3px 7px;
+    border: none;
+    border-left: 1px solid var(--color-border);
+    background: none;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    transition: background var(--transition-base), color var(--transition-base);
+  }
+
+  .export-group-btn:first-of-type {
+    border-left: none;
+  }
+
+  .export-group-btn:hover, .export-group-btn.active {
+    background: var(--color-accent-light);
+    color: var(--color-primary);
+  }
+
   .logs-container {
-    height: 200px;
+    height: 120px;
     overflow-y: auto;
     scroll-behavior: smooth;
     border: 1px solid var(--color-border);
@@ -1117,26 +1249,70 @@
     margin-top: var(--space-6);
   }
 
-  .upload-disclosure {
-    font-size: var(--text-xs);
-    color: var(--color-text-muted);
-    margin: 0;
-    line-height: 1.5;
+  .run-action-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    flex-wrap: wrap;
   }
 
-  .upload-disclosure-warn {
-    color: var(--color-error);
+  .ios-switch-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    user-select: none;
+    margin-bottom: var(--space-1);
   }
 
-  .upload-disclosure-warn a {
-    color: var(--color-error);
-    font-weight: 600;
-    text-decoration: underline;
+  .ios-switch-input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+
+  .ios-switch-track {
+    position: relative;
+    display: inline-block;
+    width: 36px;
+    height: 20px;
+    border-radius: 10px;
+    background: var(--color-border-strong);
+    transition: background 0.2s ease;
+    flex-shrink: 0;
+  }
+
+  .ios-switch-thumb {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+    transition: transform 0.2s ease;
+  }
+
+  .ios-switch-input:checked ~ .ios-switch-track {
+    background: var(--color-primary);
+  }
+
+  .ios-switch-input:checked ~ .ios-switch-track .ios-switch-thumb {
+    transform: translateX(16px);
+  }
+
+  .ios-switch-text {
+    font-family: var(--font-ui);
+    font-size: var(--text-sm);
+    color: var(--color-text-secondary);
   }
 
   .action-hint {
     font-size: var(--text-xs);
     color: var(--color-text-secondary);
+    margin-top: var(--space-1);
   }
 
   .action-hint a {
@@ -1152,48 +1328,10 @@
     color: var(--color-warning);
   }
 
-  .save-results-label {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    font-size: var(--text-sm);
-    color: var(--color-text-secondary);
-    cursor: pointer;
-    user-select: none;
-  }
-
-  .save-results-label input[type="checkbox"] {
-    position: absolute;
-    opacity: 0;
-    width: 0;
-    height: 0;
-  }
-
-  .custom-checkbox {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 18px;
-    height: 18px;
-    border: 2px solid var(--color-border-strong);
-    border-radius: 50%;
-    background: transparent;
-    color: transparent;
-    flex-shrink: 0;
-    transition:
-      border-color var(--transition-base),
-      background var(--transition-base),
-      color var(--transition-base);
-  }
-
-  .save-results-label:hover .custom-checkbox {
-    border-color: var(--color-primary);
-  }
-
-  .custom-checkbox.checked {
-    border-color: var(--color-primary);
-    background: var(--color-primary);
-    color: var(--color-text-on-primary);
+  .action-hint-warn a {
+    color: var(--color-warning);
+    font-weight: 600;
+    text-decoration: underline;
   }
 
   .btn-stop {
@@ -1226,6 +1364,10 @@
 
   .btn-stop .kbd-hint {
     background: rgba(229, 62, 62, 0.1);
+  }
+
+  .hidden {
+    display: none !important;
   }
 
   .page-header-row {
@@ -1287,62 +1429,129 @@
   }
 
   .status-section {
-    margin-bottom: var(--space-2);
+    width: 90vw;
+    max-width: 50vw;
+    margin-inline: auto;
+    display: flex;
+    flex-direction: column;
+    padding: var(--space-3) var(--space-6);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-base);
+    margin-bottom: var(--space-3);
   }
 
-  .progress-summary {
+  .status-row {
     display: flex;
-    align-items: center;
+    align-items: baseline;
+    justify-content: space-between;
     gap: var(--space-2);
-    margin-bottom: var(--space-1);
     font-family: var(--font-mono);
     font-size: var(--text-sm);
+    margin: var(--space-2) 0;
+  }
+
+  .status-model {
+    font-weight: 600;
+    color: var(--color-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
   }
 
   .progress-count {
     font-weight: 600;
-    color: var(--color-text-primary);
+    color: var(--color-text-muted);
+    flex-shrink: 0;
+    font-size: var(--text-xs);
   }
 
+  .status-fmt-icon {
+    display: inline-flex;
+    align-items: center;
+    vertical-align: middle;
+    margin-right: 4px;
+    flex-shrink: 0;
+  }
+
+  .status-fmt-icon-blink {
+    animation: blink 1.2s ease-in-out infinite;
+  }
+
+  .status-text-clip {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+  }
+
+  @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
   .progress-current {
-    color: var(--color-primary);
+    display: inline-flex;
+    align-items: center;
+    color: var(--color-text-muted);
+    overflow: hidden;
+    flex: 0 0 50%;
+    max-width: 50%;
+    font-size: var(--text-xs);
   }
 
   .progress-next {
+    display: inline-flex;
+    align-items: center;
     color: var(--color-text-muted);
+    overflow: hidden;
+    flex: 0 0 50%;
+    max-width: 50%;
+    font-size: var(--text-xs);
+    text-align: right;
+    justify-content: flex-end;
+  }
+
+  @media (max-width: 768px) {
+    .status-row {
+      flex-direction: column;
+      gap: 2px;
+    }
+    .progress-next {
+      text-align: left;
+    }
   }
 
   .status-text {
-    font-size: var(--text-sm);
+    font-size: var(--text-xs);
     color: var(--color-text-secondary);
-    margin-bottom: var(--space-half);
+    font-family: var(--font-mono);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin: 0;
   }
 
   .progress-bar-slot {
-    min-height: 24px;
+    min-height: 20px;
   }
 
   .progress-bar-hidden {
     visibility: hidden;
+    height: 0;
+    min-height: 0;
+    overflow: hidden;
   }
 
-  .queue-logs-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: var(--space-3);
+  .results-section {
     margin-bottom: var(--space-3);
-    align-items: start;
   }
 
-  .results-section,
+  .results-section-running {
+    width: 90vw;
+    max-width: 50vw;
+    margin-inline: auto;
+  }
+
   .logs-section {
-    min-width: 0;
-  }
-
-  @media (max-width: 768px) {
-    .queue-logs-grid {
-      grid-template-columns: 1fr;
-    }
+    margin-bottom: var(--space-3);
   }
 
   .top-config-grid {

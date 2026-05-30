@@ -189,7 +189,7 @@
         <div class="env-grid">
           <span class="env-label">CPU</span><span class="env-value">{environment.cpu}</span>
           <span class="env-label">GPU</span><span class="env-value">{environment.gpu}</span>
-          <span class="env-label">OS</span><span class="env-value">{environment.os} {environment.os_version}</span>
+          <span class="env-label">OS</span><span class="env-value">{environment.os}</span>
           <span class="env-label">Browser</span><span class="env-value">{environment.browser} {environment.browser_version}</span>
           <span class="env-label">Memory</span><span class="env-value">{environment.memory_gb} GB</span>
           <span class="env-label">Threads</span><span class="env-value">{environment.thread_count}</span>

@@ -29,6 +29,7 @@
     display: flex;
     align-items: center;
     gap: var(--space-1);
+    font-family: var(--font-mono);
   }
 
   .progress-label {
@@ -39,8 +40,8 @@
 
   .progress-track {
     flex: 1;
-    height: 1px;
-    background: var(--color-surface-sunken);
+    height: 2px;
+    background: var(--color-primary);
     border-radius: 2px;
     overflow: hidden;
   }
