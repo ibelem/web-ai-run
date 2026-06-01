@@ -1,11 +1,12 @@
 <script lang="ts">
   import { createClient } from '$lib/supabase/client';
 
-  type View = 'main' | 'otp' | 'forgot-sent';
+  type View = 'email' | 'password' | 'signup' | 'otp' | 'forgot-sent';
 
-  let view = $state<View>('main');
+  let view = $state<View>('email');
   let email = $state('');
   let password = $state('');
+  let confirmPassword = $state('');
   let otpCode = $state('');
   let error = $state('');
   let loading = $state(false);
@@ -21,6 +22,32 @@
     });
   }
 
+  async function handleEmailContinue(e: Event) {
+    e.preventDefault();
+    if (!email) return;
+    error = '';
+    loading = true;
+
+    // Try signing in with a dummy password to check if user exists
+    const { error: authError } = await supabase.auth.signInWithPassword({
+      email,
+      password: '__probe__',
+    });
+
+    loading = false;
+
+    if (authError?.message?.toLowerCase().includes('invalid login credentials')) {
+      // User exists but wrong password — show password field
+      view = 'password';
+    } else if (authError?.message?.toLowerCase().includes('email not confirmed')) {
+      // User exists but unconfirmed — send magic link
+      await sendMagicLink();
+    } else {
+      // User doesn't exist — show sign-up form
+      view = 'signup';
+    }
+  }
+
   async function signInPassword(e: Event) {
     e.preventDefault();
     if (!email || !password) return;
@@ -31,10 +58,47 @@
     loading = false;
 
     if (authError) {
-      error = 'Invalid email or password';
+      error = 'Invalid password';
       return;
     }
     window.location.href = '/';
+  }
+
+  async function signUp(e: Event) {
+    e.preventDefault();
+    if (!email || !password) return;
+    if (password.length < 8) {
+      error = 'Password must be at least 8 characters';
+      return;
+    }
+    if (password !== confirmPassword) {
+      error = 'Passwords do not match';
+      return;
+    }
+    error = '';
+    loading = true;
+
+    const { error: signUpError } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
+
+    loading = false;
+
+    if (signUpError) {
+      if (signUpError.message?.toLowerCase().includes('already registered')) {
+        error = 'This email is already registered. Try signing in instead.';
+        view = 'password';
+      } else {
+        error = signUpError.message || 'Could not create account. Please try again.';
+      }
+      return;
+    }
+
+    view = 'otp';
   }
 
   async function sendMagicLink() {
@@ -71,21 +135,18 @@
     error = '';
     otpLoading = true;
 
-    const { data, error: verifyError } = await supabase.auth.verifyOtp({
-      email,
-      token: otpCode.trim(),
-      type: 'magiclink',
-    });
+    const token = otpCode.trim();
+
+    // Try 'magiclink' first (returning user), then 'signup' (new user)
+    let result = await supabase.auth.verifyOtp({ email, token, type: 'magiclink' });
+    if (result.error) {
+      result = await supabase.auth.verifyOtp({ email, token, type: 'signup' });
+    }
 
     otpLoading = false;
 
-    if (verifyError) {
+    if (result.error) {
       error = 'Invalid or expired code. Check your email or request a new link.';
-      return;
-    }
-
-    if (data.user?.user_metadata?.needs_password) {
-      window.location.href = '/set-password';
       return;
     }
 
@@ -111,7 +172,9 @@
   }
 
   function goBack() {
-    view = 'main';
+    view = 'email';
+    password = '';
+    confirmPassword = '';
     otpCode = '';
     error = '';
   }
@@ -123,7 +186,7 @@
 
     {#if view === 'otp'}
       <p class="login-subtitle">Check your inbox at <strong>{email}</strong></p>
-      <p class="login-hint">Click the link in the email to sign in. If you received a 6-digit code instead, enter it below.</p>
+      <p class="login-hint">Click the link in the email to sign in, or enter the code below.</p>
 
       <form onsubmit={verifyOtp}>
         <label class="field-label" for="otp-input">Verification code</label>
@@ -153,6 +216,91 @@
       <p class="login-subtitle">Check your inbox for a password reset link.</p>
       <p class="login-hint">If you have an account with <strong>{email}</strong>, you'll receive an email shortly.</p>
       <button class="btn-link" onclick={goBack}>Back to sign in</button>
+
+    {:else if view === 'password'}
+      <p class="login-subtitle">Welcome back</p>
+      <form onsubmit={signInPassword}>
+        <label class="field-label" for="email-display">Email</label>
+        <input
+          id="email-display"
+          type="email"
+          class="field-input"
+          value={email}
+          disabled
+        />
+
+        <label class="field-label" for="password-input">Password</label>
+        <input
+          id="password-input"
+          type="password"
+          class="field-input"
+          placeholder="Enter your password"
+          bind:value={password}
+          autofocus
+        />
+
+        {#if error}
+          <p class="error-text">{error}</p>
+        {/if}
+
+        <button type="submit" class="btn-primary" disabled={loading || !password}>
+          {loading ? 'Signing in...' : 'Sign in'}
+        </button>
+      </form>
+
+      <div class="alt-actions">
+        <button class="btn-magic" onclick={sendMagicLink} disabled={magicLinkLoading}>
+          {magicLinkLoading ? 'Sending...' : 'Send me a magic link instead'}
+        </button>
+        <button class="btn-link" onclick={resetPassword}>Forgot password?</button>
+        <button class="btn-link" onclick={goBack}>Use a different email</button>
+      </div>
+
+    {:else if view === 'signup'}
+      <p class="login-subtitle">Create your account</p>
+      <form onsubmit={signUp}>
+        <label class="field-label" for="signup-email">Email</label>
+        <input
+          id="signup-email"
+          type="email"
+          class="field-input"
+          value={email}
+          disabled
+        />
+
+        <label class="field-label" for="signup-password">Password</label>
+        <input
+          id="signup-password"
+          type="password"
+          class="field-input"
+          placeholder="At least 8 characters"
+          bind:value={password}
+          minlength={8}
+          autofocus
+        />
+
+        <label class="field-label" for="signup-confirm">Confirm password</label>
+        <input
+          id="signup-confirm"
+          type="password"
+          class="field-input"
+          placeholder="Confirm password"
+          bind:value={confirmPassword}
+          minlength={8}
+        />
+
+        {#if error}
+          <p class="error-text">{error}</p>
+        {/if}
+
+        <button type="submit" class="btn-primary" disabled={loading || !password || !confirmPassword}>
+          {loading ? 'Creating account...' : 'Create account'}
+        </button>
+      </form>
+
+      <div class="alt-actions">
+        <button class="btn-link" onclick={goBack}>Use a different email</button>
+      </div>
 
     {:else}
       <!-- OAuth Providers -->
@@ -186,11 +334,11 @@
       </div>
 
       <div class="divider">
-        <span>or</span>
+        <span>or continue with email</span>
       </div>
 
-      <!-- Email/Password -->
-      <form onsubmit={signInPassword}>
+      <!-- Email-first flow -->
+      <form onsubmit={handleEmailContinue}>
         <label class="field-label" for="email-input">Email</label>
         <input
           id="email-input"
@@ -201,29 +349,14 @@
           required
         />
 
-        <label class="field-label" for="password-input">Password</label>
-        <input
-          id="password-input"
-          type="password"
-          class="field-input"
-          bind:value={password}
-        />
-
         {#if error}
           <p class="error-text">{error}</p>
         {/if}
 
-        <button type="submit" class="btn-primary" disabled={loading || !password}>
-          {loading ? 'Signing in...' : 'Sign in'}
+        <button type="submit" class="btn-primary" disabled={loading || !email}>
+          {loading ? 'Checking...' : 'Continue'}
         </button>
       </form>
-
-      <div class="alt-actions">
-        <button class="btn-magic" onclick={sendMagicLink} disabled={magicLinkLoading}>
-          {magicLinkLoading ? 'Sending...' : 'Send me a magic link'}
-        </button>
-        <button class="btn-link" onclick={resetPassword}>Forgot password?</button>
-      </div>
     {/if}
   </div>
 </div>
@@ -257,7 +390,8 @@
   .login-subtitle {
     font-size: var(--text-sm);
     color: var(--color-text-primary);
-    margin-bottom: var(--space-half);
+    margin-bottom: var(--space-2);
+    text-align: center;
   }
 
   .login-hint {
@@ -351,6 +485,11 @@
   .field-input {
     width: 100%;
     margin-bottom: var(--space-2);
+  }
+
+  .field-input:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
   }
 
   .field-input:focus-visible {
