@@ -74,7 +74,7 @@
     const { data, error: verifyError } = await supabase.auth.verifyOtp({
       email,
       token: otpCode.trim(),
-      type: 'magiclink',
+      type: 'email',
     });
 
     otpLoading = false;
