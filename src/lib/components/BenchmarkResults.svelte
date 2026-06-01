@@ -543,7 +543,7 @@
 
   .model-col {
     font-weight: 500;
-    color: var(--color-text-primary);
+    color: var(--color-text-muted);
     width: 15vw;
     max-width: 15vw;
     overflow: hidden;

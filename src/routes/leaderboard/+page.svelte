@@ -302,7 +302,9 @@
   }
 
   .filter-select {
-    padding: var(--space-2);
+    min-width: 180px;
+    height: auto;
+    padding: var(--space-1) var(--space-2);
     cursor: pointer;
   }
 

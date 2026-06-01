@@ -1348,6 +1348,8 @@
   }
 
   .btn-stop {
+    display: inline-flex;
+    align-items: center;
     font-family: var(--font-ui);
     font-size: var(--text-sm);
     font-weight: 500;
@@ -1534,7 +1536,7 @@
 
   .status-text {
     font-size: var(--text-xs);
-    color: var(--color-text-secondary);
+    color: var(--color-text-muted);
     font-family: var(--font-mono);
     overflow: hidden;
     text-overflow: ellipsis;
@@ -1621,7 +1623,7 @@
 
   .env-value {
     font-size: var(--text-sm);
-    color: var(--color-text-secondary);
+    color: var(--color-text-muted);
     font-family: var(--font-mono);
     white-space: nowrap;
     overflow: hidden;
@@ -1730,8 +1732,8 @@
 
   .model-item-repo {
     font-family: var(--font-mono);
-    font-size: var(--text-sm);
-    color: var(--color-text-primary);
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -1753,7 +1755,7 @@
   }
 
   .version-select {
-    color: var(--color-text-secondary);
+    color: var(--color-text-muted);
     cursor: pointer;
     width: 100%;
   }
