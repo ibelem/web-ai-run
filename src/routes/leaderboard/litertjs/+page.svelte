@@ -9,7 +9,7 @@
   let { data } = $props();
 
   $effect(() => {
-    if (browser && !isAtLeast($auth.role ?? 'anonymous', 'partner')) {
+    if (browser && !$auth.loading && !isAtLeast($auth.role ?? 'anonymous', 'partner')) {
       goto('/login');
     }
   });
