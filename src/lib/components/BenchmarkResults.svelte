@@ -20,7 +20,7 @@
   let sortAsc = $state(true);
   let filterQuery = $state('');
   let currentPage = $state(1);
-  const PAGE_SIZE = 20;
+  const pageSize = $derived(isRunning ? 10 : 20);
 
   let visibleMetrics = $state<Record<string, boolean>>({
     load_and_compile_ms: false,
@@ -135,11 +135,11 @@
     );
   });
 
-  const totalPages = $derived(Math.ceil(sortedRows.length / PAGE_SIZE));
+  const totalPages = $derived(Math.ceil(sortedRows.length / pageSize));
   const pagedRows = $derived(
-    sortedRows.length <= PAGE_SIZE
+    sortedRows.length <= pageSize
       ? sortedRows
-      : sortedRows.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
+      : sortedRows.slice((currentPage - 1) * pageSize, currentPage * pageSize)
   );
 
   $effect(() => {
@@ -293,7 +293,7 @@
   <div class="results-header" class:hidden={isRunning}>
     <h3 class="results-title">Results ({filteredRows.length})</h3>
     <div class="results-header-right">
-      {#if modelRows.length > PAGE_SIZE}
+      {#if modelRows.length > pageSize}
         <input
           class="results-filter"
           type="text"

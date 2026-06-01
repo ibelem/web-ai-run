@@ -9,7 +9,7 @@
   import { cartPanelOpen } from '$lib/stores/cart-panel';
   import CartPanel from '$lib/components/CartPanel.svelte';
   import { createClient } from '$lib/supabase/client';
-  import type { Role } from '$lib/types/roles';
+  import { isAtLeast, type Role } from '$lib/types/roles';
   import { gravatarUrl } from '$lib/utils/gravatar';
   import { clearModelCache } from '$lib/engine/model-cache';
   import { isRunning as isRunningStore } from '$lib/stores/benchmark';
@@ -90,7 +90,7 @@
     { href: '/run',         label: 'Run',         show: false },
     { href: '/results',     label: 'Results',     show: $isAuthenticated },
     { href: '/onnx/overrides', label: 'Overrides', show: $isAuthenticated },
-    { href: '/leaderboard', label: 'Leaderboard', show: $auth.role === 'intel' || $auth.role === 'admin' },
+    { href: '/leaderboard', label: 'Leaderboard', show: isAtLeast($auth.role ?? 'anonymous', 'partner') },
   ]);
 </script>
 
