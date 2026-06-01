@@ -746,6 +746,7 @@
     display: flex;
     flex-wrap: wrap;
     align-items: center;
+    justify-content: center;
     gap: var(--space-2);
   }
 
@@ -784,5 +785,20 @@
 
   .footer-clear-cache:hover {
     color: var(--color-text-secondary);
+  }
+
+  @media (max-width: 640px) {
+    .site-footer {
+      flex-direction: column;
+      gap: var(--space-2);
+    }
+
+    .footer-sep {
+      display: none;
+    }
+
+    .footer-copy {
+      order: 2;
+    }
   }
 </style>

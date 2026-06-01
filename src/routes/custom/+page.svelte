@@ -405,12 +405,12 @@
       onclick={() => document.getElementById('file-input')?.click()}
       onkeydown={(e) => { if (e.key === 'Enter') document.getElementById('file-input')?.click(); }}
     >
-      <svg class="drop-icon" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <svg class="drop-icon" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
         <polyline points="17 8 12 3 7 8"/>
         <line x1="12" y1="3" x2="12" y2="15"/>
       </svg>
-      <p class="drop-text">Drop a model file here or click to browse</p>
+      <p class="drop-text">Drop a model file here or <span class="drop-browse">click to browse</span></p>
       <p class="drop-hint">Supports .onnx, .tflite, .litertlm</p>
     </div>
     <input
@@ -625,9 +625,9 @@
   }
 
   .dropzone {
-    width: 90vw;
-    max-width: 40vw;
-    min-height: 40vh;
+    width: 100%;
+    max-width: 560px;
+    min-height: 200px;
     margin-inline: auto;
     display: flex;
     flex-direction: column;
@@ -660,6 +660,10 @@
   .drop-hint {
     font-size: var(--text-sm);
     color: var(--color-text-muted);
+  }
+
+  .drop-browse {
+    color: var(--color-primary);
   }
 
   .file-info {
