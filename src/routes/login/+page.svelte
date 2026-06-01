@@ -365,7 +365,7 @@
   .login-page {
     display: grid;
     place-items: center;
-    min-height: calc(100vh - 160px);
+    min-height: calc(100vh - 300px);
     padding: var(--space-3);
   }
 
