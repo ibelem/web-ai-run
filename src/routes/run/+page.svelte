@@ -540,12 +540,18 @@
     statusText = "Stopped.";
     terminateWorker();
 
+    // Mark all non-finished items as stopped so spinners clear immediately
+    for (const item of queue) {
+      if (item.status !== "completed" && item.status !== "error") {
+        item.status = "error";
+        item.error = "Stopped by user";
+      }
+    }
+    queue = [...queue];
+
     // Mark the in-flight row as error in the database
     if (activeWriter && currentRunItem && activeWriter.hasResultId(currentRunItem)) {
       const item = currentRunItem;
-      item.status = "error";
-      item.error = "Stopped by user";
-      queue = [...queue];
       await activeWriter.markStopped(item);
       runLogs = [...runLogs, `Stopped ${item.hf_model_id} · ${getBackendLabel(item.backend)}`];
     }
@@ -1468,6 +1474,7 @@
   .status-model {
     font-weight: 600;
     color: var(--color-primary);
+    font-size: var(--text-sm);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -1475,7 +1482,6 @@
   }
 
   .progress-count {
-    font-weight: 600;
     color: var(--color-text-muted);
     flex-shrink: 0;
     font-size: var(--text-xs);

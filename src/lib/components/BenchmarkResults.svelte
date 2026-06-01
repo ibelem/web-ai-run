@@ -156,18 +156,6 @@
     return ms < 1 ? ms.toFixed(3) : ms.toFixed(2);
   }
 
-  function suggestAlternative(failedBackend: string): string {
-    const fallbacks: Record<string, string[]> = {
-      webnn_npu: ['webnn_gpu', 'webgpu'],
-      webnn_gpu: ['webgpu', 'wasm_n'],
-      webnn_cpu: ['wasm_n', 'wasm_1'],
-      webgpu: ['wasm_n', 'wasm_1'],
-      wasm_n: ['wasm_1'],
-    };
-    const alts = fallbacks[failedBackend];
-    if (!alts) return '';
-    return `Try: ${alts.map(id => getBackendLabel(id)).join(' or ')}`;
-  }
 
   let copyFeedback = $state('');
 
@@ -244,6 +232,61 @@
   function saveMarkdown() { saveFile(toMarkdown(), `benchmark-results-${dateSuffix()}.md`, 'text/markdown'); }
   function saveJSON() { saveFile(toJSON(), `benchmark-results-${dateSuffix()}.json`, 'application/json'); }
   function saveCSV() { saveFile(toCSV(), `benchmark-results-${dateSuffix()}.csv`, 'text/csv'); }
+
+  let copyCapFeedback = $state('');
+
+  function toCapMarkdown(): string {
+    const backendCols = webnnBackends.flatMap(b => [`${getBackendLabel(b)} Partitions`, `${getBackendLabel(b)} Total`, `${getBackendLabel(b)} Supported`, `${getBackendLabel(b)} Unsupported`]);
+    const cols = ['HuggingFace ID', 'File', ...backendCols];
+    const sep = cols.map(() => '---');
+    const rows = partialDelegationRows.map(row => [
+      row.hf_model_id,
+      row.file_path,
+      ...webnnBackends.flatMap(b => {
+        const cap = row.byBackend[b]?.webnn_capability;
+        if (!cap) return ['-', '-', '-', '-'];
+        return [cap.partitions ?? '-', cap.total_nodes, cap.supported_nodes, cap.unsupported_ops.length > 0 ? cap.unsupported_ops.join('; ') : '-'];
+      }),
+    ]);
+    return [cols.join(' | '), sep.join(' | '), ...rows.map(r => r.join(' | '))].join('\n');
+  }
+
+  function toCapJSON(): string {
+    return JSON.stringify(partialDelegationRows.map(row => ({
+      model: row.hf_model_id,
+      file: row.file_path,
+      ...Object.fromEntries(webnnBackends.map(b => {
+        const cap = row.byBackend[b]?.webnn_capability;
+        return [b, cap ?? null];
+      })),
+    })), null, 2);
+  }
+
+  function toCapCSV(): string {
+    const backendCols = webnnBackends.flatMap(b => [`${getBackendLabel(b)} Partitions`, `${getBackendLabel(b)} Total`, `${getBackendLabel(b)} Supported`, `${getBackendLabel(b)} Unsupported`]);
+    const cols = ['HuggingFace ID', 'File', ...backendCols];
+    const rows = partialDelegationRows.map(row => [
+      row.hf_model_id,
+      row.file_path,
+      ...webnnBackends.flatMap(b => {
+        const cap = row.byBackend[b]?.webnn_capability;
+        if (!cap) return ['', '', '', ''];
+        return [cap.partitions ?? '', cap.total_nodes, cap.supported_nodes, cap.unsupported_ops.join('; ')];
+      }),
+    ]);
+    return [cols.join(','), ...rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(','))].join('\n');
+  }
+
+  async function copyCapAs(format: 'markdown' | 'json' | 'csv') {
+    const text = format === 'markdown' ? toCapMarkdown() : format === 'json' ? toCapJSON() : toCapCSV();
+    await navigator.clipboard.writeText(text);
+    copyCapFeedback = format;
+    setTimeout(() => { copyCapFeedback = ''; }, 2000);
+  }
+
+  function saveCapMarkdown() { saveFile(toCapMarkdown(), `webnn-delegation-${dateSuffix()}.md`, 'text/markdown'); }
+  function saveCapJSON() { saveFile(toCapJSON(), `webnn-delegation-${dateSuffix()}.json`, 'application/json'); }
+  function saveCapCSV() { saveFile(toCapCSV(), `webnn-delegation-${dateSuffix()}.csv`, 'text/csv'); }
 </script>
 
 <div class="results-wrapper">
@@ -321,7 +364,7 @@
                       </span>
                     {/each}
                   {:else if r?.error_message}
-                    <span class="status-icon status-error" title="{r.error_message}{suggestAlternative(b) ? '\n' + suggestAlternative(b) : ''}">
+                    <span class="status-icon status-error" title="{r.error_message}">
                       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                     </span>
                     {#if onretry && !isRunning}
@@ -345,11 +388,15 @@
                         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="spin"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
                       </span>
                     {:else if qi.status === 'error'}
-                      <span class="status-icon status-error" title="{qi.error ?? 'Error'}{suggestAlternative(b) ? '\n' + suggestAlternative(b) : ''}">
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                      </span>
-                      {#if onretry && !isRunning}
-                        <button class="retry-btn" onclick={() => onretry!(qi)} title="Retry">↺</button>
+                      {#if qi.error === 'Stopped by user'}
+                        <span class="cell-na" title="Stopped">-</span>
+                      {:else}
+                        <span class="status-icon status-error" title="{qi.error ?? 'Error'}">
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        </span>
+                        {#if onretry && !isRunning}
+                          <button class="retry-btn" onclick={() => onretry!(qi)} title="Retry">↺</button>
+                        {/if}
                       {/if}
                     {/if}
                   {:else}
@@ -372,7 +419,27 @@
     {/if}
 
     {#if partialDelegationRows.length > 0 && webnnBackends.length > 0}
-      <h4 class="capability-title">WebNN Partial Delegation ({partialDelegationRows.length})</h4>
+      <div class="cap-header">
+        <h4 class="capability-title">WebNN Partial Delegation ({partialDelegationRows.length})</h4>
+        <div class="export-bar">
+          <div class="export-group">
+            <span class="export-group-icon">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            </span>
+            <button class="export-group-btn" onclick={() => copyCapAs('markdown')} title="Copy as Markdown" class:active={copyCapFeedback === 'markdown'}>MD</button>
+            <button class="export-group-btn" onclick={() => copyCapAs('json')} title="Copy as JSON" class:active={copyCapFeedback === 'json'}>JSON</button>
+            <button class="export-group-btn" onclick={() => copyCapAs('csv')} title="Copy as CSV" class:active={copyCapFeedback === 'csv'}>CSV</button>
+          </div>
+          <div class="export-group">
+            <span class="export-group-icon">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            </span>
+            <button class="export-group-btn" onclick={saveCapMarkdown} title="Download Markdown">MD</button>
+            <button class="export-group-btn" onclick={saveCapJSON} title="Download JSON">JSON</button>
+            <button class="export-group-btn" onclick={saveCapCSV} title="Download CSV">CSV</button>
+          </div>
+        </div>
+      </div>
       <div class="results-table-wrapper">
         <table class="results-table capability-table">
           <thead>
@@ -693,11 +760,20 @@
     padding: var(--space-2) 0;
   }
 
+  .cap-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    margin: var(--space-3) 0 var(--space-1);
+  }
+
   .capability-title {
     font-size: var(--text-sm);
     font-weight: 500;
     color: var(--color-text-secondary);
-    margin: var(--space-3) 0 var(--space-1);
+    margin: 0;
   }
 
   .capability-table th,

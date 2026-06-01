@@ -41,7 +41,7 @@
   .progress-track {
     flex: 1;
     height: 2px;
-    background: var(--color-primary);
+    background: var(--color-accent);
     border-radius: 2px;
     overflow: hidden;
   }
@@ -49,7 +49,7 @@
   .progress-fill {
     height: 100%;
     width: 100%;
-    background: var(--color-info);
+    background: var(--color-primary);
     border-radius: 2px;
     transform-origin: left;
     transition: transform 150ms ease;

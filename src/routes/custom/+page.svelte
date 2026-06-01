@@ -876,6 +876,7 @@
   .status-model {
     font-weight: 600;
     color: var(--color-text-primary);
+    font-size: var(--text-sm);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -883,7 +884,6 @@
   }
 
   .progress-count {
-    font-weight: 600;
     color: var(--color-text-muted);
     flex-shrink: 0;
     font-size: var(--text-xs);
