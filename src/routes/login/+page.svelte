@@ -74,7 +74,7 @@
     const { data, error: verifyError } = await supabase.auth.verifyOtp({
       email,
       token: otpCode.trim(),
-      type: 'email',
+      type: 'magiclink',
     });
 
     otpLoading = false;
@@ -126,14 +126,14 @@
       <p class="login-hint">Click the link in the email to sign in. If you received a 6-digit code instead, enter it below.</p>
 
       <form onsubmit={verifyOtp}>
-        <label class="field-label" for="otp-input">6-digit code</label>
+        <label class="field-label" for="otp-input">Verification code</label>
         <input
           id="otp-input"
           type="text"
           inputmode="numeric"
-          maxlength={6}
+          maxlength={8}
           class="field-input otp-input"
-          placeholder="000000"
+          placeholder="00000000"
           bind:value={otpCode}
           oninput={(e) => { otpCode = (e.target as HTMLInputElement).value.replace(/\D/g, ''); }}
         />
