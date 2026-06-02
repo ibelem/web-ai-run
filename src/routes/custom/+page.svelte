@@ -768,12 +768,6 @@
     flex-shrink: 0;
   }
 
-  .env-value {
-    color: var(--color-text-primary);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
 
   .version-select {
     font-family: var(--font-mono);

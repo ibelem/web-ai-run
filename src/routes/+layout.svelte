@@ -786,14 +786,6 @@
       color: var(--color-text-muted);
     }
 
-    .mobile-menu-label {
-      font-size: var(--text-xs);
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      color: var(--color-text-muted);
-      pointer-events: none;
-    }
 
     main {
       padding: var(--space-2);

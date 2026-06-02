@@ -728,22 +728,11 @@
     white-space: nowrap;
   }
 
-  .cap-full {
-    color: #16a34a;
-  }
 
   .cap-partial {
     color: var(--color-warning, #d97706);
   }
 
-  .badge {
-    font-family: var(--font-ui);
-    font-size: var(--text-xs);
-    padding: 1px 6px;
-    border-radius: var(--radius-sm);
-    border: 1px solid var(--color-border);
-    color: var(--color-text-secondary);
-  }
 
   .error-text {
     font-size: var(--text-sm);
