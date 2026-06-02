@@ -173,7 +173,7 @@
     const otherEp = baseline === 'a' ? epB : epA;
     const cols = ['Model', 'File', 'Backend', 'Type', `${baseEp} (100%)`, `${otherEp} (%)`];
     const sep = cols.map(() => '---');
-    const rows = compareRows.map(r => {
+    const rows = sortedRows.map(r => {
       const base = baseline === 'a' ? r.valA : r.valB;
       const other = baseline === 'a' ? r.valB : r.valA;
       const errBase = baseline === 'a' ? r.errorA : r.errorB;
@@ -194,7 +194,7 @@
   function toJSON(): string {
     const baseEp = baseline === 'a' ? epA : epB;
     const otherEp = baseline === 'a' ? epB : epA;
-    return JSON.stringify(compareRows.map(r => {
+    return JSON.stringify(sortedRows.map(r => {
       const base = baseline === 'a' ? r.valA : r.valB;
       const other = baseline === 'a' ? r.valB : r.valA;
       const pct = base != null && other != null && base > 0 ? (other / base) * 100 : null;
@@ -214,7 +214,7 @@
     const baseEp = baseline === 'a' ? epA : epB;
     const otherEp = baseline === 'a' ? epB : epA;
     const cols = ['Model', 'File', 'Backend', 'Type', `${baseEp} (100%)`, `${otherEp} (%)`];
-    const rows = compareRows.map(r => {
+    const rows = sortedRows.map(r => {
       const base = baseline === 'a' ? r.valA : r.valB;
       const other = baseline === 'a' ? r.valB : r.valA;
       const errBase = baseline === 'a' ? r.errorA : r.errorB;

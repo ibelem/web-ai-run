@@ -204,7 +204,7 @@
     const cols = ['Model', 'File', 'Backend', 'Type', `${versionA} ${metricLabel}`, `${versionB} ${metricLabel}`, 'Change'];
     if (showUnsupportedOps) cols.push(`${versionA} Unsupported Ops`, `${versionB} Unsupported Ops`);
     const sep = cols.map(() => '---');
-    const rows = compareRows.map(r => {
+    const rows = sortedRows.map(r => {
       const row = [
         r.model_id,
         r.file_path,
@@ -221,7 +221,7 @@
   }
 
   function toJSON(): string {
-    return JSON.stringify(compareRows.map(r => {
+    return JSON.stringify(sortedRows.map(r => {
       const obj: Record<string, any> = {
         model: r.model_id,
         file: r.file_path,
@@ -242,7 +242,7 @@
   function toCSV(): string {
     const cols = ['Model', 'File', 'Backend', 'Type', `${versionA} ${metricLabel}`, `${versionB} ${metricLabel}`, 'Change %'];
     if (showUnsupportedOps) cols.push(`${versionA} Unsupported Ops`, `${versionB} Unsupported Ops`);
-    const rows = compareRows.map(r => {
+    const rows = sortedRows.map(r => {
       const row = [
         `"${r.model_id}"`,
         `"${r.file_path}"`,
