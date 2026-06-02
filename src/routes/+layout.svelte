@@ -350,7 +350,7 @@
   </div>
 {/if}
 
-{#if interruptedRun}
+{#if interruptedRun && !$isRunningStore}
   <div class="interrupted-banner">
     <span class="interrupted-text">
       A previous benchmark run was interrupted ({interruptedRun.completed}/{interruptedRun.total} completed, {interruptedRun.pending} remaining).
