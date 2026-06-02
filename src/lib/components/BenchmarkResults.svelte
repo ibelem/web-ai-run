@@ -418,7 +418,7 @@
       </div>
     {/if}
 
-    {#if partialDelegationRows.length > 0 && webnnBackends.length > 0}
+    {#if partialDelegationRows.length > 0 && webnnBackends.length > 0 && !isRunning}
       <div class="cap-header">
         <h4 class="capability-title">WebNN Partial Delegation ({partialDelegationRows.length})</h4>
         <div class="export-bar">
