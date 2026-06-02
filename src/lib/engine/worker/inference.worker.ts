@@ -431,7 +431,8 @@ async function runOrt(req: WorkerRequest, modelBuffer: ArrayBuffer): Promise<Tes
 
   const inferenceTimes: number[] = [];
 
-  status(id, `Inferencing (${iterations} iterations)...`);
+  const progressStep = Math.max(1, Math.floor(iterations / 10));
+  status(id, `Inferencing 0/${iterations}...`);
   for (let i = 0; i < iterations; i++) {
     const t0 = performance.now();
     const result = await session.run(feeds);
@@ -443,6 +444,9 @@ async function runOrt(req: WorkerRequest, modelBuffer: ArrayBuffer): Promise<Tes
       await Promise.all(promises);
     }
     inferenceTimes.push(performance.now() - t0);
+    if ((i + 1) % progressStep === 0 || i === iterations - 1) {
+      status(id, `Inferencing ${i + 1}/${iterations}...`);
+    }
   }
 
   await session.release();
@@ -664,7 +668,8 @@ async function runLiteRt(req: WorkerRequest, modelBuffer: ArrayBuffer): Promise<
 
   const inferenceTimes: number[] = [];
 
-  status(id, `Inferencing (${iterations} iterations)...`);
+  const progressStep2 = Math.max(1, Math.floor(iterations / 10));
+  status(id, `Inferencing 0/${iterations}...`);
   for (let i = 0; i < iterations; i++) {
     let inputTensors: any[];
     if (isWebGPU) {
@@ -702,6 +707,10 @@ async function runLiteRt(req: WorkerRequest, modelBuffer: ArrayBuffer): Promise<
       inputTensors.forEach((t: any) => { try { t.delete?.(); } catch {} });
     }
     if (!isWebGPU && Array.isArray(outputs)) outputs.forEach((t: any) => t.delete?.());
+
+    if ((i + 1) % progressStep2 === 0 || i === iterations - 1) {
+      status(id, `Inferencing ${i + 1}/${iterations}...`);
+    }
   }
 
   // Final cleanup: delete base tensors for WASM/WebNN path

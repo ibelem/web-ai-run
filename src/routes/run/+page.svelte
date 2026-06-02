@@ -1034,7 +1034,7 @@
           <span class="progress-count">Queue: {completedCount}/{totalQueue}</span>
         </div>
       {/if}
-      <p class="status-text">{statusText}</p>
+      <p class="status-text" aria-live="polite">{statusText}</p>
       <div
         class="progress-bar-slot"
         class:progress-bar-hidden={downloadPercent <= 0 || downloadPercent >= 100}
@@ -1305,68 +1305,60 @@
                   <span class="model-item-name">{m.file_path}</span>
                 </div>
               </div>
+              <button class="model-item-remove" title="Remove model" onclick={() => { hashModels = hashModels.filter(x => x !== m); }}>×</button>
             </li>
           {/each}
         </ul>
       {/if}
 
       <div class="actions">
-        {#if !isRunning}
-          <label class="ios-switch-label" title={saveResults ? 'Results will be saved to database' : 'Click to save results to database'}>
-            <input type="checkbox" class="ios-switch-input" bind:checked={saveResults} />
-            <span class="ios-switch-track">
-              <span class="ios-switch-thumb"></span>
-            </span>
-            <span class="ios-switch-text">Upload results</span>
-          </label>
-          <div class="run-action-row">
-            <button
-              class="btn-primary"
-              onclick={startBenchmark}
-              disabled={totalModels === 0 ||
-                (saveResults &&
-                  (!$isAuthenticated ||
-                    !cpuModel.trim() ||
-                    !osModel.trim() ||
-                    (isAtLeast($auth.role ?? "anonymous", "intel") &&
-                      (!gpuDriverVersion.trim() || !npuDriverVersion.trim()))))}
-              title="Ctrl+Enter"
-            >
-              Run Benchmark <kbd class="kbd-hint">Ctrl+Enter</kbd>
-            </button>
-            {#if hasStoppedItems}
-              <button class="btn-resume" onclick={resumeBenchmark} title="Re-run only the stopped items, skipping completed and errored ones">
-                Resume
-              </button>
-            {/if}
-          </div>
-          {#if saveResults && !$isAuthenticated}
-            <p class="action-hint action-hint-warn">
-              <a href="/login">Sign in</a> to save results — we need an account to attribute the data.
-            </p>
-          {:else if saveResults && $isAuthenticated && (!cpuModel.trim() || !osModel.trim())}
-            <p class="action-hint action-hint-warn">
-              Fill in your CPU and OS above to enable result upload
-            </p>
-          {:else if saveResults && $isAuthenticated && isAtLeast($auth.role ?? "anonymous", "intel") && (!gpuDriverVersion.trim() || !npuDriverVersion.trim())}
-            <p class="action-hint action-hint-warn">
-              GPU Driver and NPU Driver versions are required for intel/admin roles
-            </p>
-          {/if}
-          {#if totalModels === 0}
-            <p class="action-hint">
-              No models selected. <a href="/browse">Browse models</a> to pick
-              one, or <a href="/custom">upload your own</a>.
-            </p>
-          {:else if totalModels > 1 && !$isAuthenticated}
-            <p class="action-hint action-hint-warn">
-              <a href="/login">Sign in</a> to run more than 1 model at a time.
-            </p>
-          {/if}
-        {:else}
-          <button class="btn-stop" onclick={stopBenchmark} title="Esc"
-            >Stop <kbd class="kbd-hint">Esc</kbd></button
+        <label class="save-toggle">
+          <input type="checkbox" bind:checked={saveResults} />
+          <span class="save-toggle-text">Upload results</span>
+        </label>
+        <div class="run-action-row">
+          <button
+            class="btn-primary"
+            onclick={startBenchmark}
+            disabled={totalModels === 0 ||
+              (saveResults &&
+                (!$isAuthenticated ||
+                  !cpuModel.trim() ||
+                  !osModel.trim() ||
+                  (isAtLeast($auth.role ?? "anonymous", "intel") &&
+                    (!gpuDriverVersion.trim() || !npuDriverVersion.trim()))))}
+            title="Ctrl+Enter"
           >
+            Run Benchmark <kbd class="kbd-hint">Ctrl+Enter</kbd>
+          </button>
+          {#if hasStoppedItems}
+            <button class="btn-resume" onclick={resumeBenchmark} title="Re-run only the stopped items, skipping completed and errored ones">
+              Resume
+            </button>
+          {/if}
+        </div>
+        {#if saveResults && !$isAuthenticated}
+          <p class="action-hint action-hint-warn">
+            <a href="/login">Sign in</a> to save results — we need an account to attribute the data.
+          </p>
+        {:else if saveResults && $isAuthenticated && (!cpuModel.trim() || !osModel.trim())}
+          <p class="action-hint action-hint-warn">
+            Fill in your CPU and OS above to enable result upload
+          </p>
+        {:else if saveResults && $isAuthenticated && isAtLeast($auth.role ?? "anonymous", "intel") && (!gpuDriverVersion.trim() || !npuDriverVersion.trim())}
+          <p class="action-hint action-hint-warn">
+            GPU Driver and NPU Driver versions are required for intel/admin roles
+          </p>
+        {/if}
+        {#if totalModels === 0}
+          <p class="action-hint">
+            No models selected. <a href="/browse">Browse models</a> to pick
+            one, or <a href="/custom">upload your own</a>.
+          </p>
+        {:else if totalModels > 1 && !$isAuthenticated}
+          <p class="action-hint action-hint-warn">
+            <a href="/login">Sign in</a> to run more than 1 model at a time.
+          </p>
         {/if}
       </div>
     </section>
@@ -1502,7 +1494,7 @@
     flex-direction: column;
     align-items: center;
     gap: var(--space-2);
-    margin-top: var(--space-6);
+    margin-top: var(--space-3);
   }
 
   .run-action-row {
@@ -1512,57 +1504,47 @@
     flex-wrap: wrap;
   }
 
-  .ios-switch-label {
+  .save-toggle {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     cursor: pointer;
     user-select: none;
     margin-bottom: var(--space-1);
-  }
-
-  .ios-switch-input {
-    position: absolute;
-    opacity: 0;
-    width: 0;
-    height: 0;
-  }
-
-  .ios-switch-track {
-    position: relative;
-    display: inline-block;
-    width: 36px;
-    height: 20px;
-    border-radius: 10px;
-    background: var(--color-border-strong);
-    transition: background 0.2s ease;
-    flex-shrink: 0;
-  }
-
-  .ios-switch-thumb {
-    position: absolute;
-    top: 2px;
-    left: 2px;
-    width: 16px;
-    height: 16px;
-    border-radius: 50%;
-    background: #fff;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.25);
-    transition: transform 0.2s ease;
-  }
-
-  .ios-switch-input:checked ~ .ios-switch-track {
-    background: var(--color-primary);
-  }
-
-  .ios-switch-input:checked ~ .ios-switch-track .ios-switch-thumb {
-    transform: translateX(16px);
-  }
-
-  .ios-switch-text {
     font-family: var(--font-ui);
     font-size: var(--text-sm);
     color: var(--color-text-secondary);
+  }
+
+  .save-toggle input[type="checkbox"] {
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    border: 2px solid var(--color-border-strong);
+    border-radius: 50%;
+    cursor: pointer;
+    transition: border-color var(--transition-base), background var(--transition-base);
+  }
+
+  .save-toggle input[type="checkbox"]:hover {
+    border-color: var(--color-primary);
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 12 12' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M3 6.5L5 8.5L9 4' stroke='%230953DE' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-size: 12px;
+    background-position: center;
+    background-repeat: no-repeat;
+  }
+
+  .save-toggle input[type="checkbox"]:checked {
+    background: var(--color-primary);
+    border-color: var(--color-primary);
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 12 12' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M3 6.5L5 8.5L9 4' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-size: 12px;
+    background-position: center;
+    background-repeat: no-repeat;
+  }
+
+  .save-toggle-text {
+    white-space: nowrap;
   }
 
   .action-hint {
@@ -1713,7 +1695,7 @@
 
   .status-section {
     width: 90vw;
-    max-width: 50vw;
+    max-width: 760px;
     margin-inline: auto;
     display: flex;
     flex-direction: column;
@@ -1829,7 +1811,7 @@
 
   .results-section-running {
     width: 90vw;
-    max-width: 50vw;
+    max-width: 760px;
     margin-inline: auto;
   }
 
@@ -1972,6 +1954,31 @@
     transition:
       border-color var(--transition-base),
       background var(--transition-base);
+  }
+
+  .model-item-remove {
+    flex-shrink: 0;
+    font-size: 14px;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: none;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity var(--transition-base), color var(--transition-base);
+  }
+
+  .model-item:hover .model-item-remove {
+    opacity: 1;
+  }
+
+  .model-item-remove:hover {
+    color: var(--color-error);
   }
 
   .model-item:hover {

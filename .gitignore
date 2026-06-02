@@ -9,6 +9,7 @@ localhost-key.pem
 skills-lock.json
 .agents
 .vercel/output/
+.codegraph
 
 # Logs
 logs
