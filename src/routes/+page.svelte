@@ -256,6 +256,7 @@
       </div>
     </div>
   </section>
+
   {/if}
 
   <!-- Capabilities -->
@@ -1042,5 +1043,6 @@
   .view-all:hover {
     text-decoration: underline;
   }
+
 
 </style>

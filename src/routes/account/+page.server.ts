@@ -28,7 +28,7 @@ export const load: PageServerLoad = async ({ locals }) => {
       .eq('owner_id', userId)
       .order('created_at', { ascending: false }),
     (locals.supabase.from('results') as any)
-      .select('id, run_id, model_id, file_path, backend, data_type, status, average_ms, median_ms, p90_ms, throughput_fps, iterations, started_at, completed_at, cpu, gpu, os, browser')
+      .select('id, run_id, model_id, file_path, backend, data_type, status, webnn_ep, ort_version, litert_version, average_ms, median_ms, p90_ms, throughput_fps, iterations, started_at, completed_at, cpu, gpu, os, browser')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(100),

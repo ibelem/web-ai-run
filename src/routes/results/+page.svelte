@@ -192,7 +192,7 @@
           {#each paged as row}
             <tr>
               <td class="cell-model cell-copy" title="Click to copy: {row.model_id}" onclick={() => copyCell(row.model_id)}>{row.model_id}</td>
-              <td class="cell-file cell-copy" title="Click to copy: {row.file_path}" onclick={() => copyCell(row.file_path)}>{row.file_path}</td>
+              <td class="cell-file"><a href="/results/{row.id}" class="cell-link" title={row.file_path}>{row.file_path}</a></td>
               <td><span class="badge">{row.data_type}</span></td>
               <td><span class="badge">{getBackendLabel(row.backend)}</span></td>
               <td class="cell-ep">{row.webnn_ep || '—'}</td>
@@ -335,6 +335,15 @@
   }
 
   .cell-copy:hover {
+    color: var(--color-primary);
+  }
+
+  .cell-link {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .cell-link:hover {
     color: var(--color-primary);
   }
 

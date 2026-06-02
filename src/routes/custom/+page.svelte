@@ -181,7 +181,7 @@
 
     queue = selectedBackends.map((backend, idx) => ({
       id: `${idx}-${backend}`,
-      hf_model_id: `local/${fileName}`,
+      hf_model_id: 'local',
       file_path: fileName,
       data_type: dataType,
       runtime,

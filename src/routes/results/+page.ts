@@ -2,6 +2,7 @@ import type { PageLoad } from './$types';
 import { createClient } from '$lib/supabase/client';
 
 export interface ResultRow {
+  id: string;
   model_id: string;
   file_path: string;
   backend: string;
@@ -60,7 +61,7 @@ export const load: PageLoad = async () => {
   // Fetch result data
   const { data, error } = await (supabase
     .from('results') as any)
-    .select('model_id, file_path, backend, data_type, status, error_message, ort_version, litert_version, webnn_ep, compilation_ms, load_and_compile_ms, first_inference_ms, time_to_first_ms, average_ms, median_ms, best_ms, p90_ms, throughput_fps, iterations, iterations_completed, started_at, completed_at, cpu, gpu, os, browser')
+    .select('id, model_id, file_path, backend, data_type, status, error_message, ort_version, litert_version, webnn_ep, compilation_ms, load_and_compile_ms, first_inference_ms, time_to_first_ms, average_ms, median_ms, best_ms, p90_ms, throughput_fps, iterations, iterations_completed, started_at, completed_at, cpu, gpu, os, browser')
     .eq('user_id', userId)
     .order('started_at', { ascending: false })
     .limit(500);

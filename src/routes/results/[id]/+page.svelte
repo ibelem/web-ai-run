@@ -71,8 +71,8 @@
       <a href="/results" class="back-link">← Results</a>
       <div class="header-row">
         <div class="header-main">
-          <h1 class="result-title" title={result.model_id}>{modelName(result.model_id)}</h1>
-          <p class="result-subtitle">{result.model_id}</p>
+          <h1 class="result-title" title={result.model_id}>{result.model_id}</h1>
+          <p class="result-subtitle">{result.file_path}</p>
         </div>
         <div class="header-actions">
           <a class="btn-run-again" href={runAgainHref(result)}>↺ Run again</a>
@@ -91,6 +91,9 @@
       <div class="badges">
         <span class="badge">{getBackendLabel(result.backend)}</span>
         <span class="badge">{result.data_type}</span>
+        {#if result.webnn_ep && result.backend.startsWith('webnn_')}
+          <span class="badge">EP: {result.webnn_ep}</span>
+        {/if}
         <span class="badge status-{result.status}">{result.status}</span>
       </div>
 
@@ -146,7 +149,7 @@
     </div>
 
     <div class="hw-section">
-      <h2 class="hw-title">Hardware</h2>
+      <h2 class="hw-title">Hardware and Software</h2>
       <dl class="hw-list">
         {#if result.gpu}
           <div class="hw-row">
@@ -170,6 +173,24 @@
           <div class="hw-row">
             <dt>Browser</dt>
             <dd>{result.browser}</dd>
+          </div>
+        {/if}
+        {#if result.webnn_ep && result.backend.startsWith('webnn_')}
+          <div class="hw-row">
+            <dt>WebNN EP</dt>
+            <dd>{result.webnn_ep}</dd>
+          </div>
+        {/if}
+        {#if result.ort_version}
+          <div class="hw-row">
+            <dt>Framework</dt>
+            <dd>ORT Web {result.ort_version}</dd>
+          </div>
+        {/if}
+        {#if result.litert_version}
+          <div class="hw-row">
+            <dt>Framework</dt>
+            <dd>LiteRT.js {result.litert_version}</dd>
           </div>
         {/if}
         <div class="hw-row">

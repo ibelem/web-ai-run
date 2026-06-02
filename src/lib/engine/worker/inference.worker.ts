@@ -340,7 +340,7 @@ async function runOrt(req: WorkerRequest, modelBuffer: ArrayBuffer): Promise<Tes
   const { id, backend, iterations, warmupRuns, runtimeVersion } = req;
   const startedAt = new Date().toISOString();
   const fileName = req.modelSource.kind === 'buffer' ? req.modelSource.fileName : req.modelSource.filePath;
-  const hfModelId = req.modelSource.kind === 'buffer' ? `local/${req.modelSource.fileName}` : req.modelSource.hfModelId;
+  const hfModelId = req.modelSource.kind === 'buffer' ? 'local' : req.modelSource.hfModelId;
 
   status(id, `Loading ONNX Runtime Web v${runtimeVersion}...`);
   const url = getOrtCdnUrl(runtimeVersion);
@@ -483,7 +483,7 @@ async function runLiteRt(req: WorkerRequest, modelBuffer: ArrayBuffer): Promise<
   const { id, backend, iterations, warmupRuns, runtimeVersion } = req;
   const startedAt = new Date().toISOString();
   const fileName = req.modelSource.kind === 'buffer' ? req.modelSource.fileName : req.modelSource.filePath;
-  const hfModelId = req.modelSource.kind === 'buffer' ? `local/${req.modelSource.fileName}` : req.modelSource.hfModelId;
+  const hfModelId = req.modelSource.kind === 'buffer' ? 'local' : req.modelSource.hfModelId;
 
   status(id, `Loading LiteRT.js v${runtimeVersion}...`);
   const url = getLiteRtCdnUrl(runtimeVersion);
@@ -768,7 +768,7 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
     post({ type: 'result', id: req.id, result });
   } catch (err: any) {
     const fileName = req.modelSource.kind === 'buffer' ? req.modelSource.fileName : req.modelSource.filePath;
-    const hfModelId = req.modelSource.kind === 'buffer' ? `local/${req.modelSource.fileName}` : req.modelSource.hfModelId;
+    const hfModelId = req.modelSource.kind === 'buffer' ? 'local' : req.modelSource.hfModelId;
 
     const errorResult: TestResult = {
       id: req.id,

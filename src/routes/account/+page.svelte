@@ -195,11 +195,6 @@
   <nav class="tabs">
     <button
       class="tab"
-      class:active={activeTab === 'results'}
-      onclick={() => setTab('results')}
-    >Results <span class="tab-count">{data.results.length}</span></button>
-    <button
-      class="tab"
       class:active={activeTab === 'recipes'}
       onclick={() => setTab('recipes')}
     >Recipes <span class="tab-count">{data.recipes.length}</span></button>
@@ -218,7 +213,7 @@
   <section class="tab-content">
     {#if activeTab === 'recipes'}
       {#if data.recipes.length === 0}
-        <div class="empty">
+        <div class="empty" style="display: flex; flex-direction: column; align-items: center; gap: var(--space-2);">
           <p>No recipes yet.</p>
           <a href="/recipe/new" class="btn-outline">Create a recipe</a>
         </div>
@@ -261,35 +256,6 @@
                 <button class="btn-sm" onclick={() => { navigator.clipboard.writeText(location.origin + sharedConfigUrl(config.id)); }}>Copy Short</button>
                 <button class="btn-sm" onclick={() => { navigator.clipboard.writeText(location.origin + sharedConfigFullUrl(config.config)); }}>Copy Full</button>
                 <button class="btn-sm btn-sm-danger" onclick={() => deleteSharedConfig(config.id)}>Delete</button>
-              </div>
-            </li>
-          {/each}
-        </ul>
-      {/if}
-
-    {:else if activeTab === 'results'}
-      {#if data.results.length === 0}
-        <div class="empty">
-          <p>No benchmark results yet. Run a benchmark with "Upload results" enabled.</p>
-        </div>
-      {:else}
-        <ul class="item-list">
-          {#each data.results as result (result.id)}
-            <li class="item-row">
-              <div class="item-main">
-                <a href="/results/{result.id}" class="item-name item-name-mono">
-                  {result.model_id.split('/').pop() ?? result.model_id}
-                </a>
-                <span class="item-meta">
-                  {result.backend}
-                  · {result.status}
-                  {#if result.average_ms}· {result.average_ms.toFixed(1)}ms avg{/if}
-                  {#if result.throughput_fps}· {result.throughput_fps.toFixed(1)} fps{/if}
-                  · {formatDate(result.started_at)}
-                </span>
-              </div>
-              <div class="item-actions">
-                <a href="/results/{result.id}" class="btn-sm">View</a>
               </div>
             </li>
           {/each}
@@ -512,6 +478,12 @@
 
   .item-name-mono {
     font-family: var(--font-mono);
+  }
+
+  .item-ext {
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+    margin-left: 4px;
   }
 
   .item-meta {
