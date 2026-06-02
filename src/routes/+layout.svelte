@@ -22,6 +22,14 @@
   let isWebnnAvailable = $state(false);
   let interruptedRun = $state<{ pending: number; completed: number; total: number } | null>(null);
 
+  // Clear interrupted banner when a run finishes
+  $effect(() => {
+    if (!$isRunningStore && browser) {
+      const raw = localStorage.getItem('interrupted_run');
+      if (!raw) interruptedRun = null;
+    }
+  });
+
   const supabase = createClient();
 
   function checkInterruptedRun() {
