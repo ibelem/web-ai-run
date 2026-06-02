@@ -357,6 +357,10 @@
               }
             }
             queue = [...queue];
+            // Restore previous results
+            if (saved.results?.length) {
+              results = saved.results;
+            }
             // Restore run config
             if (saved.config) {
               const c = saved.config;
@@ -422,8 +426,21 @@
   function saveRunState() {
     try {
       const state = queue.map(i => ({ id: i.id, hf_model_id: i.hf_model_id, file_path: i.file_path, data_type: i.data_type, runtime: i.runtime, backend: i.backend, status: i.status, error: i.error }));
+      const savedResults = results.map(r => ({
+        id: r.id,
+        test_item: r.test_item,
+        metrics: r.metrics,
+        error_message: r.error_message,
+        webnn_capability: r.webnn_capability ?? null,
+        warmup_ms: r.warmup_ms,
+        iterations: r.iterations,
+        iterations_completed: r.iterations_completed,
+        started_at: r.started_at,
+        completed_at: r.completed_at,
+        inference_times: [],
+      }));
       const config = { iterations, saveResults, ortVersion, litertVersion, webnnEp, cpuModel, osModel, gpuDriverVersion, npuDriverVersion, backends: selectedBackends, models: hashModels };
-      localStorage.setItem('interrupted_run', JSON.stringify({ queue: state, config, ts: Date.now() }));
+      localStorage.setItem('interrupted_run', JSON.stringify({ queue: state, config, results: savedResults, ts: Date.now() }));
     } catch {}
   }
 
