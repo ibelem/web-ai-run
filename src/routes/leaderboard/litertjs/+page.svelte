@@ -142,7 +142,7 @@
       const valA = a.length > 0 ? a.reduce((s, v) => s + v, 0) / a.length : null;
       const valB = b.length > 0 ? b.reduce((s, v) => s + v, 0) / b.length : null;
       let change: number | null = null;
-      if (valA != null && valB != null && valA > 0) {
+      if (valA != null && valB != null && valA > 0 && !errA && !errB) {
         change = ((valB - valA) / valA) * 100;
       }
       rows.push({ model_id, file_path, backend, data_type, valA, valB, change, errorA: errA, errorB: errB, capA, capB });
@@ -198,6 +198,7 @@
   }
 
   let copyFeedback = $state('');
+  let cellCopiedMsg = $state('');
 
   function toMarkdown(): string {
     const cols = ['Model', 'File', 'Backend', 'Type', `${versionA} ${metricLabel}`, `${versionB} ${metricLabel}`, 'Change'];
@@ -312,6 +313,13 @@
         {/each}
       </select>
 
+      <select class="filter-select" bind:value={filterDataType}>
+        <option value="">Data Type</option>
+        {#each dataTypes as dt}
+          <option value={dt}>{dt}</option>
+        {/each}
+      </select>
+
       <select class="filter-select" bind:value={filterBackend}>
         <option value="">Backend</option>
         {#each backends as b}
@@ -323,13 +331,6 @@
         <option value="">WebNN EP</option>
         {#each webnnEps as ep}
           <option value={ep}>{ep}</option>
-        {/each}
-      </select>
-
-      <select class="filter-select" bind:value={filterDataType}>
-        <option value="">Data Type</option>
-        {#each dataTypes as dt}
-          <option value={dt}>{dt}</option>
         {/each}
       </select>
 
@@ -376,8 +377,8 @@
             <tr>
               <th class="th-model sortable" onclick={() => toggleSort('model')}>Model{sortCol === 'model' ? (sortAsc ? ' ↑' : ' ↓') : ''}</th>
               <th class="th-file sortable" onclick={() => toggleSort('file')}>File{sortCol === 'file' ? (sortAsc ? ' ↑' : ' ↓') : ''}</th>
-              <th class="th-backend sortable" onclick={() => toggleSort('backend')}>Backend{sortCol === 'backend' ? (sortAsc ? ' ↑' : ' ↓') : ''}</th>
               <th class="th-dtype sortable" onclick={() => toggleSort('type')}>Type{sortCol === 'type' ? (sortAsc ? ' ↑' : ' ↓') : ''}</th>
+              <th class="th-backend sortable" onclick={() => toggleSort('backend')}>Backend{sortCol === 'backend' ? (sortAsc ? ' ↑' : ' ↓') : ''}</th>
               <th class="th-metric sortable" onclick={() => toggleSort('valA')}>{versionA}{sortCol === 'valA' ? (sortAsc ? ' ↑' : ' ↓') : ''}<br><span class="th-metric-label">{metricLabel}</span></th>
               <th class="th-metric sortable" onclick={() => toggleSort('valB')}>{versionB}{sortCol === 'valB' ? (sortAsc ? ' ↑' : ' ↓') : ''}<br><span class="th-metric-label">{metricLabel}</span></th>
               <th class="th-change sortable" onclick={() => toggleSort('change')}>Change{sortCol === 'change' ? (sortAsc ? ' ↑' : ' ↓') : ''}</th>
@@ -402,10 +403,10 @@
             </tr>
             {#each sortedRows as row}
               <tr>
-                <td class="cell-model" title={row.model_id}>{row.model_id}</td>
-                <td class="cell-file" title={row.file_path}>{row.file_path}</td>
-                <td><span class="badge">{getBackendLabel(row.backend)}</span></td>
-                <td><span class="badge">{row.data_type}</span></td>
+                <td class="cell-model cell-copy" title="Click to copy: {row.model_id}" onclick={() => { navigator.clipboard.writeText(row.model_id); cellCopiedMsg = 'Copied!'; setTimeout(() => cellCopiedMsg = '', 1500); }}>{row.model_id}</td>
+                <td class="cell-file cell-copy" title="Click to copy: {row.file_path}" onclick={() => { navigator.clipboard.writeText(row.file_path); cellCopiedMsg = 'Copied!'; setTimeout(() => cellCopiedMsg = '', 1500); }}>{row.file_path}</td>
+                <td><span>{row.data_type}</span></td>
+                <td><span>{getBackendLabel(row.backend)}</span></td>
                 <td class="cell-metric">
                   {#if row.errorA}
                     <span class="cell-error" title={row.errorA}>Error</span>
@@ -459,6 +460,10 @@
     {/if}
   {/if}
 </div>
+
+{#if cellCopiedMsg}
+  <div class="copy-toast">{cellCopiedMsg}</div>
+{/if}
 
 <style>
   .litert-page {
@@ -613,8 +618,13 @@
 
   .th-model, .th-file {
     text-align: left;
-    width: 10vw;
-    max-width: 10vw;
+    width: 15vw;
+    max-width: 15vw;
+  }
+
+  .th-backend, .th-dtype {
+    width: 5vw;
+    max-width: 5vw;
   }
 
   .sortable {
@@ -643,16 +653,40 @@
 
   .cell-model {
     text-align: left;
-    max-width: 10vw;
+    max-width: 15vw;
     overflow: hidden;
     text-overflow: ellipsis;
   }
 
   .cell-file {
     text-align: left;
-    max-width: 10vw;
+    max-width: 15vw;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  .cell-copy {
+    cursor: pointer;
+  }
+
+  .cell-copy:hover {
+    color: var(--color-primary);
+  }
+
+  .copy-toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--color-surface-raised);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-base);
+    padding: 6px 16px;
+    font-family: var(--font-ui);
+    font-size: var(--text-sm);
+    color: var(--color-primary);
+    box-shadow: var(--shadow-dropdown);
+    z-index: 9999;
   }
 
   .cell-metric {

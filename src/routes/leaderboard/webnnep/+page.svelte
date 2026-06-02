@@ -74,7 +74,6 @@
     data_type: string;
     valA: number | null;
     valB: number | null;
-    change: number | null;
     errorA: string | null;
     errorB: string | null;
   }
@@ -103,17 +102,26 @@
       const [model_id, file_path, backend, data_type] = key.split('::');
       const valA = a.length > 0 ? a.reduce((s, v) => s + v, 0) / a.length : null;
       const valB = b.length > 0 ? b.reduce((s, v) => s + v, 0) / b.length : null;
-      let change: number | null = null;
-      if (valA != null && valB != null && valA > 0) {
-        change = ((valB - valA) / valA) * 100;
-      }
-      rows.push({ model_id, file_path, backend, data_type, valA, valB, change, errorA: errA, errorB: errB });
+      rows.push({ model_id, file_path, backend, data_type, valA, valB, errorA: errA, errorB: errB });
     }
 
     return rows;
   });
 
-  let sortCol = $state<'model' | 'file' | 'backend' | 'type' | 'valA' | 'valB' | 'change'>('model');
+  let baseline = $state<'a' | 'b'>('a');
+
+  function swapBaseline() {
+    baseline = baseline === 'a' ? 'b' : 'a';
+  }
+
+  function relPct(row: CompareRow): number | null {
+    const base = baseline === 'a' ? row.valA : row.valB;
+    const other = baseline === 'a' ? row.valB : row.valA;
+    if (base == null || other == null || base === 0) return null;
+    return (other / base) * 100;
+  }
+
+  let sortCol = $state<'model' | 'file' | 'backend' | 'type' | 'valA' | 'valB'>('model');
   let sortAsc = $state(true);
 
   function toggleSort(col: typeof sortCol) {
@@ -131,7 +139,6 @@
         case 'type': av = a.data_type; bv = b.data_type; break;
         case 'valA': av = a.valA ?? Infinity; bv = b.valA ?? Infinity; break;
         case 'valB': av = a.valB ?? Infinity; bv = b.valB ?? Infinity; break;
-        case 'change': av = a.change ?? Infinity; bv = b.change ?? Infinity; break;
       }
       if (typeof av === 'string') {
         const cmp = av.localeCompare(bv);
@@ -146,10 +153,9 @@
     return val < 1 ? val.toFixed(3) : val.toFixed(2);
   }
 
-  function fmtChange(pct: number | null): string {
+  function fmtPct(pct: number | null): string {
     if (pct == null) return '—';
-    const sign = pct > 0 ? '+' : '';
-    return `${sign}${pct.toFixed(2)}%`;
+    return `${pct.toFixed(1)}%`;
   }
 
   function geomean(values: number[]): number | null {
@@ -160,48 +166,69 @@
   }
 
   let copyFeedback = $state('');
+  let cellCopiedMsg = $state('');
 
   function toMarkdown(): string {
-    const cols = ['Model', 'File', 'Backend', 'Type', `${epA} ${metricLabel}`, `${epB} ${metricLabel}`, 'Change'];
+    const baseEp = baseline === 'a' ? epA : epB;
+    const otherEp = baseline === 'a' ? epB : epA;
+    const cols = ['Model', 'File', 'Backend', 'Type', `${baseEp} (100%)`, `${otherEp} (%)`];
     const sep = cols.map(() => '---');
-    const rows = compareRows.map(r => [
-      r.model_id,
-      r.file_path,
-      getBackendLabel(r.backend),
-      r.data_type,
-      r.errorA ? 'Error' : fmt(r.valA),
-      r.errorB ? 'Error' : fmt(r.valB),
-      fmtChange(r.change),
-    ]);
+    const rows = compareRows.map(r => {
+      const base = baseline === 'a' ? r.valA : r.valB;
+      const other = baseline === 'a' ? r.valB : r.valA;
+      const errBase = baseline === 'a' ? r.errorA : r.errorB;
+      const errOther = baseline === 'a' ? r.errorB : r.errorA;
+      const pct = base != null && other != null && base > 0 ? ((other / base) * 100).toFixed(1) + '%' : '—';
+      return [
+        r.model_id,
+        r.file_path,
+        getBackendLabel(r.backend),
+        r.data_type,
+        errBase ? 'Error' : '100%',
+        errOther ? 'Error' : pct,
+      ];
+    });
     return [cols.join(' | '), sep.join(' | '), ...rows.map(r => r.join(' | '))].join('\n');
   }
 
   function toJSON(): string {
+    const baseEp = baseline === 'a' ? epA : epB;
+    const otherEp = baseline === 'a' ? epB : epA;
     return JSON.stringify(compareRows.map(r => {
-      const obj: Record<string, any> = {
+      const base = baseline === 'a' ? r.valA : r.valB;
+      const other = baseline === 'a' ? r.valB : r.valA;
+      const pct = base != null && other != null && base > 0 ? (other / base) * 100 : null;
+      return {
         model: r.model_id,
         file: r.file_path,
         backend: r.backend,
         data_type: r.data_type,
-        [epA]: r.errorA ? { error: r.errorA } : r.valA,
-        [epB]: r.errorB ? { error: r.errorB } : r.valB,
-        change_pct: r.change,
+        [`${baseEp}_ms`]: base,
+        [`${otherEp}_ms`]: other,
+        [`${otherEp}_pct`]: pct,
       };
-      return obj;
     }), null, 2);
   }
 
   function toCSV(): string {
-    const cols = ['Model', 'File', 'Backend', 'Type', `${epA} ${metricLabel}`, `${epB} ${metricLabel}`, 'Change %'];
-    const rows = compareRows.map(r => [
-      `"${r.model_id}"`,
-      `"${r.file_path}"`,
-      getBackendLabel(r.backend),
-      r.data_type,
-      r.errorA ? 'Error' : fmt(r.valA),
-      r.errorB ? 'Error' : fmt(r.valB),
-      r.change != null ? r.change.toFixed(2) : '',
-    ]);
+    const baseEp = baseline === 'a' ? epA : epB;
+    const otherEp = baseline === 'a' ? epB : epA;
+    const cols = ['Model', 'File', 'Backend', 'Type', `${baseEp} (100%)`, `${otherEp} (%)`];
+    const rows = compareRows.map(r => {
+      const base = baseline === 'a' ? r.valA : r.valB;
+      const other = baseline === 'a' ? r.valB : r.valA;
+      const errBase = baseline === 'a' ? r.errorA : r.errorB;
+      const errOther = baseline === 'a' ? r.errorB : r.errorA;
+      const pct = base != null && other != null && base > 0 ? ((other / base) * 100).toFixed(1) : '';
+      return [
+        `"${r.model_id}"`,
+        `"${r.file_path}"`,
+        getBackendLabel(r.backend),
+        r.data_type,
+        errBase ? 'Error' : '100%',
+        errOther ? 'Error' : pct,
+      ];
+    });
     return [cols.join(','), ...rows.map(r => r.join(','))].join('\n');
   }
 
@@ -230,9 +257,11 @@
   const validRows = $derived(compareRows.filter(r => r.valA != null && r.valB != null && !r.errorA && !r.errorB));
   const geomeanA = $derived(geomean(validRows.map(r => r.valA).filter((v): v is number => v != null)));
   const geomeanB = $derived(geomean(validRows.map(r => r.valB).filter((v): v is number => v != null)));
-  const geomeanChange = $derived.by(() => {
-    if (geomeanA == null || geomeanB == null || geomeanA === 0) return null;
-    return ((geomeanB - geomeanA) / geomeanA) * 100;
+  const geomeanRelPct = $derived.by(() => {
+    const base = baseline === 'a' ? geomeanA : geomeanB;
+    const other = baseline === 'a' ? geomeanB : geomeanA;
+    if (base == null || other == null || base === 0) return null;
+    return (other / base) * 100;
   });
 
   // URL hash sync
@@ -294,6 +323,13 @@
         {/each}
       </select>
 
+      <select class="filter-select" bind:value={filterDataType}>
+        <option value="">Data Type</option>
+        {#each dataTypes as dt}
+          <option value={dt}>{dt}</option>
+        {/each}
+      </select>
+
       <select class="filter-select" bind:value={filterBackend}>
         <option value="">Backend</option>
         {#each backends as b}
@@ -305,13 +341,6 @@
         <option value="">JS Framework</option>
         {#each frameworks as fw}
           <option value={fw}>{fw}</option>
-        {/each}
-      </select>
-
-      <select class="filter-select" bind:value={filterDataType}>
-        <option value="">Data Type</option>
-        {#each dataTypes as dt}
-          <option value={dt}>{dt}</option>
         {/each}
       </select>
 
@@ -354,11 +383,22 @@
             <tr>
               <th class="th-model sortable" onclick={() => toggleSort('model')}>Model{sortCol === 'model' ? (sortAsc ? ' ↑' : ' ↓') : ''}</th>
               <th class="th-file sortable" onclick={() => toggleSort('file')}>File{sortCol === 'file' ? (sortAsc ? ' ↑' : ' ↓') : ''}</th>
-              <th class="th-backend sortable" onclick={() => toggleSort('backend')}>Backend{sortCol === 'backend' ? (sortAsc ? ' ↑' : ' ↓') : ''}</th>
               <th class="th-dtype sortable" onclick={() => toggleSort('type')}>Type{sortCol === 'type' ? (sortAsc ? ' ↑' : ' ↓') : ''}</th>
-              <th class="th-metric sortable" onclick={() => toggleSort('valA')}>{epA}{sortCol === 'valA' ? (sortAsc ? ' ↑' : ' ↓') : ''}<br><span class="th-metric-label">{metricLabel}</span></th>
-              <th class="th-metric sortable" onclick={() => toggleSort('valB')}>{epB}{sortCol === 'valB' ? (sortAsc ? ' ↑' : ' ↓') : ''}<br><span class="th-metric-label">{metricLabel}</span></th>
-              <th class="th-change sortable" onclick={() => toggleSort('change')}>Change{sortCol === 'change' ? (sortAsc ? ' ↑' : ' ↓') : ''}</th>
+              <th class="th-backend sortable" onclick={() => toggleSort('backend')}>Backend{sortCol === 'backend' ? (sortAsc ? ' ↑' : ' ↓') : ''}</th>
+              <th class="th-metric sortable" onclick={() => toggleSort('valA')}>
+                {epA}{sortCol === 'valA' ? (sortAsc ? ' ↑' : ' ↓') : ''}
+                <br><span class="th-metric-label">{metricLabel}</span>
+              </th>
+              <th class="th-metric sortable" onclick={() => toggleSort('valB')}>
+                {epB}{sortCol === 'valB' ? (sortAsc ? ' ↑' : ' ↓') : ''}
+                <br><span class="th-metric-label">{metricLabel}</span>
+              </th>
+              <th class="th-pct" class:th-baseline={baseline === 'a'} onclick={() => { if (baseline !== 'a') swapBaseline(); }}>
+                {epA}{baseline === 'a' ? ' (100%)' : ' (%)'}
+              </th>
+              <th class="th-pct" class:th-baseline={baseline === 'b'} onclick={() => { if (baseline !== 'b') swapBaseline(); }}>
+                {epB}{baseline === 'b' ? ' (100%)' : ' (%)'}
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -366,16 +406,15 @@
               <td class="cell-geomean" colspan="4">Geomean ({validRows.length}/{compareRows.length} models)</td>
               <td class="cell-metric cell-geomean">{fmt(geomeanA)}</td>
               <td class="cell-metric cell-geomean">{fmt(geomeanB)}</td>
-              <td class="cell-change cell-geomean" class:improved={geomeanChange != null && geomeanChange < 0} class:regressed={geomeanChange != null && geomeanChange > 0}>
-                {fmtChange(geomeanChange)}
-              </td>
+              <td class="cell-pct cell-geomean">{baseline === 'a' ? '100%' : fmtPct(geomeanA != null && geomeanB != null && geomeanB > 0 ? (geomeanA / geomeanB) * 100 : null)}</td>
+              <td class="cell-pct cell-geomean">{baseline === 'b' ? '100%' : fmtPct(geomeanRelPct)}</td>
             </tr>
             {#each sortedRows as row}
               <tr>
-                <td class="cell-model" title={row.model_id}>{row.model_id}</td>
-                <td class="cell-file" title={row.file_path}>{row.file_path}</td>
-                <td><span class="badge">{getBackendLabel(row.backend)}</span></td>
-                <td><span class="badge">{row.data_type}</span></td>
+                <td class="cell-model cell-copy" title="Click to copy: {row.model_id}" onclick={() => { navigator.clipboard.writeText(row.model_id); cellCopiedMsg = 'Copied!'; setTimeout(() => cellCopiedMsg = '', 1500); }}>{row.model_id}</td>
+                <td class="cell-file cell-copy" title="Click to copy: {row.file_path}" onclick={() => { navigator.clipboard.writeText(row.file_path); cellCopiedMsg = 'Copied!'; setTimeout(() => cellCopiedMsg = '', 1500); }}>{row.file_path}</td>
+                <td><span>{row.data_type}</span></td>
+                <td><span>{getBackendLabel(row.backend)}</span></td>
                 <td class="cell-metric">
                   {#if row.errorA}
                     <span class="cell-error" title={row.errorA}>Error</span>
@@ -390,8 +429,23 @@
                     {fmt(row.valB)}
                   {/if}
                 </td>
-                <td class="cell-change" class:improved={row.change != null && row.change < 0} class:regressed={row.change != null && row.change > 0}>
-                  {fmtChange(row.change)}
+                <td class="cell-pct">
+                  {#if row.errorA}
+                    —
+                  {:else if baseline === 'a'}
+                    100%
+                  {:else}
+                    {row.valA != null && row.valB != null && row.valB > 0 ? fmtPct((row.valA / row.valB) * 100) : '—'}
+                  {/if}
+                </td>
+                <td class="cell-pct">
+                  {#if row.errorB}
+                    —
+                  {:else if baseline === 'b'}
+                    100%
+                  {:else}
+                    {relPct(row) != null ? fmtPct(relPct(row)) : '—'}
+                  {/if}
                 </td>
               </tr>
             {/each}
@@ -399,9 +453,8 @@
               <td class="cell-geomean" colspan="4">Geomean ({validRows.length}/{compareRows.length} models)</td>
               <td class="cell-metric cell-geomean">{fmt(geomeanA)}</td>
               <td class="cell-metric cell-geomean">{fmt(geomeanB)}</td>
-              <td class="cell-change cell-geomean" class:improved={geomeanChange != null && geomeanChange < 0} class:regressed={geomeanChange != null && geomeanChange > 0}>
-                {fmtChange(geomeanChange)}
-              </td>
+              <td class="cell-pct cell-geomean">{baseline === 'a' ? '100%' : fmtPct(geomeanA != null && geomeanB != null && geomeanB > 0 ? (geomeanA / geomeanB) * 100 : null)}</td>
+              <td class="cell-pct cell-geomean">{baseline === 'b' ? '100%' : fmtPct(geomeanRelPct)}</td>
             </tr>
           </tbody>
         </table>
@@ -409,6 +462,10 @@
     {/if}
   {/if}
 </div>
+
+{#if cellCopiedMsg}
+  <div class="copy-toast">{cellCopiedMsg}</div>
+{/if}
 
 <style>
   .webnnep-page {
@@ -538,8 +595,13 @@
 
   .th-model, .th-file {
     text-align: left;
-    width: 10vw;
-    max-width: 10vw;
+    width: 15vw;
+    max-width: 15vw;
+  }
+
+  .th-backend, .th-dtype {
+    width: 5vw;
+    max-width: 5vw;
   }
 
   .sortable {
@@ -549,6 +611,19 @@
 
   .sortable:hover {
     color: var(--color-text-primary);
+  }
+
+  .th-pct {
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .th-baseline {
+    color: var(--color-primary);
+  }
+
+  .cell-pct {
+    font-variant-numeric: tabular-nums;
   }
 
   .th-metric-label {
@@ -568,42 +643,49 @@
 
   .cell-model {
     text-align: left;
-    max-width: 10vw;
+    max-width: 15vw;
     overflow: hidden;
     text-overflow: ellipsis;
   }
 
   .cell-file {
     text-align: left;
-    max-width: 10vw;
+    max-width: 15vw;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  .cell-copy {
+    cursor: pointer;
+  }
+
+  .cell-copy:hover {
+    color: var(--color-primary);
+  }
+
+  .copy-toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--color-surface-raised);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-base);
+    padding: 6px 16px;
+    font-family: var(--font-ui);
+    font-size: var(--text-sm);
+    color: var(--color-primary);
+    box-shadow: var(--shadow-dropdown);
+    z-index: 9999;
   }
 
   .cell-metric {
     font-variant-numeric: tabular-nums;
   }
 
-  .cell-change {
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
-  }
-
-  .cell-change.improved {
-    color: #16a34a;
-  }
-
-  .cell-change.regressed {
-    color: var(--color-error);
-  }
 
   .geomean-row {
     background: var(--color-accent-light);
-  }
-
-  .cell-geomean {
-    font-family: var(--font-ui);
-    font-weight: 600;
   }
 
   .cell-error {
