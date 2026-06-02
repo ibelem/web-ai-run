@@ -111,36 +111,42 @@
   }
 
   const compareRows = $derived.by(() => {
-    const map = new Map<string, { a: number[]; b: number[]; errA: string | null; errB: string | null; capA: CapInfo | null; capB: CapInfo | null }>();
+    // Data is sorted newest-first. Only use the latest result per model+version.
+    const map = new Map<string, { valA: number | null; valB: number | null; errA: string | null; errB: string | null; capA: CapInfo | null; capB: CapInfo | null; seenA: boolean; seenB: boolean }>();
 
     for (const r of filtered) {
       const key = `${r.model_id}::${r.file_path}::${r.backend}::${r.data_type}`;
-      if (!map.has(key)) map.set(key, { a: [], b: [], errA: null, errB: null, capA: null, capB: null });
+      if (!map.has(key)) map.set(key, { valA: null, valB: null, errA: null, errB: null, capA: null, capB: null, seenA: false, seenB: false });
       const entry = map.get(key)!;
 
-      if (r.status === 'error') {
-        if (r.litert_version === versionA) entry.errA = r.error_message || 'Error';
-        if (r.litert_version === versionB) entry.errB = r.error_message || 'Error';
-      } else {
-        const val = (r as any)[selectedMetric] as number | null;
-        if (r.litert_version === versionA && val != null) entry.a.push(val);
-        if (r.litert_version === versionB && val != null) entry.b.push(val);
+      if (r.litert_version === versionA && !entry.seenA) {
+        entry.seenA = true;
+        if (r.status === 'error') {
+          entry.errA = r.error_message || 'Error';
+        } else {
+          const val = (r as any)[selectedMetric] as number | null;
+          entry.valA = val;
+        }
+        const cap = r.webnn_capability;
+        if (cap) entry.capA = { supported: cap.supported_nodes, total: cap.total_nodes, unsupported_ops: cap.unsupported_ops ?? [] };
       }
-
-      const cap = r.webnn_capability;
-      if (cap) {
-        const info: CapInfo = { supported: cap.supported_nodes, total: cap.total_nodes, unsupported_ops: cap.unsupported_ops ?? [] };
-        if (r.litert_version === versionA) entry.capA = info;
-        if (r.litert_version === versionB) entry.capB = info;
+      if (r.litert_version === versionB && !entry.seenB) {
+        entry.seenB = true;
+        if (r.status === 'error') {
+          entry.errB = r.error_message || 'Error';
+        } else {
+          const val = (r as any)[selectedMetric] as number | null;
+          entry.valB = val;
+        }
+        const cap = r.webnn_capability;
+        if (cap) entry.capB = { supported: cap.supported_nodes, total: cap.total_nodes, unsupported_ops: cap.unsupported_ops ?? [] };
       }
     }
 
     const rows: CompareRow[] = [];
-    for (const [key, { a, b, errA, errB, capA, capB }] of map) {
-      if (a.length === 0 && b.length === 0 && !errA && !errB) continue;
+    for (const [key, { valA, valB, errA, errB, capA, capB }] of map) {
+      if (valA == null && valB == null && !errA && !errB) continue;
       const [model_id, file_path, backend, data_type] = key.split('::');
-      const valA = a.length > 0 ? a.reduce((s, v) => s + v, 0) / a.length : null;
-      const valB = b.length > 0 ? b.reduce((s, v) => s + v, 0) / b.length : null;
       let change: number | null = null;
       if (valA != null && valB != null && valA > 0 && !errA && !errB) {
         change = ((valB - valA) / valA) * 100;

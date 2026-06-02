@@ -79,29 +79,38 @@
   }
 
   const compareRows = $derived.by(() => {
-    const map = new Map<string, { a: number[]; b: number[]; errA: string | null; errB: string | null }>();
+    // Data is sorted newest-first. Only use the latest result per model+ep.
+    const map = new Map<string, { valA: number | null; valB: number | null; errA: string | null; errB: string | null; seenA: boolean; seenB: boolean }>();
 
     for (const r of filtered) {
       const key = `${r.model_id}::${r.file_path}::${r.backend}::${r.data_type}`;
-      if (!map.has(key)) map.set(key, { a: [], b: [], errA: null, errB: null });
+      if (!map.has(key)) map.set(key, { valA: null, valB: null, errA: null, errB: null, seenA: false, seenB: false });
       const entry = map.get(key)!;
 
-      if (r.status === 'error') {
-        if (r.webnn_ep === epA) entry.errA = r.error_message || 'Error';
-        if (r.webnn_ep === epB) entry.errB = r.error_message || 'Error';
-      } else {
-        const val = (r as any)[selectedMetric] as number | null;
-        if (r.webnn_ep === epA && val != null) entry.a.push(val);
-        if (r.webnn_ep === epB && val != null) entry.b.push(val);
+      if (r.webnn_ep === epA && !entry.seenA) {
+        entry.seenA = true;
+        if (r.status === 'error') {
+          entry.errA = r.error_message || 'Error';
+        } else {
+          const val = (r as any)[selectedMetric] as number | null;
+          entry.valA = val;
+        }
+      }
+      if (r.webnn_ep === epB && !entry.seenB) {
+        entry.seenB = true;
+        if (r.status === 'error') {
+          entry.errB = r.error_message || 'Error';
+        } else {
+          const val = (r as any)[selectedMetric] as number | null;
+          entry.valB = val;
+        }
       }
     }
 
     const rows: CompareRow[] = [];
-    for (const [key, { a, b, errA, errB }] of map) {
-      if (a.length === 0 && b.length === 0 && !errA && !errB) continue;
+    for (const [key, { valA, valB, errA, errB }] of map) {
+      if (valA == null && valB == null && !errA && !errB) continue;
       const [model_id, file_path, backend, data_type] = key.split('::');
-      const valA = a.length > 0 ? a.reduce((s, v) => s + v, 0) / a.length : null;
-      const valB = b.length > 0 ? b.reduce((s, v) => s + v, 0) / b.length : null;
       rows.push({ model_id, file_path, backend, data_type, valA, valB, errorA: errA, errorB: errB });
     }
 
@@ -422,7 +431,7 @@
                   {/if}
                 </td>
                 <td class="cell-pct">
-                  {#if row.errorA}
+                  {#if row.errorA || row.errorB}
                     —
                   {:else if baseline === 'a'}
                     100%
@@ -431,7 +440,7 @@
                   {/if}
                 </td>
                 <td class="cell-pct">
-                  {#if row.errorB}
+                  {#if row.errorA || row.errorB}
                     —
                   {:else if baseline === 'b'}
                     100%
