@@ -30,6 +30,11 @@
       if (!raw) return;
       const saved = JSON.parse(raw);
       if (!saved?.queue || !Array.isArray(saved.queue)) return;
+      // Expire after 24 hours
+      if (saved.ts && Date.now() - saved.ts > 24 * 60 * 60 * 1000) {
+        localStorage.removeItem('interrupted_run');
+        return;
+      }
       const pending = saved.queue.filter((i: any) => i.status === 'pending' || i.status === 'downloading' || i.status === 'compiling' || i.status === 'running').length;
       const completed = saved.queue.filter((i: any) => i.status === 'completed').length;
       if (pending > 0) {
@@ -844,9 +849,9 @@
     align-items: center;
     justify-content: center;
     gap: var(--space-2);
-    padding: var(--space-1) var(--space-3);
-    background: var(--color-warning-bg, #fef3c7);
-    border-bottom: 1px solid var(--color-warning-border, #f59e0b);
+    padding: var(--space-2) var(--space-3);
+    background: var(--color-accent-light);
+    border-bottom: 1px solid var(--color-border);
     font-size: var(--text-sm);
     font-family: var(--font-ui);
     color: var(--color-text-primary);
@@ -862,28 +867,31 @@
     font-family: var(--font-ui);
     font-size: var(--text-xs);
     font-weight: 500;
-    padding: 4px 12px;
+    padding: 6px 14px;
     border-radius: var(--radius-base);
     cursor: pointer;
-    border: none;
+    transition: background var(--transition-base), border-color var(--transition-base);
   }
 
   .interrupted-resume {
     background: var(--color-primary);
     color: var(--color-text-on-primary);
+    border: 1px solid var(--color-primary);
   }
 
   .interrupted-resume:hover {
     background: var(--color-primary-hover);
+    border-color: var(--color-primary-hover);
   }
 
   .interrupted-dismiss {
-    background: none;
+    background: var(--color-surface);
     border: 1px solid var(--color-border-strong);
     color: var(--color-text-secondary);
   }
 
   .interrupted-dismiss:hover {
-    background: var(--color-nav-item-hover);
+    border-color: var(--color-primary);
+    color: var(--color-primary);
   }
 </style>

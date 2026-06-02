@@ -357,6 +357,21 @@
               }
             }
             queue = [...queue];
+            // Restore run config
+            if (saved.config) {
+              const c = saved.config;
+              if (c.iterations) iterations = c.iterations;
+              if (c.saveResults != null) saveResults = c.saveResults;
+              if (c.ortVersion) ortVersion = c.ortVersion;
+              if (c.litertVersion) litertVersion = c.litertVersion;
+              if (c.webnnEp) webnnEp = c.webnnEp;
+              if (c.cpuModel) cpuModel = c.cpuModel;
+              if (c.osModel) osModel = c.osModel;
+              if (c.gpuDriverVersion) gpuDriverVersion = c.gpuDriverVersion;
+              if (c.npuDriverVersion) npuDriverVersion = c.npuDriverVersion;
+              if (c.backends?.length) selectedBackends = c.backends;
+              if (c.models?.length) hashModels = c.models;
+            }
             resumeBenchmark();
           }
         }
@@ -407,7 +422,8 @@
   function saveRunState() {
     try {
       const state = queue.map(i => ({ id: i.id, hf_model_id: i.hf_model_id, file_path: i.file_path, data_type: i.data_type, runtime: i.runtime, backend: i.backend, status: i.status, error: i.error }));
-      localStorage.setItem('interrupted_run', JSON.stringify({ queue: state, ts: Date.now() }));
+      const config = { iterations, saveResults, ortVersion, litertVersion, webnnEp, cpuModel, osModel, gpuDriverVersion, npuDriverVersion, backends: selectedBackends, models: hashModels };
+      localStorage.setItem('interrupted_run', JSON.stringify({ queue: state, config, ts: Date.now() }));
     } catch {}
   }
 
@@ -457,6 +473,7 @@
 
       item.status = "downloading";
       queue = [...queue];
+      saveRunState();
       statusText = `Testing ${item.hf_model_id}...`;
 
       if (writer) {
@@ -622,6 +639,7 @@
 
       item.status = 'downloading';
       queue = [...queue];
+      saveRunState();
       statusText = `Testing ${item.hf_model_id}...`;
 
       if (writer) {
