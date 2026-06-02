@@ -236,7 +236,6 @@
           class="field-input"
           placeholder="Enter your password"
           bind:value={password}
-          autofocus
         />
 
         {#if error}
@@ -276,7 +275,6 @@
           placeholder="At least 8 characters"
           bind:value={password}
           minlength={8}
-          autofocus
         />
 
         <label class="field-label" for="signup-confirm">Confirm password</label>

@@ -14,7 +14,7 @@
 
   const supabase = createClient();
 
-  const oauthAvatarUrl = data.session?.user?.user_metadata?.avatar_url ?? data.session?.user?.user_metadata?.picture ?? null;
+  const oauthAvatarUrl = $derived(data.session?.user?.user_metadata?.avatar_url ?? data.session?.user?.user_metadata?.picture ?? null);
 
   // svelte-ignore state_referenced_locally
   let uploadedAvatarUrl = $state<string | null>(data.profile?.avatar_url ?? null);
