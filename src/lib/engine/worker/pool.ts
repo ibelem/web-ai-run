@@ -9,6 +9,7 @@ export interface WorkerRunOptions {
   warmupRuns: number;
   runtimeVersion: string;
   freeDimensionOverrides?: Record<string, number>;
+  timeoutMs?: number;
   onProgress?: (progress: DownloadProgress) => void;
   onStatus?: (status: string) => void;
   onLogs?: (logs: string[]) => void;
@@ -26,10 +27,22 @@ function getWorker(): Worker {
   return workerInstance;
 }
 
+const DEFAULT_TIMEOUT_MS = 10 * 60 * 1000;
+
 export function runInWorker(options: WorkerRunOptions): Promise<TestResult> {
   return new Promise((resolve, reject) => {
     const id = crypto.randomUUID();
     const worker = getWorker();
+    let settled = false;
+
+    const timeoutId = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      worker.removeEventListener('message', handleMessage);
+      worker.removeEventListener('error', handleError);
+      terminateWorker();
+      reject(new Error('Timed out after 10 minutes'));
+    }, options.timeoutMs ?? DEFAULT_TIMEOUT_MS);
 
     const request: WorkerRequest = {
       type: 'run',
@@ -58,6 +71,9 @@ export function runInWorker(options: WorkerRunOptions): Promise<TestResult> {
           options.onLogs?.(msg.logs);
           break;
         case 'result':
+          if (settled) return;
+          settled = true;
+          clearTimeout(timeoutId);
           worker.removeEventListener('message', handleMessage);
           worker.removeEventListener('error', handleError);
           resolve(msg.result);
@@ -66,6 +82,9 @@ export function runInWorker(options: WorkerRunOptions): Promise<TestResult> {
     }
 
     function handleError(event: ErrorEvent) {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeoutId);
       worker.removeEventListener('message', handleMessage);
       worker.removeEventListener('error', handleError);
       const msg = event.message || event.filename

@@ -20,8 +20,36 @@
   let isCrossOriginIsolated = $state(false);
   let isJspiSupported = $state(false);
   let isWebnnAvailable = $state(false);
+  let interruptedRun = $state<{ pending: number; completed: number; total: number } | null>(null);
 
   const supabase = createClient();
+
+  function checkInterruptedRun() {
+    try {
+      const raw = localStorage.getItem('interrupted_run');
+      if (!raw) return;
+      const saved = JSON.parse(raw);
+      if (!saved?.queue || !Array.isArray(saved.queue)) return;
+      const pending = saved.queue.filter((i: any) => i.status === 'pending' || i.status === 'downloading' || i.status === 'compiling' || i.status === 'running').length;
+      const completed = saved.queue.filter((i: any) => i.status === 'completed').length;
+      if (pending > 0) {
+        interruptedRun = { pending, completed, total: saved.queue.length };
+      } else {
+        localStorage.removeItem('interrupted_run');
+      }
+    } catch {
+      localStorage.removeItem('interrupted_run');
+    }
+  }
+
+  function dismissInterruptedRun() {
+    localStorage.removeItem('interrupted_run');
+    interruptedRun = null;
+  }
+
+  function resumeInterruptedRun() {
+    window.location.href = '/run#resume=1';
+  }
 
   onMount(() => {
     initTheme();
@@ -29,8 +57,6 @@
 
     if (browser) {
       isCrossOriginIsolated = window.crossOriginIsolated ?? false;
-      // WebAssembly.Suspending exists in Chrome 131+ unconditionally, but JSPI
-      // only works when stack-switching is enabled. Constructing it throws when disabled.
       try {
         new (WebAssembly as any).Suspending(() => {});
         isJspiSupported = true;
@@ -38,6 +64,7 @@
         isJspiSupported = false;
       }
       isWebnnAvailable = typeof (navigator as any).ml !== 'undefined';
+      checkInterruptedRun();
     }
 
     const role: Role = data.session?.user?.app_metadata?.role ?? 'anonymous';
@@ -307,6 +334,16 @@
         <a href="/admin/recipes" class="mobile-menu-item mobile-admin-item" onclick={closeMobileMenu}>Recipes</a>
       {/if}
     {/if}
+  </div>
+{/if}
+
+{#if interruptedRun}
+  <div class="interrupted-banner">
+    <span class="interrupted-text">
+      A previous benchmark run was interrupted ({interruptedRun.completed}/{interruptedRun.total} completed, {interruptedRun.pending} remaining).
+    </span>
+    <button class="interrupted-btn interrupted-resume" onclick={resumeInterruptedRun}>Resume</button>
+    <button class="interrupted-btn interrupted-dismiss" onclick={dismissInterruptedRun}>Dismiss</button>
   </div>
 {/if}
 
@@ -800,5 +837,53 @@
     .footer-copy {
       order: 2;
     }
+  }
+
+  .interrupted-banner {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    padding: var(--space-1) var(--space-3);
+    background: var(--color-warning-bg, #fef3c7);
+    border-bottom: 1px solid var(--color-warning-border, #f59e0b);
+    font-size: var(--text-sm);
+    font-family: var(--font-ui);
+    color: var(--color-text-primary);
+    flex-wrap: wrap;
+  }
+
+  .interrupted-text {
+    flex: 1;
+    min-width: 200px;
+  }
+
+  .interrupted-btn {
+    font-family: var(--font-ui);
+    font-size: var(--text-xs);
+    font-weight: 500;
+    padding: 4px 12px;
+    border-radius: var(--radius-base);
+    cursor: pointer;
+    border: none;
+  }
+
+  .interrupted-resume {
+    background: var(--color-primary);
+    color: var(--color-text-on-primary);
+  }
+
+  .interrupted-resume:hover {
+    background: var(--color-primary-hover);
+  }
+
+  .interrupted-dismiss {
+    background: none;
+    border: 1px solid var(--color-border-strong);
+    color: var(--color-text-secondary);
+  }
+
+  .interrupted-dismiss:hover {
+    background: var(--color-nav-item-hover);
   }
 </style>

@@ -340,6 +340,28 @@
       .catch(() => {});
 
     mounted = true;
+
+    // Auto-resume if navigated with #resume=1 (from interrupted run banner)
+    if (location.hash.includes('resume=1')) {
+      history.replaceState(null, '', location.pathname);
+      try {
+        const raw = localStorage.getItem('interrupted_run');
+        if (raw) {
+          const saved = JSON.parse(raw);
+          if (saved?.queue && Array.isArray(saved.queue)) {
+            queue = saved.queue.map((i: any) => ({ ...i, progress: 0 }));
+            // Reset in-flight items to pending
+            for (const item of queue) {
+              if (item.status !== 'completed' && item.status !== 'error') {
+                item.status = 'pending';
+              }
+            }
+            queue = [...queue];
+            resumeBenchmark();
+          }
+        }
+      } catch {}
+    }
   });
 
   function handleKeydown(e: KeyboardEvent) {
@@ -382,6 +404,17 @@
     terminateWorker();
   });
 
+  function saveRunState() {
+    try {
+      const state = queue.map(i => ({ id: i.id, hf_model_id: i.hf_model_id, file_path: i.file_path, data_type: i.data_type, runtime: i.runtime, backend: i.backend, status: i.status, error: i.error }));
+      localStorage.setItem('interrupted_run', JSON.stringify({ queue: state, ts: Date.now() }));
+    } catch {}
+  }
+
+  function clearRunState() {
+    localStorage.removeItem('interrupted_run');
+  }
+
   async function startBenchmark() {
     if (hashModels.length === 0) return;
 
@@ -389,6 +422,7 @@
     isRunning = true;
     results = [];
     runLogs = [];
+    saveRunState();
 
     const config: RunConfigType = {
       iterations,
@@ -515,12 +549,14 @@
       results = [...results, result];
       queue = [...queue];
       downloadPercent = 0;
+      saveRunState();
 
       if (writer) {
         await writer.completeResult(item, result);
         item.status = "completed";
         runLogs = [...runLogs, `Saved ${item.hf_model_id} · ${getBackendLabel(item.backend)}`];
         queue = [...queue];
+        saveRunState();
       }
       currentRunItem = null;
     }
@@ -529,6 +565,165 @@
     activeWriter = null;
     currentRunItem = null;
     statusText = "Benchmark complete.";
+    clearRunState();
+  }
+
+  const hasStoppedItems = $derived(
+    !isRunning && queue.some(i => i.status === 'error' && i.error === 'Stopped by user')
+  );
+
+  async function resumeBenchmark() {
+    if (queue.length === 0) return;
+
+    // Reset stopped items back to pending
+    for (const item of queue) {
+      if (item.status === 'error' && item.error === 'Stopped by user') {
+        item.status = 'pending';
+        item.error = undefined;
+        item.progress = 0;
+      }
+    }
+    queue = [...queue];
+
+    isRunning = true;
+    statusText = 'Resuming...';
+
+    const config: RunConfigType = {
+      iterations,
+      warmup_runs: 3,
+      backends: selectedBackends,
+      save_results: saveResults,
+    };
+
+    const authState = get(auth);
+    let writer: ResultsWriter | null = null;
+    if (saveResults && authState.user && environment) {
+      writer = new ResultsWriter(
+        authState.user.id,
+        {
+          ...environment,
+          cpu: cpuModel.trim() || environment.cpu,
+          os: osModel.trim() || environment.os,
+        },
+        ortVersion,
+        litertVersion,
+        webnnEp,
+        gpuDriverVersion.trim(),
+        npuDriverVersion.trim(),
+      );
+    }
+    activeWriter = writer;
+    if (writer) await writer.cacheAccessToken();
+
+    for (const item of queue) {
+      if (!isRunning) break;
+      if (item.status === 'completed' || item.status === 'error') continue;
+      currentRunItem = item;
+
+      item.status = 'downloading';
+      queue = [...queue];
+      statusText = `Testing ${item.hf_model_id}...`;
+
+      if (writer) {
+        await writer.createResult(item, config.iterations);
+      }
+
+      const runtimeVersion =
+        item.runtime === 'onnx' ? ortVersion : litertVersion;
+      const fdo =
+        item.runtime === 'onnx'
+          ? getOverride(overridesMap, item.hf_model_id, item.file_path)
+          : undefined;
+
+      let result: TestResult;
+      try {
+        result = await runInWorker({
+          modelSource: {
+            kind: 'url',
+            hfModelId: item.hf_model_id,
+            filePath: item.file_path,
+          },
+          runtime: item.runtime,
+          backend: item.backend,
+          iterations: config.iterations,
+          warmupRuns: config.warmup_runs,
+          runtimeVersion,
+          freeDimensionOverrides: fdo,
+          onProgress: (progress) => {
+            downloadPercent = progress.percent;
+            downloadLoaded = progress.loaded_bytes;
+            downloadTotal = progress.total_bytes;
+            item.progress = progress.percent;
+            item.status = 'downloading';
+            scheduleQueueFlush();
+          },
+          onStatus: (status) => {
+            statusText = status;
+            runLogs = [...runLogs, status];
+            if (status.includes('Compil') || status.includes('session') || status.includes('Creating'))
+              item.status = 'compiling';
+            else if (status.includes('Inferencing') || status.includes('Warm'))
+              item.status = 'running';
+            scheduleQueueFlush();
+          },
+          onLogs: (logs) => {
+            runLogs = [...runLogs, ...logs];
+          },
+        });
+      } catch (err: any) {
+        terminateWorker();
+        const msg = err?.message ?? 'Worker error';
+        runLogs = [...runLogs, `Error: ${msg}`];
+        result = {
+          id: item.id,
+          test_item: { ...item, status: 'error', error: msg },
+          metrics: null,
+          inference_times: [],
+          warmup_ms: 0,
+          iterations: config.iterations,
+          iterations_completed: 0,
+          started_at: new Date().toISOString(),
+          completed_at: new Date().toISOString(),
+          error_message: msg,
+        };
+      }
+
+      if (queueFlushTimer) {
+        clearTimeout(queueFlushTimer);
+        queueFlushTimer = null;
+      }
+      if (result.error_message) {
+        item.status = 'error';
+        item.error = result.error_message;
+        runLogs = [...runLogs, `Error [${item.hf_model_id} / ${getBackendLabel(item.backend)}]: ${result.error_message}`];
+      } else if (writer) {
+        item.status = 'uploading';
+        statusText = `Uploading results for ${item.hf_model_id}...`;
+        runLogs = [...runLogs, `Uploading results for ${item.hf_model_id} · ${getBackendLabel(item.backend)}...`];
+      } else {
+        item.status = 'completed';
+      }
+      item.progress = 100;
+      results = [...results, result];
+      queue = [...queue];
+      downloadPercent = 0;
+      saveRunState();
+
+      if (writer) {
+        await writer.completeResult(item, result);
+        item.status = 'completed';
+        runLogs = [...runLogs, `Saved ${item.hf_model_id} · ${getBackendLabel(item.backend)}`];
+        queue = [...queue];
+        saveRunState();
+      }
+      currentRunItem = null;
+    }
+
+    isRunning = false;
+    activeWriter = null;
+    currentRunItem = null;
+    statusText = 'Benchmark complete.';
+    clearRunState();
   }
 
   async function stopBenchmark() {
@@ -557,6 +752,7 @@
     }
     activeWriter = null;
     currentRunItem = null;
+    clearRunState();
   }
 
   let shareUrl = $state("");
@@ -1099,6 +1295,11 @@
             >
               Run Benchmark <kbd class="kbd-hint">Ctrl+Enter</kbd>
             </button>
+            {#if hasStoppedItems}
+              <button class="btn-resume" onclick={resumeBenchmark} title="Re-run only the stopped items, skipping completed and errored ones">
+                Resume
+              </button>
+            {/if}
           </div>
           {#if saveResults && !$isAuthenticated}
             <p class="action-hint action-hint-warn">
@@ -1365,6 +1566,25 @@
     background: none;
     color: var(--color-error);
     cursor: pointer;
+  }
+
+  .btn-resume {
+    display: inline-flex;
+    align-items: center;
+    font-family: var(--font-ui);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    padding: var(--space-1) var(--space-3);
+    border: 1px solid var(--color-primary);
+    border-radius: var(--radius-base);
+    background: none;
+    color: var(--color-primary);
+    cursor: pointer;
+    transition: background var(--transition-base);
+  }
+
+  .btn-resume:hover {
+    background: var(--color-accent-light);
   }
 
   .actions :global(.btn-primary) {
@@ -1801,7 +2021,8 @@
     }
 
     .actions :global(.btn-primary),
-    .btn-stop {
+    .btn-stop,
+    .btn-resume {
       width: 100%;
       justify-content: center;
     }
