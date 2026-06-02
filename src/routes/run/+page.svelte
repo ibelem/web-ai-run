@@ -450,6 +450,10 @@
 
   async function startBenchmark() {
     if (hashModels.length === 0) return;
+    if (hashModels.length > 1 && !get(isAuthenticated)) {
+      statusText = 'Sign in to run more than 1 model at a time.';
+      return;
+    }
 
     queue = buildTestQueue(hashModels, selectedBackends);
     isRunning = true;
@@ -1354,6 +1358,10 @@
               No models selected. <a href="/browse">Browse models</a> to pick
               one, or <a href="/custom">upload your own</a>.
             </p>
+          {:else if totalModels > 1 && !$isAuthenticated}
+            <p class="action-hint action-hint-warn">
+              <a href="/login">Sign in</a> to run more than 1 model at a time.
+            </p>
           {/if}
         {:else}
           <button class="btn-stop" onclick={stopBenchmark} title="Esc"
@@ -1579,7 +1587,6 @@
   .action-hint-warn a {
     color: var(--color-warning);
     font-weight: 600;
-    text-decoration: underline;
   }
 
   .run-controls {

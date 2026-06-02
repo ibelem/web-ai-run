@@ -406,6 +406,8 @@
 <footer class="site-footer" class:hidden={$isRunningStore}>
   <span class="footer-copy">&copy; {new Date().getFullYear()} <a href="https://webai.run">Web AI Benchmark</a></span>
   <span class="footer-sep">·</span>
+  <a class="footer-link" href="https://2025.webai.run">2025 Version</a>
+  <span class="footer-sep">·</span>
   <div class="footer-caps">
     <span class="footer-cap" class:cap-ok={isWebnnAvailable} class:cap-warn={!isWebnnAvailable}
       title="WebNN API availability - navigator.ml must be defined">
@@ -823,6 +825,17 @@
   }
 
   .footer-copy a:hover {
+    text-decoration: underline;
+    color: var(--color-primary);
+  }
+
+  .footer-link {
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+    text-decoration: none;
+  }
+
+  .footer-link:hover {
     text-decoration: underline;
     color: var(--color-primary);
   }
