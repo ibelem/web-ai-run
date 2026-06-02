@@ -7,6 +7,8 @@
   let filterModel = $state('');
   let filterBackend = $state('');
   let filterDataType = $state('');
+  let filterFramework = $state('');
+  let filterWebnnEp = $state('');
   let filterDateFrom = $state('');
   let filterDateTo = $state('');
   let groupByHardware = $state(false);
@@ -35,11 +37,27 @@
       })
   );
 
+  function getFrameworkLabel(r: LeaderboardRow): string {
+    if (r.ort_version) return `ORT ${r.ort_version}`;
+    if (r.litert_version) return `LiteRT ${r.litert_version}`;
+    return '';
+  }
+
+  const frameworks = $derived(
+    [...new Set(data.results.map((r: LeaderboardRow) => getFrameworkLabel(r)).filter(Boolean))].sort()
+  );
+
+  const webnnEps = $derived(
+    [...new Set(data.results.map((r: LeaderboardRow) => r.webnn_ep).filter(Boolean))].sort()
+  );
+
   const filteredResults = $derived(
     data.results.filter((r: LeaderboardRow) => {
       if (filterModel && r.model_id !== filterModel) return false;
       if (filterBackend && r.backend !== filterBackend) return false;
       if (filterDataType && r.data_type !== filterDataType) return false;
+      if (filterFramework && getFrameworkLabel(r) !== filterFramework) return false;
+      if (filterWebnnEp && r.webnn_ep !== filterWebnnEp) return false;
       if (filterDateFrom && r.started_at < filterDateFrom) return false;
       if (filterDateTo && r.started_at > filterDateTo + 'T23:59:59') return false;
       return true;
@@ -159,128 +177,6 @@
     <div class="error-banner">
       <p>Failed to load results: {data.error}</p>
     </div>
-  {:else}
-    <div class="filters">
-      <select class="filter-select" bind:value={filterModel}>
-        <option value="">All models</option>
-        {#each models as m}
-          <option value={m}>{modelName(m)}</option>
-        {/each}
-      </select>
-
-      <select class="filter-select" bind:value={filterBackend}>
-        <option value="">All backends</option>
-        {#each backends as b}
-          <option value={b}>{getBackendLabel(b)}</option>
-        {/each}
-      </select>
-
-      <select class="filter-select" bind:value={filterDataType}>
-        <option value="">All data types</option>
-        {#each dataTypes as dt}
-          <option value={dt}>{dt}</option>
-        {/each}
-      </select>
-
-      <div class="date-range">
-        <input class="filter-date" type="date" bind:value={filterDateFrom} title="From date" />
-        <span class="date-sep">-</span>
-        <input class="filter-date" type="date" bind:value={filterDateTo} title="To date" />
-        {#if filterDateFrom || filterDateTo}
-          <button class="clear-dates" onclick={clearDateFilters} title="Clear date filter">×</button>
-        {/if}
-      </div>
-
-      <label class="group-toggle">
-        <input type="checkbox" bind:checked={groupByHardware} />
-        Group by hardware
-      </label>
-      <label class="group-toggle">
-        <input type="checkbox" bind:checked={showAllColumns} />
-        All columns
-      </label>
-    </div>
-
-    {#if sortedResults.length === 0}
-      <div class="empty">
-        <p>No completed benchmark results found.</p>
-      </div>
-    {:else}
-      <div class="results-table-wrapper">
-        <table class="results-table">
-          <thead>
-            <tr>
-              <th>HuggingFace ID</th>
-              <th>Model Path</th>
-              <th>Backend</th>
-              <th>Data Type</th>
-              {#if showAllColumns}
-                <th class="sortable" onclick={() => toggleSort('compilation_ms')}>
-                  Compile{sortIndicator('compilation_ms')}
-                </th>
-                <th class="sortable" onclick={() => toggleSort('load_and_compile_ms')}>
-                  Load+Compile{sortIndicator('load_and_compile_ms')}
-                </th>
-              {/if}
-              <th class="sortable" onclick={() => toggleSort('average_ms')}>
-                Avg (ms){sortIndicator('average_ms')}
-              </th>
-              <th class="sortable" onclick={() => toggleSort('median_ms')}>
-                Median (ms){sortIndicator('median_ms')}
-              </th>
-              {#if showAllColumns}
-                <th class="sortable" onclick={() => toggleSort('best_ms')}>
-                  Best{sortIndicator('best_ms')}
-                </th>
-                <th class="sortable" onclick={() => toggleSort('p90_ms')}>
-                  p90{sortIndicator('p90_ms')}
-                </th>
-              {/if}
-              <th class="sortable" onclick={() => toggleSort('throughput_fps')}>
-                FPS{sortIndicator('throughput_fps')}
-              </th>
-              <th>GPU</th>
-              <th>Browser</th>
-            </tr>
-          </thead>
-          <tbody>
-            {#each sortedResults as result}
-              <tr>
-                <td class="cell-model" title={result.model_id}>{result.model_id}</td>
-                <td class="cell-path" title={result.file_path}>{result.file_path}</td>
-                <td><span class="badge">{getBackendLabel(result.backend)}</span></td>
-                <td><span class="badge">{result.data_type}</span></td>
-                {#if showAllColumns}
-                  <td class="cell-metric">{result.compilation_ms?.toFixed(1) ?? '—'}</td>
-                  <td class="cell-metric">{result.load_and_compile_ms?.toFixed(1) ?? '—'}</td>
-                {/if}
-                <td class="cell-metric">{result.average_ms?.toFixed(1) ?? '—'}</td>
-                <td class="cell-metric">{result.median_ms?.toFixed(1) ?? '—'}</td>
-                {#if showAllColumns}
-                  <td class="cell-metric">{result.best_ms?.toFixed(1) ?? '—'}</td>
-                  <td class="cell-metric">{result.p90_ms?.toFixed(1) ?? '—'}</td>
-                {/if}
-                <td class="cell-metric">{result.throughput_fps?.toFixed(1) ?? '—'}</td>
-                <td class="cell-info">{result.gpu || '—'}</td>
-                <td class="cell-info">
-                  {result.browser || '—'}
-                  {#if groupByHardware && result.rowCount > 1}
-                    <span class="row-count" title="Averaged over {result.rowCount} runs">×{result.rowCount}</span>
-                  {/if}
-                </td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
-      </div>
-
-      <div class="results-count">
-        {sortedResults.length} result{sortedResults.length !== 1 ? 's' : ''}
-        {#if groupByHardware}
-          <span class="results-count-note">(averaged by hardware)</span>
-        {/if}
-      </div>
-    {/if}
   {/if}
 </div>
 

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { LitertRow } from './+page.ts';
+  import type { WebNNEpRow } from './+page.ts';
   import { getBackendLabel } from '$lib/engine/backends';
   import { browser } from '$app/environment';
   import { auth } from '$lib/stores/auth';
@@ -25,76 +25,47 @@
     { key: 'throughput_fps', label: 'Throughput (fps)' },
   ] as const;
 
-  function parseHash() {
-    if (!browser) return {};
-    const params = new URLSearchParams(location.hash.slice(1));
-    return {
-      a: params.get('a') ?? '',
-      b: params.get('b') ?? '',
-      backend: params.get('backend') ?? '',
-      ep: params.get('ep') ?? '',
-      dtype: params.get('dtype') ?? '',
-      metric: params.get('metric') ?? 'median_ms',
-      ops: params.get('ops') === '1',
-    };
-  }
-
-  const parsed = parseHash();
-
-  let filterBackend = $state(parsed.backend ?? '');
-  let filterDataType = $state(parsed.dtype ?? '');
-  let filterWebnnEp = $state(parsed.ep ?? '');
-  let selectedMetric = $state<string>(parsed.metric ?? 'median_ms');
-  let showUnsupportedOps = $state(parsed.ops ?? false);
-  let versionA = $state(parsed.a ?? '');
-  let versionB = $state(parsed.b ?? '');
-
-
-  $effect(() => {
-    if (!browser) return;
-    const params = new URLSearchParams();
-    if (versionA) params.set('a', versionA);
-    if (versionB) params.set('b', versionB);
-    if (filterBackend) params.set('backend', filterBackend);
-    if (filterWebnnEp) params.set('ep', filterWebnnEp);
-    if (filterDataType) params.set('dtype', filterDataType);
-    if (selectedMetric !== 'median_ms') params.set('metric', selectedMetric);
-    if (showUnsupportedOps) params.set('ops', '1');
-    history.replaceState(null, '', `#${params}`);
-  });
+  let filterBackend = $state('');
+  let filterDataType = $state('');
+  let filterFramework = $state('');
+  let selectedMetric = $state<string>('median_ms');
+  let epA = $state('');
+  let epB = $state('');
 
   const isThroughput = $derived(selectedMetric === 'throughput_fps');
   const metricLabel = $derived(METRICS.find(m => m.key === selectedMetric)?.label ?? 'Median (ms)');
 
-  const versions = $derived(data.distinctVersions ?? []);
-  const backends = $derived(data.distinctBackends ?? []);
-  const dataTypes = $derived(data.distinctDataTypes ?? []);
   const webnnEps = $derived(data.distinctEps ?? []);
 
-  // Auto-select from hash or default to newest two versions
+  const backends = $derived(data.distinctBackends ?? []);
+  const dataTypes = $derived(data.distinctDataTypes ?? []);
+
+  function getFrameworkLabel(r: WebNNEpRow): string {
+    if (r.ort_version) return `ORT Web ${r.ort_version}`;
+    if (r.litert_version) return `LiteRT.js ${r.litert_version}`;
+    return '';
+  }
+
+  const frameworks = $derived(data.distinctFrameworks ?? []);
+
+  // Auto-select first two EPs
   $effect(() => {
-    if (versions.length >= 2 && !versionA && !versionB) {
-      versionA = versions[1];
-      versionB = versions[0];
-    } else if (versions.length === 1 && !versionA) {
-      versionA = versions[0];
+    if (webnnEps.length >= 2 && !epA && !epB) {
+      epA = webnnEps[0];
+      epB = webnnEps[1];
+    } else if (webnnEps.length === 1 && !epA) {
+      epA = webnnEps[0];
     }
   });
 
   const filtered = $derived(
-    data.results.filter((r: LitertRow) => {
+    data.results.filter((r: WebNNEpRow) => {
       if (filterBackend && r.backend !== filterBackend) return false;
       if (filterDataType && r.data_type !== filterDataType) return false;
-      if (filterWebnnEp && r.webnn_ep !== filterWebnnEp) return false;
-      return r.litert_version === versionA || r.litert_version === versionB;
+      if (filterFramework && getFrameworkLabel(r) !== filterFramework) return false;
+      return r.webnn_ep === epA || r.webnn_ep === epB;
     })
   );
-
-  interface CapInfo {
-    supported: number;
-    total: number;
-    unsupported_ops: string[];
-  }
 
   interface CompareRow {
     model_id: string;
@@ -106,37 +77,28 @@
     change: number | null;
     errorA: string | null;
     errorB: string | null;
-    capA: CapInfo | null;
-    capB: CapInfo | null;
   }
 
   const compareRows = $derived.by(() => {
-    const map = new Map<string, { a: number[]; b: number[]; errA: string | null; errB: string | null; capA: CapInfo | null; capB: CapInfo | null }>();
+    const map = new Map<string, { a: number[]; b: number[]; errA: string | null; errB: string | null }>();
 
     for (const r of filtered) {
       const key = `${r.model_id}::${r.file_path}::${r.backend}::${r.data_type}`;
-      if (!map.has(key)) map.set(key, { a: [], b: [], errA: null, errB: null, capA: null, capB: null });
+      if (!map.has(key)) map.set(key, { a: [], b: [], errA: null, errB: null });
       const entry = map.get(key)!;
 
       if (r.status === 'error') {
-        if (r.litert_version === versionA) entry.errA = r.error_message || 'Error';
-        if (r.litert_version === versionB) entry.errB = r.error_message || 'Error';
+        if (r.webnn_ep === epA) entry.errA = r.error_message || 'Error';
+        if (r.webnn_ep === epB) entry.errB = r.error_message || 'Error';
       } else {
         const val = (r as any)[selectedMetric] as number | null;
-        if (r.litert_version === versionA && val != null) entry.a.push(val);
-        if (r.litert_version === versionB && val != null) entry.b.push(val);
-      }
-
-      const cap = r.webnn_capability;
-      if (cap) {
-        const info: CapInfo = { supported: cap.supported_nodes, total: cap.total_nodes, unsupported_ops: cap.unsupported_ops ?? [] };
-        if (r.litert_version === versionA) entry.capA = info;
-        if (r.litert_version === versionB) entry.capB = info;
+        if (r.webnn_ep === epA && val != null) entry.a.push(val);
+        if (r.webnn_ep === epB && val != null) entry.b.push(val);
       }
     }
 
     const rows: CompareRow[] = [];
-    for (const [key, { a, b, errA, errB, capA, capB }] of map) {
+    for (const [key, { a, b, errA, errB }] of map) {
       if (a.length === 0 && b.length === 0 && !errA && !errB) continue;
       const [model_id, file_path, backend, data_type] = key.split('::');
       const valA = a.length > 0 ? a.reduce((s, v) => s + v, 0) / a.length : null;
@@ -145,7 +107,7 @@
       if (valA != null && valB != null && valA > 0) {
         change = ((valB - valA) / valA) * 100;
       }
-      rows.push({ model_id, file_path, backend, data_type, valA, valB, change, errorA: errA, errorB: errB, capA, capB });
+      rows.push({ model_id, file_path, backend, data_type, valA, valB, change, errorA: errA, errorB: errB });
     }
 
     return rows;
@@ -200,22 +162,17 @@
   let copyFeedback = $state('');
 
   function toMarkdown(): string {
-    const cols = ['Model', 'File', 'Backend', 'Type', `${versionA} ${metricLabel}`, `${versionB} ${metricLabel}`, 'Change'];
-    if (showUnsupportedOps) cols.push(`${versionA} Unsupported Ops`, `${versionB} Unsupported Ops`);
+    const cols = ['Model', 'File', 'Backend', 'Type', `${epA} ${metricLabel}`, `${epB} ${metricLabel}`, 'Change'];
     const sep = cols.map(() => '---');
-    const rows = compareRows.map(r => {
-      const row = [
-        r.model_id,
-        r.file_path,
-        getBackendLabel(r.backend),
-        r.data_type,
-        r.errorA ? 'Error' : fmt(r.valA),
-        r.errorB ? 'Error' : fmt(r.valB),
-        fmtChange(r.change),
-      ];
-      if (showUnsupportedOps) row.push(r.capA?.unsupported_ops.join('; ') ?? '', r.capB?.unsupported_ops.join('; ') ?? '');
-      return row;
-    });
+    const rows = compareRows.map(r => [
+      r.model_id,
+      r.file_path,
+      getBackendLabel(r.backend),
+      r.data_type,
+      r.errorA ? 'Error' : fmt(r.valA),
+      r.errorB ? 'Error' : fmt(r.valB),
+      fmtChange(r.change),
+    ]);
     return [cols.join(' | '), sep.join(' | '), ...rows.map(r => r.join(' | '))].join('\n');
   }
 
@@ -226,34 +183,25 @@
         file: r.file_path,
         backend: r.backend,
         data_type: r.data_type,
-        [versionA]: r.errorA ? { error: r.errorA } : r.valA,
-        [versionB]: r.errorB ? { error: r.errorB } : r.valB,
+        [epA]: r.errorA ? { error: r.errorA } : r.valA,
+        [epB]: r.errorB ? { error: r.errorB } : r.valB,
         change_pct: r.change,
       };
-      if (showUnsupportedOps) {
-        obj[`${versionA}_unsupported_ops`] = r.capA?.unsupported_ops ?? [];
-        obj[`${versionB}_unsupported_ops`] = r.capB?.unsupported_ops ?? [];
-      }
       return obj;
     }), null, 2);
   }
 
   function toCSV(): string {
-    const cols = ['Model', 'File', 'Backend', 'Type', `${versionA} ${metricLabel}`, `${versionB} ${metricLabel}`, 'Change %'];
-    if (showUnsupportedOps) cols.push(`${versionA} Unsupported Ops`, `${versionB} Unsupported Ops`);
-    const rows = compareRows.map(r => {
-      const row = [
-        `"${r.model_id}"`,
-        `"${r.file_path}"`,
-        getBackendLabel(r.backend),
-        r.data_type,
-        r.errorA ? 'Error' : fmt(r.valA),
-        r.errorB ? 'Error' : fmt(r.valB),
-        r.change != null ? r.change.toFixed(2) : '',
-      ];
-      if (showUnsupportedOps) row.push(`"${r.capA?.unsupported_ops.join('; ') ?? ''}"`, `"${r.capB?.unsupported_ops.join('; ') ?? ''}"`,);
-      return row;
-    });
+    const cols = ['Model', 'File', 'Backend', 'Type', `${epA} ${metricLabel}`, `${epB} ${metricLabel}`, 'Change %'];
+    const rows = compareRows.map(r => [
+      `"${r.model_id}"`,
+      `"${r.file_path}"`,
+      getBackendLabel(r.backend),
+      r.data_type,
+      r.errorA ? 'Error' : fmt(r.valA),
+      r.errorB ? 'Error' : fmt(r.valB),
+      r.change != null ? r.change.toFixed(2) : '',
+    ]);
     return [cols.join(','), ...rows.map(r => r.join(','))].join('\n');
   }
 
@@ -275,9 +223,9 @@
   }
 
   const dateSuffix = () => new Date().toISOString().slice(0, 10);
-  function saveMarkdown() { saveFile(toMarkdown(), `litert-compare-${versionA}-vs-${versionB}-${dateSuffix()}.md`, 'text/markdown'); }
-  function saveJSON() { saveFile(toJSON(), `litert-compare-${versionA}-vs-${versionB}-${dateSuffix()}.json`, 'application/json'); }
-  function saveCSV() { saveFile(toCSV(), `litert-compare-${versionA}-vs-${versionB}-${dateSuffix()}.csv`, 'text/csv'); }
+  function saveMarkdown() { saveFile(toMarkdown(), `webnnep-compare-${epA}-vs-${epB}-${dateSuffix()}.md`, 'text/markdown'); }
+  function saveJSON() { saveFile(toJSON(), `webnnep-compare-${epA}-vs-${epB}-${dateSuffix()}.json`, 'application/json'); }
+  function saveCSV() { saveFile(toCSV(), `webnnep-compare-${epA}-vs-${epB}-${dateSuffix()}.csv`, 'text/csv'); }
 
   const validRows = $derived(compareRows.filter(r => r.valA != null && r.valB != null && !r.errorA && !r.errorB));
   const geomeanA = $derived(geomean(validRows.map(r => r.valA).filter((v): v is number => v != null)));
@@ -286,29 +234,63 @@
     if (geomeanA == null || geomeanB == null || geomeanA === 0) return null;
     return ((geomeanB - geomeanA) / geomeanA) * 100;
   });
+
+  // URL hash sync
+  function parseHash() {
+    if (!browser) return {};
+    const params = new URLSearchParams(location.hash.slice(1));
+    return {
+      a: params.get('a') ?? '',
+      b: params.get('b') ?? '',
+      backend: params.get('backend') ?? '',
+      framework: params.get('framework') ?? '',
+      dtype: params.get('dtype') ?? '',
+      metric: params.get('metric') ?? 'median_ms',
+    };
+  }
+
+  const parsed = parseHash();
+  if (parsed.a) epA = parsed.a;
+  if (parsed.b) epB = parsed.b;
+  if (parsed.backend) filterBackend = parsed.backend;
+  if (parsed.framework) filterFramework = parsed.framework;
+  if (parsed.dtype) filterDataType = parsed.dtype;
+  if (parsed.metric) selectedMetric = parsed.metric;
+
+  $effect(() => {
+    if (!browser) return;
+    const params = new URLSearchParams();
+    if (epA) params.set('a', epA);
+    if (epB) params.set('b', epB);
+    if (filterBackend) params.set('backend', filterBackend);
+    if (filterFramework) params.set('framework', filterFramework);
+    if (filterDataType) params.set('dtype', filterDataType);
+    if (selectedMetric !== 'median_ms') params.set('metric', selectedMetric);
+    history.replaceState(null, '', `#${params}`);
+  });
 </script>
 
-<div class="litert-page">
+<div class="webnnep-page">
   <header class="page-header">
-    <h1>LiteRT.js Version Comparison</h1>
-    <p>Compare inference performance between LiteRT.js versions.</p>
+    <h1>WebNN EP Comparison</h1>
+    <p>Compare inference performance between WebNN Execution Providers.</p>
   </header>
 
   {#if data.error}
     <p class="error-text">{data.error}</p>
   {:else}
     <div class="filters">
-      <select class="filter-select" bind:value={versionA}>
-        {#each versions as v}
-          <option value={v}>{v}</option>
+      <select class="filter-select" bind:value={epA}>
+        {#each webnnEps as ep}
+          <option value={ep}>{ep}</option>
         {/each}
       </select>
 
       <span class="vs-label">vs</span>
 
-      <select class="filter-select" bind:value={versionB}>
-        {#each versions as v}
-          <option value={v}>{v}</option>
+      <select class="filter-select" bind:value={epB}>
+        {#each webnnEps as ep}
+          <option value={ep}>{ep}</option>
         {/each}
       </select>
 
@@ -319,10 +301,10 @@
         {/each}
       </select>
 
-      <select class="filter-select" bind:value={filterWebnnEp}>
-        <option value="">WebNN EP</option>
-        {#each webnnEps as ep}
-          <option value={ep}>{ep}</option>
+      <select class="filter-select" bind:value={filterFramework}>
+        <option value="">JS Framework</option>
+        {#each frameworks as fw}
+          <option value={fw}>{fw}</option>
         {/each}
       </select>
 
@@ -339,11 +321,7 @@
         {/each}
       </select>
 
-      <button class="toggle-btn" class:active={showUnsupportedOps} onclick={() => showUnsupportedOps = !showUnsupportedOps}>
-        {showUnsupportedOps ? 'Hide' : 'Show'} Unsupported Ops
-      </button>
-
-      {#if versionA && versionB && compareRows.length > 0}
+      {#if epA && epB && compareRows.length > 0}
         <div class="export-bar">
           <div class="export-group">
             <span class="export-group-icon">
@@ -365,8 +343,8 @@
       {/if}
     </div>
 
-    {#if !versionA || !versionB}
-      <p class="hint">Select two versions to compare.</p>
+    {#if !epA || !epB}
+      <p class="hint">Select two WebNN EPs to compare.</p>
     {:else if compareRows.length === 0}
       <p class="hint">No matching results for these filters.</p>
     {:else}
@@ -378,13 +356,9 @@
               <th class="th-file sortable" onclick={() => toggleSort('file')}>File{sortCol === 'file' ? (sortAsc ? ' ↑' : ' ↓') : ''}</th>
               <th class="th-backend sortable" onclick={() => toggleSort('backend')}>Backend{sortCol === 'backend' ? (sortAsc ? ' ↑' : ' ↓') : ''}</th>
               <th class="th-dtype sortable" onclick={() => toggleSort('type')}>Type{sortCol === 'type' ? (sortAsc ? ' ↑' : ' ↓') : ''}</th>
-              <th class="th-metric sortable" onclick={() => toggleSort('valA')}>{versionA}{sortCol === 'valA' ? (sortAsc ? ' ↑' : ' ↓') : ''}<br><span class="th-metric-label">{metricLabel}</span></th>
-              <th class="th-metric sortable" onclick={() => toggleSort('valB')}>{versionB}{sortCol === 'valB' ? (sortAsc ? ' ↑' : ' ↓') : ''}<br><span class="th-metric-label">{metricLabel}</span></th>
+              <th class="th-metric sortable" onclick={() => toggleSort('valA')}>{epA}{sortCol === 'valA' ? (sortAsc ? ' ↑' : ' ↓') : ''}<br><span class="th-metric-label">{metricLabel}</span></th>
+              <th class="th-metric sortable" onclick={() => toggleSort('valB')}>{epB}{sortCol === 'valB' ? (sortAsc ? ' ↑' : ' ↓') : ''}<br><span class="th-metric-label">{metricLabel}</span></th>
               <th class="th-change sortable" onclick={() => toggleSort('change')}>Change{sortCol === 'change' ? (sortAsc ? ' ↑' : ' ↓') : ''}</th>
-              {#if showUnsupportedOps}
-                <th class="th-cap">{versionA}<br><span class="th-metric-label">Unsupported Ops</span></th>
-                <th class="th-cap">{versionB}<br><span class="th-metric-label">Unsupported Ops</span></th>
-              {/if}
             </tr>
           </thead>
           <tbody>
@@ -395,10 +369,6 @@
               <td class="cell-change cell-geomean" class:improved={geomeanChange != null && geomeanChange < 0} class:regressed={geomeanChange != null && geomeanChange > 0}>
                 {fmtChange(geomeanChange)}
               </td>
-              {#if showUnsupportedOps}
-                <td class="cell-cap"></td>
-                <td class="cell-cap"></td>
-              {/if}
             </tr>
             {#each sortedRows as row}
               <tr>
@@ -423,22 +393,6 @@
                 <td class="cell-change" class:improved={row.change != null && row.change < 0} class:regressed={row.change != null && row.change > 0}>
                   {fmtChange(row.change)}
                 </td>
-                {#if showUnsupportedOps}
-                  <td class="cell-cap" title={row.capA?.unsupported_ops.join(', ') ?? ''}>
-                    {#if row.capA}
-                      {#if row.capA.unsupported_ops.length > 0}
-                        <span class="cap-partial">{row.capA.unsupported_ops.join(', ')}</span>
-                      {/if}
-                    {/if}
-                  </td>
-                  <td class="cell-cap" title={row.capB?.unsupported_ops.join(', ') ?? ''}>
-                    {#if row.capB}
-                      {#if row.capB.unsupported_ops.length > 0}
-                        <span class="cap-partial">{row.capB.unsupported_ops.join(', ')}</span>
-                      {/if}
-                    {/if}
-                  </td>
-                {/if}
               </tr>
             {/each}
             <tr class="geomean-row">
@@ -448,10 +402,6 @@
               <td class="cell-change cell-geomean" class:improved={geomeanChange != null && geomeanChange < 0} class:regressed={geomeanChange != null && geomeanChange > 0}>
                 {fmtChange(geomeanChange)}
               </td>
-              {#if showUnsupportedOps}
-                <td class="cell-cap"></td>
-                <td class="cell-cap"></td>
-              {/if}
             </tr>
           </tbody>
         </table>
@@ -461,7 +411,7 @@
 </div>
 
 <style>
-  .litert-page {
+  .webnnep-page {
     max-width: 100%;
   }
 
@@ -490,7 +440,7 @@
   }
 
   .filter-select {
-    min-width: 120px;
+    min-width: 160px;
     height: auto;
     padding: var(--space-1) var(--space-2);
     cursor: pointer;
@@ -505,31 +455,6 @@
     font-weight: 600;
     color: var(--color-text-muted);
     padding: 0 var(--space-half);
-  }
-
-  .toggle-btn {
-    font-family: var(--font-ui);
-    font-size: var(--text-xs);
-    font-weight: 500;
-    padding: var(--space-1) var(--space-2);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-base);
-    background: none;
-    color: var(--color-text-secondary);
-    cursor: pointer;
-    white-space: nowrap;
-    transition: background var(--transition-base), border-color var(--transition-base), color var(--transition-base);
-  }
-
-  .toggle-btn:hover {
-    border-color: var(--color-primary);
-    color: var(--color-primary);
-  }
-
-  .toggle-btn.active {
-    background: var(--color-accent-light);
-    border-color: var(--color-primary);
-    color: var(--color-primary);
   }
 
   .export-bar {
@@ -676,24 +601,16 @@
     background: var(--color-accent-light);
   }
 
+  .cell-geomean {
+    font-family: var(--font-ui);
+    font-weight: 600;
+  }
+
   .cell-error {
     color: var(--color-error);
     font-family: var(--font-ui);
     font-size: var(--text-xs);
     cursor: help;
-  }
-
-  .cell-cap {
-    font-variant-numeric: tabular-nums;
-    white-space: nowrap;
-  }
-
-  .cap-full {
-    color: #16a34a;
-  }
-
-  .cap-partial {
-    color: var(--color-warning, #d97706);
   }
 
   .badge {
@@ -721,6 +638,11 @@
 
     .vs-label {
       align-self: center;
+    }
+
+    .export-bar {
+      margin-left: 0;
+      width: 100%;
     }
   }
 </style>

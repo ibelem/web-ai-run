@@ -122,6 +122,52 @@ export class ResultsWriter {
     if (error) console.error('[ResultsWriter] markStopped failed:', error.message);
   }
 
+  async retryResult(item: TestItem, iterations: number): Promise<string | null> {
+    const { data: existing } = await (this.supabase.from('results') as any)
+      .select('id')
+      .eq('user_id', this.userId)
+      .eq('model_id', item.hf_model_id)
+      .eq('file_path', item.file_path)
+      .eq('backend', item.backend)
+      .in('status', ['error', 'timeout'])
+      .order('started_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    if (existing?.id) {
+      const update = {
+        status: 'running',
+        error_message: null,
+        started_at: new Date().toISOString(),
+        completed_at: null,
+        iterations,
+        iterations_completed: 0,
+        compilation_ms: null,
+        load_and_compile_ms: null,
+        first_inference_ms: null,
+        time_to_first_ms: null,
+        average_ms: null,
+        median_ms: null,
+        best_ms: null,
+        p90_ms: null,
+        throughput_fps: null,
+        inference_times: [],
+        logs: [],
+        webnn_capability: null,
+      };
+      const { error } = await (this.supabase.from('results') as any).update(update).eq('id', existing.id);
+      if (error) {
+        console.error('[ResultsWriter] retryResult update failed:', error.message);
+        return null;
+      }
+      this.resultIds.set(item.id, existing.id);
+      return existing.id;
+    }
+
+    // No existing error row found, create a new one
+    return this.createResult(item, iterations);
+  }
+
   private accessToken: string | null = null;
 
   async cacheAccessToken(): Promise<void> {

@@ -282,6 +282,14 @@
     isRunning = false;
     statusText = 'Stopped.';
     terminateWorker();
+
+    for (const item of queue) {
+      if (item.status !== 'completed' && item.status !== 'error') {
+        item.status = 'error';
+        item.error = 'Stopped by user';
+      }
+    }
+    queue = [...queue];
   }
 
   async function retryItem(item: TestItem) {
@@ -875,8 +883,8 @@
 
   .status-model {
     font-weight: 600;
-    color: var(--color-text-primary);
-    font-size: var(--text-sm);
+    color: var(--color-primary);
+    font-size: var(--text-xs);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

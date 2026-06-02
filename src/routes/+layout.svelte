@@ -116,6 +116,7 @@
   let showUserMenu = $state(false);
   let showMobileMenu = $state(false);
   let showAdminMenu = $state(false);
+  let showLeaderboardMenu = $state(false);
   let showMobileAdmin = $state(false);
 
   function closeMobileMenu() {
@@ -130,8 +131,9 @@
     { href: '/run',         label: 'Run',         show: false },
     { href: '/results',     label: 'Results',     show: $isAuthenticated },
     { href: '/onnx/overrides', label: 'Overrides', show: $isAuthenticated },
-    { href: '/leaderboard', label: 'Leaderboard', show: isAtLeast($auth.role ?? 'anonymous', 'partner') },
   ]);
+
+  const showLeaderboard = $derived(isAtLeast($auth.role ?? 'anonymous', 'partner'));
 </script>
 
 <a href="#main-content" class="skip-link">Skip to main content</a>
@@ -203,6 +205,30 @@
           </a>
         {/if}
       {/each}
+      {#if showLeaderboard}
+        <div class="admin-menu-wrapper">
+          <button
+            class="nav-item admin-trigger"
+            class:active={$page.url.pathname.startsWith('/leaderboard')}
+            onclick={() => showLeaderboardMenu = !showLeaderboardMenu}
+            aria-expanded={showLeaderboardMenu}
+          >
+            Leaderboard
+            <svg class="admin-chevron" class:open={showLeaderboardMenu} width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
+          </button>
+          {#if showLeaderboardMenu}
+            <!-- svelte-ignore a11y_no_static_element_interactions -->
+            <div class="admin-overlay" onclick={() => showLeaderboardMenu = false} onkeydown={() => {}}></div>
+            <div class="admin-dropdown">
+              <a href="/leaderboard" class="dropdown-item" onclick={() => showLeaderboardMenu = false}>Overview</a>
+              <a href="/leaderboard/litertjs" class="dropdown-item" onclick={() => showLeaderboardMenu = false}>LiteRT.js</a>
+              <a href="/leaderboard/webnnep" class="dropdown-item" onclick={() => showLeaderboardMenu = false}>WebNN EP</a>
+            </div>
+          {/if}
+        </div>
+      {/if}
       {#if $auth.role === 'admin'}
         <div class="admin-menu-wrapper">
           <button
@@ -328,6 +354,11 @@
         </a>
       {/if}
     {/each}
+    {#if showLeaderboard}
+      <a href="/leaderboard" class="mobile-menu-item" class:active={$page.url.pathname === '/leaderboard'} onclick={closeMobileMenu}>Leaderboard</a>
+      <a href="/leaderboard/litertjs" class="mobile-menu-item mobile-admin-item" onclick={closeMobileMenu}>LiteRT.js</a>
+      <a href="/leaderboard/webnnep" class="mobile-menu-item mobile-admin-item" onclick={closeMobileMenu}>WebNN EP</a>
+    {/if}
     {#if $auth.role === 'admin'}
       <button
         class="mobile-menu-item mobile-admin-toggle"
@@ -751,6 +782,15 @@
       padding-left: calc(var(--space-3) + 12px);
       font-size: var(--text-sm);
       color: var(--color-text-muted);
+    }
+
+    .mobile-menu-label {
+      font-size: var(--text-xs);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--color-text-muted);
+      pointer-events: none;
     }
 
     main {

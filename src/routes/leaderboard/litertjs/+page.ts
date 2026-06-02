@@ -32,18 +32,50 @@ export interface LitertRow {
 export const load: PageLoad = async () => {
   const supabase = createClient();
 
+  // Fetch distinct filter values (no limit)
+  const { data: versionRows } = await (supabase.from('results') as any)
+    .select('litert_version')
+    .in('status', ['completed', 'error'])
+    .neq('litert_version', '');
+
+  const { data: backendRows } = await (supabase.from('results') as any)
+    .select('backend')
+    .in('status', ['completed', 'error'])
+    .neq('litert_version', '');
+
+  const { data: epRows } = await (supabase.from('results') as any)
+    .select('webnn_ep')
+    .in('status', ['completed', 'error'])
+    .neq('litert_version', '')
+    .neq('webnn_ep', '');
+
+  const { data: dtRows } = await (supabase.from('results') as any)
+    .select('data_type')
+    .in('status', ['completed', 'error'])
+    .neq('litert_version', '');
+
+  const distinctVersions: string[] = [...new Set((versionRows ?? []).map((r: any) => r.litert_version))].sort().reverse() as string[];
+  const distinctBackends: string[] = [...new Set((backendRows ?? []).map((r: any) => r.backend))].sort() as string[];
+  const distinctEps: string[] = [...new Set((epRows ?? []).map((r: any) => r.webnn_ep).filter(Boolean))].sort() as string[];
+  const distinctDataTypes: string[] = [...new Set((dtRows ?? []).map((r: any) => r.data_type))].sort() as string[];
+
+  // Fetch result data
   const { data, error } = await (supabase
     .from('results') as any)
     .select('model_id, file_path, backend, data_type, litert_version, webnn_ep, status, error_message, compilation_ms, load_and_compile_ms, first_inference_ms, average_ms, median_ms, best_ms, p90_ms, throughput_fps, webnn_capability, started_at')
     .in('status', ['completed', 'error'])
     .neq('litert_version', '')
     .order('started_at', { ascending: false })
-    .limit(500);
+    .limit(1000);
 
   const results: LitertRow[] = (data as LitertRow[]) ?? [];
 
   return {
     results,
+    distinctVersions,
+    distinctBackends,
+    distinctEps,
+    distinctDataTypes,
     error: error?.message ?? null,
   };
 };

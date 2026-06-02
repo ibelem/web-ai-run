@@ -874,7 +874,7 @@
 
     item.status = "downloading";
     queue = [...queue];
-    if (writer) await writer.createResult(item, config.iterations);
+    if (writer) await writer.retryResult(item, config.iterations);
 
     const runtimeVersion = item.runtime === "onnx" ? ortVersion : litertVersion;
     const fdo2 =
@@ -1729,7 +1729,7 @@
   .status-model {
     font-weight: 600;
     color: var(--color-primary);
-    font-size: var(--text-sm);
+    font-size: var(--text-xs);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

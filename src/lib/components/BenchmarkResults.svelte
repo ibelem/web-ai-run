@@ -632,6 +632,7 @@
   .backend-cell {
     text-align: center;
     white-space: nowrap;
+    vertical-align: middle;
   }
 
   .metric-value {
@@ -643,6 +644,7 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    vertical-align: middle;
   }
 
   .status-pending { color: var(--color-text-muted); }
@@ -659,13 +661,12 @@
     font-family: var(--font-mono);
     font-size: 11px;
     padding: 0 4px;
-    border: 1px solid var(--color-error);
-    border-radius: var(--radius-sm);
+    border: 0px solid var(--color-error);
     background: none;
     color: var(--color-error);
     cursor: pointer;
-    margin-left: 4px;
     line-height: 1.4;
+    vertical-align: middle;
     transition: background var(--transition-base), color var(--transition-base);
   }
 
