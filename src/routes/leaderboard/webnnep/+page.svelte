@@ -169,64 +169,56 @@
   let cellCopiedMsg = $state('');
 
   function toMarkdown(): string {
-    const baseEp = baseline === 'a' ? epA : epB;
-    const otherEp = baseline === 'a' ? epB : epA;
-    const cols = ['Model', 'File', 'Backend', 'Type', `${baseEp} (100%)`, `${otherEp} (%)`];
+    const cols = ['Model', 'File', 'Type', 'Backend', `${epA} (ms)`, `${epB} (ms)`, `${epA} (%)`, `${epB} (%)`];
     const sep = cols.map(() => '---');
     const rows = sortedRows.map(r => {
-      const base = baseline === 'a' ? r.valA : r.valB;
-      const other = baseline === 'a' ? r.valB : r.valA;
-      const errBase = baseline === 'a' ? r.errorA : r.errorB;
-      const errOther = baseline === 'a' ? r.errorB : r.errorA;
-      const pct = base != null && other != null && base > 0 ? ((other / base) * 100).toFixed(1) + '%' : '—';
+      const pctA = baseline === 'a' ? '100%' : (r.valA != null && r.valB != null && r.valB > 0 ? ((r.valA / r.valB) * 100).toFixed(1) + '%' : '—');
+      const pctB = baseline === 'b' ? '100%' : (r.valA != null && r.valB != null && r.valA > 0 ? ((r.valB / r.valA) * 100).toFixed(1) + '%' : '—');
       return [
         r.model_id,
         r.file_path,
-        getBackendLabel(r.backend),
         r.data_type,
-        errBase ? 'Error' : '100%',
-        errOther ? 'Error' : pct,
+        getBackendLabel(r.backend),
+        r.errorA ? 'Error' : fmt(r.valA),
+        r.errorB ? 'Error' : fmt(r.valB),
+        r.errorA ? '—' : pctA,
+        r.errorB ? '—' : pctB,
       ];
     });
     return [cols.join(' | '), sep.join(' | '), ...rows.map(r => r.join(' | '))].join('\n');
   }
 
   function toJSON(): string {
-    const baseEp = baseline === 'a' ? epA : epB;
-    const otherEp = baseline === 'a' ? epB : epA;
     return JSON.stringify(sortedRows.map(r => {
-      const base = baseline === 'a' ? r.valA : r.valB;
-      const other = baseline === 'a' ? r.valB : r.valA;
-      const pct = base != null && other != null && base > 0 ? (other / base) * 100 : null;
+      const pctA = r.valA != null && r.valB != null && r.valB > 0 ? (r.valA / r.valB) * 100 : null;
+      const pctB = r.valA != null && r.valB != null && r.valA > 0 ? (r.valB / r.valA) * 100 : null;
       return {
         model: r.model_id,
         file: r.file_path,
-        backend: r.backend,
         data_type: r.data_type,
-        [`${baseEp}_ms`]: base,
-        [`${otherEp}_ms`]: other,
-        [`${otherEp}_pct`]: pct,
+        backend: r.backend,
+        [`${epA}_ms`]: r.errorA ? null : r.valA,
+        [`${epB}_ms`]: r.errorB ? null : r.valB,
+        [`${epA}_pct`]: r.errorA ? null : (baseline === 'a' ? 100 : pctA),
+        [`${epB}_pct`]: r.errorB ? null : (baseline === 'b' ? 100 : pctB),
       };
     }), null, 2);
   }
 
   function toCSV(): string {
-    const baseEp = baseline === 'a' ? epA : epB;
-    const otherEp = baseline === 'a' ? epB : epA;
-    const cols = ['Model', 'File', 'Backend', 'Type', `${baseEp} (100%)`, `${otherEp} (%)`];
+    const cols = ['Model', 'File', 'Type', 'Backend', `${epA} (ms)`, `${epB} (ms)`, `${epA} (%)`, `${epB} (%)`];
     const rows = sortedRows.map(r => {
-      const base = baseline === 'a' ? r.valA : r.valB;
-      const other = baseline === 'a' ? r.valB : r.valA;
-      const errBase = baseline === 'a' ? r.errorA : r.errorB;
-      const errOther = baseline === 'a' ? r.errorB : r.errorA;
-      const pct = base != null && other != null && base > 0 ? ((other / base) * 100).toFixed(1) : '';
+      const pctA = baseline === 'a' ? '100' : (r.valA != null && r.valB != null && r.valB > 0 ? ((r.valA / r.valB) * 100).toFixed(1) : '');
+      const pctB = baseline === 'b' ? '100' : (r.valA != null && r.valB != null && r.valA > 0 ? ((r.valB / r.valA) * 100).toFixed(1) : '');
       return [
         `"${r.model_id}"`,
         `"${r.file_path}"`,
-        getBackendLabel(r.backend),
         r.data_type,
-        errBase ? 'Error' : '100%',
-        errOther ? 'Error' : pct,
+        getBackendLabel(r.backend),
+        r.errorA ? 'Error' : fmt(r.valA),
+        r.errorB ? 'Error' : fmt(r.valB),
+        r.errorA ? '' : pctA,
+        r.errorB ? '' : pctB,
       ];
     });
     return [cols.join(','), ...rows.map(r => r.join(','))].join('\n');
