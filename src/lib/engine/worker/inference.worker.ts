@@ -529,55 +529,46 @@ async function runOrt(req: WorkerRequest, modelBuffer: ArrayBuffer): Promise<Tes
   let webnn_capability: WebNNCapability | null = null;
   const warmupTimes: number[] = [];
   const inferenceTimes: number[] = [];
+  const total = warmupRuns + iterations;
+  const progressStep = Math.max(1, Math.floor(iterations / 10));
+
+  if (warmupRuns > 0) {
+    status(id, `Warming up (${warmupRuns} run${warmupRuns !== 1 ? 's' : ''})...`);
+  } else {
+    status(id, `Inferencing 0/${iterations}...`);
+  }
 
   try {
-    status(id, `Warming up (${warmupRuns} runs)...`);
-    for (let i = 0; i < warmupRuns; i++) {
-      const t0 = performance.now();
-      await session.run(feeds);
-      if (backend === 'webgpu' && enableMLTensor && webgpuDevice) {
-        await webgpuDevice.queue.onSubmittedWorkDone();
-      }
-      const elapsed = performance.now() - t0;
-      warmupTimes.push(elapsed);
-      if (i === 0) firstInferenceMs = elapsed;
-    }
-
-    // First inference (warmup or benchmark) is past — WebNN delegate has logged
-    // everything it will. Restore console capture before the rest of the loop runs.
-    if (cap) {
-      // If warmupRuns is 0 we restore later, after the first benchmark iteration.
-      if (warmupRuns > 0) {
-        cap.restore();
-        webnn_capability = finalizeCapture(cap.state, backend);
-      }
-    }
-    log(id, `Warmup times: [${warmupTimes.map(t => t.toFixed(2)).join(', ')}] ms`);
-
-    const progressStep = Math.max(1, Math.floor(iterations / 10));
-    status(id, `Inferencing 0/${iterations}...`);
-    for (let i = 0; i < iterations; i++) {
+    for (let i = 0; i < total; i++) {
       const t0 = performance.now();
       const result = await session.run(feeds);
       if (backend === 'webgpu' && enableMLTensor && webgpuDevice) {
         await webgpuDevice.queue.onSubmittedWorkDone();
       }
-      if (backend === 'webnn_gpu' && enableMLTensor && i === iterations - 1) {
+      if (backend === 'webnn_gpu' && enableMLTensor && i === total - 1) {
         const promises = session.outputNames.map((name: string) => result[name].getData());
         await Promise.all(promises);
       }
       const elapsed = performance.now() - t0;
-      inferenceTimes.push(elapsed);
-      // If there was no warmup, the first benchmark iteration IS the first inference.
-      if (i === 0 && warmupRuns === 0) {
+
+      if (i === 0) {
+        // First run ever (warmup or benchmark) — WebNN delegate has logged everything.
         firstInferenceMs = elapsed;
-        if (cap) {
-          cap.restore();
-          webnn_capability = finalizeCapture(cap.state, backend);
-        }
+        if (cap) { cap.restore(); webnn_capability = finalizeCapture(cap.state, backend); }
       }
-      if ((i + 1) % progressStep === 0 || i === iterations - 1) {
-        status(id, `Inferencing ${i + 1}/${iterations}...`);
+
+      if (i < warmupRuns) {
+        warmupTimes.push(elapsed);
+        // Switch to "Inferencing" status when warmup finishes
+        if (i === warmupRuns - 1 && iterations > 0) {
+          status(id, `Inferencing 0/${iterations}...`);
+        }
+      } else {
+        inferenceTimes.push(elapsed);
+        const benchI = i - warmupRuns;
+        if ((benchI + 1) % progressStep === 0 || benchI === iterations - 1) {
+          status(id, `Inferencing ${benchI + 1}/${iterations}...`);
+        }
       }
     }
   } finally {
@@ -785,10 +776,17 @@ async function runLiteRt(req: WorkerRequest, modelBuffer: ArrayBuffer): Promise<
   let webnn_capability: WebNNCapability | null = null;
   const warmupTimes: number[] = [];
   const inferenceTimes: number[] = [];
+  const total = warmupRuns + iterations;
+  const progressStep2 = Math.max(1, Math.floor(iterations / 10));
+
+  if (warmupRuns > 0) {
+    status(id, `Warming up (${warmupRuns} run${warmupRuns !== 1 ? 's' : ''})...`);
+  } else {
+    status(id, `Inferencing 0/${iterations}...`);
+  }
 
   try {
-    status(id, `Warming up (${warmupRuns} runs)...`);
-    for (let i = 0; i < warmupRuns; i++) {
+    for (let i = 0; i < total; i++) {
       let inputTensors: any[];
       if (isWebGPU) {
         inputTensors = createTensors();
@@ -811,7 +809,6 @@ async function runLiteRt(req: WorkerRequest, modelBuffer: ArrayBuffer): Promise<
 
       const t0 = performance.now();
       const outputs = await model.run(processedInputs);
-      // For WebGPU, move results back to CPU
       if (isWebGPU) {
         for (const result of (Array.isArray(outputs) ? outputs : [outputs])) {
           const cpuResult = await result.moveTo('wasm');
@@ -819,8 +816,25 @@ async function runLiteRt(req: WorkerRequest, modelBuffer: ArrayBuffer): Promise<
         }
       }
       const elapsed = performance.now() - t0;
-      warmupTimes.push(elapsed);
-      if (i === 0) firstInferenceMs = elapsed;
+
+      if (i === 0) {
+        // First run ever — WebNN delegate has logged everything it will. Restore capture.
+        firstInferenceMs = elapsed;
+        if (cap) { cap.restore(); webnn_capability = finalizeCapture(cap.state, backend); }
+      }
+
+      if (i < warmupRuns) {
+        warmupTimes.push(elapsed);
+        if (i === warmupRuns - 1 && iterations > 0) {
+          status(id, `Inferencing 0/${iterations}...`);
+        }
+      } else {
+        inferenceTimes.push(elapsed);
+        const benchI = i - warmupRuns;
+        if ((benchI + 1) % progressStep2 === 0 || benchI === iterations - 1) {
+          status(id, `Inferencing ${benchI + 1}/${iterations}...`);
+        }
+      }
 
       // Cleanup per-iteration
       if (isWebGPU) {
@@ -828,72 +842,9 @@ async function runLiteRt(req: WorkerRequest, modelBuffer: ArrayBuffer): Promise<
         inputTensors.forEach((t: any) => { try { t.delete?.(); } catch {} });
       }
       if (!isWebGPU && Array.isArray(outputs)) outputs.forEach((t: any) => t.delete?.());
-    }
-
-    // First warmup is past — TFLite WebNN delegate has logged everything it will.
-    // Restore console here only if there was at least one warmup; otherwise the
-    // first benchmark iteration is the first inference and we restore there.
-    if (cap && warmupRuns > 0) {
-      cap.restore();
-      webnn_capability = finalizeCapture(cap.state, backend);
     }
 
     log(id, `Warmup times: [${warmupTimes.map(t => t.toFixed(2)).join(', ')}] ms`);
-
-    const progressStep2 = Math.max(1, Math.floor(iterations / 10));
-    status(id, `Inferencing 0/${iterations}...`);
-    for (let i = 0; i < iterations; i++) {
-      let inputTensors: any[];
-      if (isWebGPU) {
-        inputTensors = createTensors();
-      } else {
-        inputTensors = baseTensors!;
-      }
-
-      const gpuTensors: any[] = [];
-      let processedInputs: any[];
-      if (isWebGPU) {
-        processedInputs = [];
-        for (const tensor of inputTensors) {
-          const gpuTensor = await tensor.moveTo('webgpu');
-          gpuTensors.push(gpuTensor);
-          processedInputs.push(gpuTensor);
-        }
-      } else {
-        processedInputs = inputTensors;
-      }
-
-      const t0 = performance.now();
-      const outputs = await model.run(processedInputs);
-      if (isWebGPU) {
-        for (const result of (Array.isArray(outputs) ? outputs : [outputs])) {
-          const cpuResult = await result.moveTo('wasm');
-          cpuResult.delete?.();
-        }
-      }
-      const elapsed = performance.now() - t0;
-      inferenceTimes.push(elapsed);
-
-      // If there was no warmup, the first benchmark iteration IS the first inference.
-      if (i === 0 && warmupRuns === 0) {
-        firstInferenceMs = elapsed;
-        if (cap) {
-          cap.restore();
-          webnn_capability = finalizeCapture(cap.state, backend);
-        }
-      }
-
-      // Cleanup per-iteration
-      if (isWebGPU) {
-        gpuTensors.forEach((t: any) => t.delete?.());
-        inputTensors.forEach((t: any) => { try { t.delete?.(); } catch {} });
-      }
-      if (!isWebGPU && Array.isArray(outputs)) outputs.forEach((t: any) => t.delete?.());
-
-      if ((i + 1) % progressStep2 === 0 || i === iterations - 1) {
-        status(id, `Inferencing ${i + 1}/${iterations}...`);
-      }
-    }
   } finally {
     // Always release WASM-allocated resources, even on a mid-run throw — otherwise
     // the worker leaks LiteRT tensor buffers and the model handle into the heap.
