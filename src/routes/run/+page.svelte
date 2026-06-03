@@ -1339,7 +1339,7 @@
         </div>
         {#if saveResults && !$isAuthenticated}
           <p class="action-hint action-hint-warn">
-            <a href="/login">Sign in</a> to save results — we need an account to attribute the data.
+            <a href="/login">Sign in</a> to save results — CPU, GPU, and hardware info make your performance data meaningful.
           </p>
         {:else if saveResults && $isAuthenticated && (!cpuModel.trim() || !osModel.trim())}
           <p class="action-hint action-hint-warn">
