@@ -147,10 +147,14 @@ function finalizeCapture(state: CaptureState, backend: Backend): WebNNCapability
 const HF_MAIN = 'https://huggingface.co';
 const HF_MIRROR = 'https://hf-mirror.com';
 const HF_TEST_PATH = '/webml/models-moved/resolve/main/01.onnx';
+const HF_BASE_TTL_MS = 10 * 60 * 1000; // 10 minutes — re-probe periodically so long sessions adapt to network changes
 let cachedHfBase: string | null = null;
+let cachedHfBaseAt = 0;
 
 async function getHfBase(): Promise<string> {
-  if (cachedHfBase) return cachedHfBase;
+  if (cachedHfBase && Date.now() - cachedHfBaseAt < HF_BASE_TTL_MS) {
+    return cachedHfBase;
+  }
 
   const checkDomain = async (base: string): Promise<boolean> => {
     const controller = new AbortController();
@@ -171,15 +175,18 @@ async function getHfBase(): Promise<string> {
 
   if (await checkDomain(HF_MAIN)) {
     cachedHfBase = HF_MAIN;
+    cachedHfBaseAt = Date.now();
     return HF_MAIN;
   }
 
   if (await checkDomain(HF_MIRROR)) {
     cachedHfBase = HF_MIRROR;
+    cachedHfBaseAt = Date.now();
     return HF_MIRROR;
   }
 
   cachedHfBase = HF_MAIN;
+  cachedHfBaseAt = Date.now();
   return HF_MAIN;
 }
 
@@ -279,27 +286,44 @@ async function saveToOPFS(fileName: string, data: ArrayBuffer): Promise<void> {
   } catch {}
 }
 
-async function downloadModel(hfModelId: string, filePath: string, id: string): Promise<ArrayBuffer> {
-  const base = await getHfBase();
+// Try a single HF host. Throws on any failure so the caller can fall back.
+async function downloadFromHost(
+  base: string,
+  hfModelId: string,
+  filePath: string,
+  id: string,
+): Promise<{ arrayBuffer: ArrayBuffer; cacheKey: string; useCache: boolean }> {
   const url = `${base}/${hfModelId}/resolve/main/${filePath}`;
 
-  // HEAD request to get ETag for cache validation
+  // HEAD request to get ETag for cache validation. We use ETag in the cache key
+  // so a model file changing upstream invalidates the cache automatically.
   let etag = '';
+  let headOk = false;
+  let expectedSize = 0;
   try {
     const head = await fetch(url, { method: 'HEAD' });
     if (head.ok) {
+      headOk = true;
       etag = (head.headers.get('etag') ?? '').replace(/"/g, '');
+      expectedSize = Number(head.headers.get('content-length') ?? 0);
     }
   } catch {}
 
-  const cacheKey = etag
+  const useCache = headOk && etag !== '';
+  const cacheKey = useCache
     ? sanitizeFileName(`${hfModelId}--${filePath}--${etag}`)
-    : sanitizeFileName(`${hfModelId}--${filePath}`);
+    : '';
 
-  const cached = await getFromOPFS(cacheKey);
-  if (cached) {
-    log(id, `Loaded from OPFS cache (${(cached.byteLength / 1_048_576).toFixed(1)} MB)`);
-    return cached;
+  if (useCache) {
+    const cached = await getFromOPFS(cacheKey);
+    if (cached) {
+      if (expectedSize > 0 && cached.byteLength !== expectedSize) {
+        log(id, `Cache size mismatch (${cached.byteLength} vs ${expectedSize}), refetching`);
+      } else {
+        log(id, `Loaded from OPFS cache (${(cached.byteLength / 1_048_576).toFixed(1)} MB)`);
+        return { arrayBuffer: cached, cacheKey, useCache };
+      }
+    }
   }
 
   log(id, `Fetching model from ${url}`);
@@ -323,17 +347,49 @@ async function downloadModel(hfModelId: string, filePath: string, id: string): P
     });
   }
 
+  if (contentLength > 0 && loaded !== contentLength) {
+    throw new Error(`Truncated download: received ${loaded} of ${contentLength} bytes`);
+  }
+
   const buffer = new Uint8Array(loaded);
   let offset = 0;
   for (const chunk of chunks) {
     buffer.set(chunk, offset);
     offset += chunk.byteLength;
   }
+  return { arrayBuffer: buffer.buffer, cacheKey, useCache };
+}
 
-  const arrayBuffer = buffer.buffer;
-  await saveToOPFS(cacheKey, arrayBuffer);
-  log(id, `Saved to OPFS cache`);
-  return arrayBuffer;
+async function downloadModel(hfModelId: string, filePath: string, id: string): Promise<ArrayBuffer> {
+  const primary = await getHfBase();
+  const fallback = primary === HF_MAIN ? HF_MIRROR : HF_MAIN;
+
+  let result: { arrayBuffer: ArrayBuffer; cacheKey: string; useCache: boolean };
+  try {
+    result = await downloadFromHost(primary, hfModelId, filePath, id);
+  } catch (primaryErr: any) {
+    // Primary host failed (rate-limited, 5xx, mid-stream drop, etc.). Invalidate
+    // the cached host choice so subsequent calls re-probe, then try the other one.
+    log(id, `Primary ${primary} failed (${primaryErr?.message ?? primaryErr}); retrying via ${fallback}`);
+    cachedHfBase = null;
+    cachedHfBaseAt = 0;
+    try {
+      result = await downloadFromHost(fallback, hfModelId, filePath, id);
+      // Mirror worked — pin to it for this session
+      cachedHfBase = fallback;
+      cachedHfBaseAt = Date.now();
+    } catch (fallbackErr: any) {
+      throw new Error(`Both ${primary} and ${fallback} failed: ${primaryErr?.message ?? primaryErr} / ${fallbackErr?.message ?? fallbackErr}`);
+    }
+  }
+
+  if (result.useCache) {
+    await saveToOPFS(result.cacheKey, result.arrayBuffer);
+    log(id, `Saved to OPFS cache`);
+  } else {
+    log(id, `HEAD unavailable — bypassing OPFS cache`);
+  }
+  return result.arrayBuffer;
 }
 
 async function runOrt(req: WorkerRequest, modelBuffer: ArrayBuffer): Promise<TestResult> {
@@ -375,6 +431,9 @@ async function runOrt(req: WorkerRequest, modelBuffer: ArrayBuffer): Promise<Tes
     sessionOptions.preferredOutputLocation = 'ml-tensor';
   }
 
+  // WebNN requires fully-static shapes at MLGraph compile time, so dynamic dims
+  // (e.g. "batch_size") must be resolved here. WebGPU/WASM handle dynamic shapes
+  // at runtime in their kernels and don't need this.
   if (backend.startsWith('webnn_') && req.freeDimensionOverrides && Object.keys(req.freeDimensionOverrides).length > 0) {
     sessionOptions.freeDimensionOverrides = req.freeDimensionOverrides;
     log(id, `freeDimensionOverrides: ${JSON.stringify(req.freeDimensionOverrides)}`);
@@ -395,11 +454,69 @@ async function runOrt(req: WorkerRequest, modelBuffer: ArrayBuffer): Promise<Tes
 
   const feeds: Record<string, any> = {};
   for (const name of session.inputNames) {
-    const inputMeta = session.inputMetadata?.[name];
-    const dims = inputMeta?.dims ?? [1, 3, 224, 224];
+    // inputMetadata may be a Record<string, ...> (ORT spec), an array of {name, ...}
+    // objects, or a Map-like in some ORT-Web versions. Handle all three shapes.
+    const meta = session.inputMetadata;
+    let inputMeta: any;
+    if (Array.isArray(meta)) inputMeta = meta.find((m: any) => m.name === name);
+    else if (meta && typeof meta.get === 'function') inputMeta = meta.get(name);
+    else inputMeta = meta?.[name];
+
+    // If the model declares an input but we have no metadata for it, skip it. ORT
+    // will surface "missing input X" — a clearer failure than guessing a vision
+    // shape like [1, 3, 224, 224] for what might actually be e.g. an attention mask.
+    if (!inputMeta) {
+      log(id, `Skipping input "${name}" — no metadata available; ORT will report if it's required`);
+      continue;
+    }
+
+    // ORT Web uses `dims`; some builds surface `shape` with string dynamic-dim names (e.g. "batch_size")
+    const rawDims: (number | string)[] = inputMeta.dims ?? inputMeta.shape ?? [];
+    const freeDims: Record<string, number> = req.freeDimensionOverrides ?? {};
+    // Resolve dynamic dims: named strings use freeDimensionOverrides if set, then fall back to 1.
+    // Numeric -1 is just "dynamic" — there's no name to look up, so default to 1.
+    const dims: number[] = rawDims.map((d: number | string) => {
+      if (typeof d === 'string') return freeDims[d] ?? 1;
+      return d < 0 ? 1 : d;
+    });
     const type = inputMeta?.type ?? 'float32';
-    const size = dims.reduce((a: number, b: number) => a * Math.abs(b), 1);
-    const data = Float32Array.from({ length: size }, () => Math.random());
+    const size = Math.max(0, dims.reduce((a: number, b: number) => a * b, 1));
+    // Pick the typed array that matches the tensor's element type. ORT Web's Tensor
+    // constructor expects exactly the right buffer kind — passing Float32Array for
+    // an int64 tensor (or vice-versa) throws or silently produces garbage.
+    let typedArray: any;
+    switch (type) {
+      case 'float32': typedArray = Float32Array; break;
+      case 'float64': typedArray = Float64Array; break;
+      case 'float16':
+        // Newer browsers/ORT versions support Float16Array natively; older ones
+        // expect a Uint16Array carrying the raw float16 bit pattern. Fill with zeros
+        // either way — values don't matter for benchmarking, just shape.
+        typedArray = (typeof (globalThis as any).Float16Array !== 'undefined')
+          ? (globalThis as any).Float16Array : Uint16Array;
+        break;
+      case 'int4':    typedArray = Int8Array;    break; // packed 2-per-byte; ORT accepts Int8Array
+      case 'int8':    typedArray = Int8Array;    break;
+      case 'int16':   typedArray = Int16Array;   break;
+      case 'int32':   typedArray = Int32Array;   break;
+      case 'int64':   typedArray = BigInt64Array; break;
+      case 'uint8':   typedArray = Uint8Array;   break;
+      case 'uint16':  typedArray = Uint16Array;  break;
+      case 'uint32':  typedArray = Uint32Array;  break;
+      case 'uint64':  typedArray = BigUint64Array; break;
+      case 'bool':    typedArray = Uint8Array;   break;
+      default:        typedArray = Float32Array; break;
+    }
+    let data: any;
+    if (type === 'int64' || type === 'uint64') {
+      data = typedArray.from({ length: size }, () => BigInt(0));
+    } else if (type === 'float32' || type === 'float64' || type === 'float16') {
+      data = typedArray.from({ length: size }, () => Math.random());
+    } else {
+      // Integer / bool types: zero-fill is safe and matches the reference (Math.random()
+      // would truncate to 0 anyway for Int8/Uint8/etc.).
+      data = new typedArray(size);
+    }
     feeds[name] = new ort.Tensor(type, data, dims);
   }
 
@@ -409,47 +526,71 @@ async function runOrt(req: WorkerRequest, modelBuffer: ArrayBuffer): Promise<Tes
   }
 
   let firstInferenceMs = 0;
+  let webnn_capability: WebNNCapability | null = null;
   const warmupTimes: number[] = [];
-  status(id, `Warming up (${warmupRuns} runs)...`);
-  for (let i = 0; i < warmupRuns; i++) {
-    const t0 = performance.now();
-    await session.run(feeds);
-    if (backend === 'webgpu' && enableMLTensor && webgpuDevice) {
-      await webgpuDevice.queue.onSubmittedWorkDone();
+  const inferenceTimes: number[] = [];
+
+  try {
+    status(id, `Warming up (${warmupRuns} runs)...`);
+    for (let i = 0; i < warmupRuns; i++) {
+      const t0 = performance.now();
+      await session.run(feeds);
+      if (backend === 'webgpu' && enableMLTensor && webgpuDevice) {
+        await webgpuDevice.queue.onSubmittedWorkDone();
+      }
+      const elapsed = performance.now() - t0;
+      warmupTimes.push(elapsed);
+      if (i === 0) firstInferenceMs = elapsed;
     }
-    const elapsed = performance.now() - t0;
-    warmupTimes.push(elapsed);
-    if (i === 0) firstInferenceMs = elapsed;
+
+    // First inference (warmup or benchmark) is past — WebNN delegate has logged
+    // everything it will. Restore console capture before the rest of the loop runs.
+    if (cap) {
+      // If warmupRuns is 0 we restore later, after the first benchmark iteration.
+      if (warmupRuns > 0) {
+        cap.restore();
+        webnn_capability = finalizeCapture(cap.state, backend);
+      }
+    }
+    log(id, `Warmup times: [${warmupTimes.map(t => t.toFixed(2)).join(', ')}] ms`);
+
+    const progressStep = Math.max(1, Math.floor(iterations / 10));
+    status(id, `Inferencing 0/${iterations}...`);
+    for (let i = 0; i < iterations; i++) {
+      const t0 = performance.now();
+      const result = await session.run(feeds);
+      if (backend === 'webgpu' && enableMLTensor && webgpuDevice) {
+        await webgpuDevice.queue.onSubmittedWorkDone();
+      }
+      if (backend === 'webnn_gpu' && enableMLTensor && i === iterations - 1) {
+        const promises = session.outputNames.map((name: string) => result[name].getData());
+        await Promise.all(promises);
+      }
+      const elapsed = performance.now() - t0;
+      inferenceTimes.push(elapsed);
+      // If there was no warmup, the first benchmark iteration IS the first inference.
+      if (i === 0 && warmupRuns === 0) {
+        firstInferenceMs = elapsed;
+        if (cap) {
+          cap.restore();
+          webnn_capability = finalizeCapture(cap.state, backend);
+        }
+      }
+      if ((i + 1) % progressStep === 0 || i === iterations - 1) {
+        status(id, `Inferencing ${i + 1}/${iterations}...`);
+      }
+    }
+  } finally {
+    // Always release the session — even on a mid-run throw — to avoid leaking the
+    // ORT session handle when the worker is reused for another request.
+    try { await session.release(); } catch {}
+    // Make sure console wrappers are always restored, even on early exit.
+    cap?.restore();
   }
 
-  // First warmup run is past — WebNN delegate has logged everything it will. Restore console.
-  cap?.restore();
-  const webnn_capability = cap ? finalizeCapture(cap.state, backend) : null;
-  log(id, `Warmup times: [${warmupTimes.map(t => t.toFixed(2)).join(', ')}] ms`);
   log(id, `First Inference Time: ${firstInferenceMs.toFixed(2)} ms`);
   log(id, `Time to First Inference: ${(compilationMs + firstInferenceMs).toFixed(2)} ms`);
 
-  const inferenceTimes: number[] = [];
-
-  const progressStep = Math.max(1, Math.floor(iterations / 10));
-  status(id, `Inferencing 0/${iterations}...`);
-  for (let i = 0; i < iterations; i++) {
-    const t0 = performance.now();
-    const result = await session.run(feeds);
-    if (backend === 'webgpu' && enableMLTensor && webgpuDevice) {
-      await webgpuDevice.queue.onSubmittedWorkDone();
-    }
-    if (backend === 'webnn_gpu' && enableMLTensor && i === iterations - 1) {
-      const promises = session.outputNames.map((name: string) => result[name].getData());
-      await Promise.all(promises);
-    }
-    inferenceTimes.push(performance.now() - t0);
-    if ((i + 1) % progressStep === 0 || i === iterations - 1) {
-      status(id, `Inferencing ${i + 1}/${iterations}...`);
-    }
-  }
-
-  await session.release();
   const metrics = computeMetrics(inferenceTimes, compilationMs, null, firstInferenceMs);
   const dataType = fileName.includes('fp16') ? 'fp16' : 'fp32';
   const totalMs = inferenceTimes.reduce((a, b) => a + b, 0);
@@ -584,7 +725,13 @@ async function runLiteRt(req: WorkerRequest, modelBuffer: ArrayBuffer): Promise<
     inputDetails = model.getInputDetails();
   }
 
-  const SUPPORTED_DTYPES = new Set(['float32', 'int32']);
+  // LiteRT.js officially supports only float32 / int32 / uint8 (see
+  // references/LiteRT/.../datatypes.ts). The Tensor constructor INFERS dtype from
+  // the TypedArray's class — passing a Float32Array with dtype='int32' silently
+  // creates a float32 tensor, which then mismatches the model and crashes run().
+  // So the dtype string we pass is documentation; the typed-array choice is
+  // what actually matters.
+  const SUPPORTED_DTYPES = new Set(['float32', 'int32', 'uint8']);
   const createTensors = () => {
     const tensors: any[] = [];
     for (const input of inputDetails) {
@@ -594,11 +741,31 @@ async function runLiteRt(req: WorkerRequest, modelBuffer: ArrayBuffer): Promise<
       if (!SUPPORTED_DTYPES.has(dtype)) dtype = 'float32';
       const size = shape.reduce((a: number, b: number) => a * Math.abs(b), 1);
 
+      // Mask / segment / token_type / frame_count inputs typically expect 1s
+      // (attend to everything, single segment, frame index 1, etc.).
       const needsOnes = name.includes('mask') || name.includes('segment') ||
         name.includes('token_type') || name.includes('frame_count');
-      const data = needsOnes
-        ? new Float32Array(size).fill(1)
-        : Float32Array.from({ length: size }, () => Math.random());
+
+      // Build the TypedArray that matches the resolved dtype. LiteRT will infer
+      // the tensor's element type from this constructor.
+      let data: any;
+      if (dtype === 'int32') {
+        data = needsOnes
+          ? new Int32Array(size).fill(1)
+          // Random int32 values tend to OOB embedding tables and produce model
+          // crashes, so use 0 by default — safe and consistent across runs.
+          : new Int32Array(size);
+      } else if (dtype === 'uint8') {
+        data = needsOnes
+          ? new Uint8Array(size).fill(1)
+          // For quantized vision models, uint8 pixels in 0..255 are valid; use
+          // random bytes which exercise the full range.
+          : Uint8Array.from({ length: size }, () => Math.floor(Math.random() * 256));
+      } else {
+        data = needsOnes
+          ? new Float32Array(size).fill(1)
+          : Float32Array.from({ length: size }, () => Math.random());
+      }
       tensors.push(new litert.Tensor(data, shape, dtype));
     }
     if (tensors.length === 0) {
@@ -615,110 +782,132 @@ async function runLiteRt(req: WorkerRequest, modelBuffer: ArrayBuffer): Promise<
   }
 
   let firstInferenceMs = 0;
+  let webnn_capability: WebNNCapability | null = null;
   const warmupTimes: number[] = [];
-  status(id, `Warming up (${warmupRuns} runs)...`);
-  for (let i = 0; i < warmupRuns; i++) {
-    let inputTensors: any[];
-    if (isWebGPU) {
-      inputTensors = createTensors();
-    } else {
-      inputTensors = baseTensors!;
-    }
-
-    const gpuTensors: any[] = [];
-    let processedInputs: any[];
-    if (isWebGPU) {
-      processedInputs = [];
-      for (const tensor of inputTensors) {
-        const gpuTensor = await tensor.moveTo('webgpu');
-        gpuTensors.push(gpuTensor);
-        processedInputs.push(gpuTensor);
-      }
-    } else {
-      processedInputs = inputTensors;
-    }
-
-    const t0 = performance.now();
-    const outputs = await model.run(processedInputs);
-    // For WebGPU, move results back to CPU
-    if (isWebGPU) {
-      for (const result of (Array.isArray(outputs) ? outputs : [outputs])) {
-        const cpuResult = await result.moveTo('wasm');
-        cpuResult.delete?.();
-      }
-    }
-    const elapsed = performance.now() - t0;
-    warmupTimes.push(elapsed);
-    if (i === 0) firstInferenceMs = elapsed;
-
-    // Cleanup
-    if (isWebGPU) {
-      gpuTensors.forEach((t: any) => t.delete?.());
-      inputTensors.forEach((t: any) => { try { t.delete?.(); } catch {} });
-    }
-    if (!isWebGPU && Array.isArray(outputs)) outputs.forEach((t: any) => t.delete?.());
-  }
-  // First warmup is past — TFLite WebNN delegate has logged everything it will. Restore console.
-  cap?.restore();
-  const webnn_capability = cap ? finalizeCapture(cap.state, backend) : null;
-
-  log(id, `Warmup times: [${warmupTimes.map(t => t.toFixed(2)).join(', ')}] ms`);
-  log(id, `First Inference Time: ${firstInferenceMs.toFixed(2)} ms`);
-  log(id, `Time to First Inference: ${(compilationMs + firstInferenceMs).toFixed(2)} ms`);
-
   const inferenceTimes: number[] = [];
 
-  const progressStep2 = Math.max(1, Math.floor(iterations / 10));
-  status(id, `Inferencing 0/${iterations}...`);
-  for (let i = 0; i < iterations; i++) {
-    let inputTensors: any[];
-    if (isWebGPU) {
-      inputTensors = createTensors();
-    } else {
-      inputTensors = baseTensors!;
-    }
-
-    const gpuTensors: any[] = [];
-    let processedInputs: any[];
-    if (isWebGPU) {
-      processedInputs = [];
-      for (const tensor of inputTensors) {
-        const gpuTensor = await tensor.moveTo('webgpu');
-        gpuTensors.push(gpuTensor);
-        processedInputs.push(gpuTensor);
+  try {
+    status(id, `Warming up (${warmupRuns} runs)...`);
+    for (let i = 0; i < warmupRuns; i++) {
+      let inputTensors: any[];
+      if (isWebGPU) {
+        inputTensors = createTensors();
+      } else {
+        inputTensors = baseTensors!;
       }
-    } else {
-      processedInputs = inputTensors;
+
+      const gpuTensors: any[] = [];
+      let processedInputs: any[];
+      if (isWebGPU) {
+        processedInputs = [];
+        for (const tensor of inputTensors) {
+          const gpuTensor = await tensor.moveTo('webgpu');
+          gpuTensors.push(gpuTensor);
+          processedInputs.push(gpuTensor);
+        }
+      } else {
+        processedInputs = inputTensors;
+      }
+
+      const t0 = performance.now();
+      const outputs = await model.run(processedInputs);
+      // For WebGPU, move results back to CPU
+      if (isWebGPU) {
+        for (const result of (Array.isArray(outputs) ? outputs : [outputs])) {
+          const cpuResult = await result.moveTo('wasm');
+          cpuResult.delete?.();
+        }
+      }
+      const elapsed = performance.now() - t0;
+      warmupTimes.push(elapsed);
+      if (i === 0) firstInferenceMs = elapsed;
+
+      // Cleanup per-iteration
+      if (isWebGPU) {
+        gpuTensors.forEach((t: any) => t.delete?.());
+        inputTensors.forEach((t: any) => { try { t.delete?.(); } catch {} });
+      }
+      if (!isWebGPU && Array.isArray(outputs)) outputs.forEach((t: any) => t.delete?.());
     }
 
-    const t0 = performance.now();
-    const outputs = await model.run(processedInputs);
-    if (isWebGPU) {
-      for (const result of (Array.isArray(outputs) ? outputs : [outputs])) {
-        const cpuResult = await result.moveTo('wasm');
-        cpuResult.delete?.();
+    // First warmup is past — TFLite WebNN delegate has logged everything it will.
+    // Restore console here only if there was at least one warmup; otherwise the
+    // first benchmark iteration is the first inference and we restore there.
+    if (cap && warmupRuns > 0) {
+      cap.restore();
+      webnn_capability = finalizeCapture(cap.state, backend);
+    }
+
+    log(id, `Warmup times: [${warmupTimes.map(t => t.toFixed(2)).join(', ')}] ms`);
+
+    const progressStep2 = Math.max(1, Math.floor(iterations / 10));
+    status(id, `Inferencing 0/${iterations}...`);
+    for (let i = 0; i < iterations; i++) {
+      let inputTensors: any[];
+      if (isWebGPU) {
+        inputTensors = createTensors();
+      } else {
+        inputTensors = baseTensors!;
+      }
+
+      const gpuTensors: any[] = [];
+      let processedInputs: any[];
+      if (isWebGPU) {
+        processedInputs = [];
+        for (const tensor of inputTensors) {
+          const gpuTensor = await tensor.moveTo('webgpu');
+          gpuTensors.push(gpuTensor);
+          processedInputs.push(gpuTensor);
+        }
+      } else {
+        processedInputs = inputTensors;
+      }
+
+      const t0 = performance.now();
+      const outputs = await model.run(processedInputs);
+      if (isWebGPU) {
+        for (const result of (Array.isArray(outputs) ? outputs : [outputs])) {
+          const cpuResult = await result.moveTo('wasm');
+          cpuResult.delete?.();
+        }
+      }
+      const elapsed = performance.now() - t0;
+      inferenceTimes.push(elapsed);
+
+      // If there was no warmup, the first benchmark iteration IS the first inference.
+      if (i === 0 && warmupRuns === 0) {
+        firstInferenceMs = elapsed;
+        if (cap) {
+          cap.restore();
+          webnn_capability = finalizeCapture(cap.state, backend);
+        }
+      }
+
+      // Cleanup per-iteration
+      if (isWebGPU) {
+        gpuTensors.forEach((t: any) => t.delete?.());
+        inputTensors.forEach((t: any) => { try { t.delete?.(); } catch {} });
+      }
+      if (!isWebGPU && Array.isArray(outputs)) outputs.forEach((t: any) => t.delete?.());
+
+      if ((i + 1) % progressStep2 === 0 || i === iterations - 1) {
+        status(id, `Inferencing ${i + 1}/${iterations}...`);
       }
     }
-    inferenceTimes.push(performance.now() - t0);
-
-    // Cleanup
-    if (isWebGPU) {
-      gpuTensors.forEach((t: any) => t.delete?.());
-      inputTensors.forEach((t: any) => { try { t.delete?.(); } catch {} });
+  } finally {
+    // Always release WASM-allocated resources, even on a mid-run throw — otherwise
+    // the worker leaks LiteRT tensor buffers and the model handle into the heap.
+    if (baseTensors) {
+      for (const t of baseTensors) {
+        try { t.delete?.(); } catch {}
+      }
     }
-    if (!isWebGPU && Array.isArray(outputs)) outputs.forEach((t: any) => t.delete?.());
-
-    if ((i + 1) % progressStep2 === 0 || i === iterations - 1) {
-      status(id, `Inferencing ${i + 1}/${iterations}...`);
-    }
+    try { model.delete?.(); } catch {}
+    // Make sure console wrappers are always restored, even on early exit.
+    cap?.restore();
   }
-
-  // Final cleanup: delete base tensors for WASM/WebNN path
-  if (baseTensors) {
-    baseTensors.forEach((t: any) => { try { t.delete?.(); } catch {} });
-  }
-
-  model.delete?.();
+  log(id, `First Inference Time: ${firstInferenceMs.toFixed(2)} ms`);
+  log(id, `Time to First Inference: ${(compilationMs + firstInferenceMs).toFixed(2)} ms`);
   const metrics = computeMetrics(inferenceTimes, null, compilationMs, firstInferenceMs);
   const dataType = fileName.includes('fp16') ? 'fp16' : 'fp32';
   const totalMs = inferenceTimes.reduce((a, b) => a + b, 0);
