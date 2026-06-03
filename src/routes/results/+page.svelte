@@ -58,13 +58,13 @@
   const webnnEps  = $derived(data.distinctWebnnEps  ?? []);
   const frameworks = $derived(data.distinctFrameworks ?? []);
 
-  const distinctOs         = $derived([...new Set(data.results.map((r: ResultRow) => r.os).filter(Boolean))].sort() as string[]);
-  const distinctBrowsers   = $derived([...new Set(data.results.map((r: ResultRow) => r.browser).filter(Boolean))].sort() as string[]);
-  const distinctBrowserVers = $derived([...new Set(data.results.map((r: ResultRow) => r.browser_version).filter(Boolean))].sort() as string[]);
-  const distinctCpus       = $derived([...new Set(data.results.map((r: ResultRow) => r.cpu).filter(Boolean))].sort() as string[]);
-  const distinctGpus       = $derived([...new Set(data.results.map((r: ResultRow) => r.gpu).filter(Boolean))].sort() as string[]);
-  const distinctGpuDrivers = $derived([...new Set(data.results.map((r: ResultRow) => r.gpu_driver_version).filter(Boolean))].sort() as string[]);
-  const distinctNpuDrivers = $derived([...new Set(data.results.map((r: ResultRow) => r.npu_driver_version).filter(Boolean))].sort() as string[]);
+  const distinctOs          = $derived(data.distinctOs          ?? []);
+  const distinctBrowsers    = $derived(data.distinctBrowsers    ?? []);
+  const distinctBrowserVers = $derived(data.distinctBrowserVers ?? []);
+  const distinctCpus        = $derived(data.distinctCpus        ?? []);
+  const distinctGpus        = $derived(data.distinctGpus        ?? []);
+  const distinctGpuDrivers  = $derived(data.distinctGpuDrivers  ?? []);
+  const distinctNpuDrivers  = $derived(data.distinctNpuDrivers  ?? []);
 
   function getFrameworkLabel(r: ResultRow): string {
     if (r.ort_version) return `ORT Web ${r.ort_version}`;
