@@ -91,9 +91,6 @@
       <div class="badges">
         <span class="badge">{getBackendLabel(result.backend)}</span>
         <span class="badge">{result.data_type}</span>
-        {#if result.webnn_ep && result.backend.startsWith('webnn_')}
-          <span class="badge">EP: {result.webnn_ep}</span>
-        {/if}
         <span class="badge status-{result.status}">{result.status}</span>
       </div>
 

@@ -252,6 +252,7 @@
               <a href="/admin/orgs" class="dropdown-item" onclick={() => showAdminMenu = false}>Orgs</a>
               <a href="/admin/models" class="dropdown-item" onclick={() => showAdminMenu = false}>Models</a>
               <a href="/admin/recipes" class="dropdown-item" onclick={() => showAdminMenu = false}>Recipes</a>
+              <a href="/admin/results" class="dropdown-item" onclick={() => showAdminMenu = false}>Results</a>
             </div>
           {/if}
         </div>
@@ -378,6 +379,7 @@
         <a href="/admin/orgs" class="mobile-menu-item mobile-admin-item" onclick={closeMobileMenu}>Orgs</a>
         <a href="/admin/models" class="mobile-menu-item mobile-admin-item" onclick={closeMobileMenu}>Models</a>
         <a href="/admin/recipes" class="mobile-menu-item mobile-admin-item" onclick={closeMobileMenu}>Recipes</a>
+        <a href="/admin/results" class="mobile-menu-item mobile-admin-item" onclick={closeMobileMenu}>Results</a>
       {/if}
     {/if}
   </div>

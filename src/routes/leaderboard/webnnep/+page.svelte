@@ -8,8 +8,12 @@
 
   let { data } = $props();
 
+  const accessDenied = $derived(
+    browser && !$auth.loading && !isAtLeast($auth.role ?? 'anonymous', 'partner')
+  );
+
   $effect(() => {
-    if (browser && !$auth.loading && !isAtLeast($auth.role ?? 'anonymous', 'partner')) {
+    if (browser && !$auth.loading && $auth.role === 'anonymous' && !$auth.session) {
       goto('/login');
     }
   });
@@ -300,6 +304,12 @@
   });
 </script>
 
+{#if accessDenied}
+  <div class="access-denied">
+    <p class="access-denied-title">Access restricted</p>
+    <p class="access-denied-body">Your account doesn't have permission to view this page. Please contact the administrator to request access.</p>
+  </div>
+{:else}
 <div class="webnnep-page">
   <header class="page-header">
     <h1>WebNN EP Comparison</h1>
@@ -463,12 +473,33 @@
     {/if}
   {/if}
 </div>
+{/if}
 
 {#if cellCopiedMsg}
   <div class="copy-toast">{cellCopiedMsg}</div>
 {/if}
 
 <style>
+  .access-denied {
+    padding: var(--space-5) var(--space-3);
+    text-align: center;
+    max-width: 480px;
+    margin: 0 auto;
+  }
+
+  .access-denied-title {
+    font-size: var(--text-lg);
+    font-weight: 600;
+    color: var(--color-text-primary);
+    margin-bottom: var(--space-1);
+  }
+
+  .access-denied-body {
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+    line-height: 1.6;
+  }
+
   .webnnep-page {
     max-width: 100%;
   }
