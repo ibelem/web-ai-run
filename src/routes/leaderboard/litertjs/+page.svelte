@@ -53,6 +53,23 @@
   let versionA = $state(parsed.a ?? '');
   let versionB = $state(parsed.b ?? '');
 
+  // Re-apply state when user edits the hash in the address bar
+  $effect(() => {
+    if (!browser) return;
+    function onHashChange() {
+      const p = parseHash();
+      if (p.a !== undefined)       versionA          = p.a;
+      if (p.b !== undefined)       versionB          = p.b;
+      if (p.backend !== undefined) filterBackend     = p.backend;
+      if (p.ep !== undefined)      filterWebnnEp     = p.ep;
+      if (p.dtype !== undefined)   filterDataType    = p.dtype;
+      if (p.metric !== undefined)  selectedMetric    = p.metric;
+      if (p.ops !== undefined)     showUnsupportedOps = p.ops;
+    }
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  });
+
 
   $effect(() => {
     if (!browser) return;

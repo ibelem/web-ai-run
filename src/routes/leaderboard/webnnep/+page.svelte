@@ -291,6 +291,22 @@
   if (parsed.dtype) filterDataType = parsed.dtype;
   if (parsed.metric) selectedMetric = parsed.metric;
 
+  // Re-apply state when user edits the hash in the address bar
+  $effect(() => {
+    if (!browser) return;
+    function onHashChange() {
+      const p = parseHash();
+      if (p.a !== undefined)         epA             = p.a;
+      if (p.b !== undefined)         epB             = p.b;
+      if (p.backend !== undefined)   filterBackend   = p.backend;
+      if (p.framework !== undefined) filterFramework = p.framework;
+      if (p.dtype !== undefined)     filterDataType  = p.dtype;
+      if (p.metric !== undefined)    selectedMetric  = p.metric;
+    }
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  });
+
   $effect(() => {
     if (!browser) return;
     const params = new URLSearchParams();
