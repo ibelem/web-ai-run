@@ -4,6 +4,7 @@
   import { browser } from '$app/environment';
   import { auth, isAuthenticated } from '$lib/stores/auth';
   import { goto } from '$app/navigation';
+  import { createClient } from '$lib/supabase/client';
 
   let { data } = $props();
 
@@ -13,18 +14,57 @@
     }
   });
 
-  let filterBackend = $state('');
-  let filterDataType = $state('');
-  let filterStatus = $state('');
-  let filterWebnnEp = $state('');
-  let filterFramework = $state('');
-  let filterQuery = $state('');
+  // Initialise filters from URL params (enables shareable/bookmarkable filter URLs)
+  const sp = browser ? new URL(location.href).searchParams : new URLSearchParams();
+  let filterBackend    = $state(sp.get('backend')  ?? '');
+  let filterDataType   = $state(sp.get('dtype')    ?? '');
+  let filterStatus     = $state(sp.get('status')   ?? '');
+  let filterWebnnEp    = $state(sp.get('ep')       ?? '');
+  let filterFramework  = $state(sp.get('fw')       ?? '');
+  let filterQuery      = $state(sp.get('q')        ?? '');
+  let filterOs         = $state(sp.get('os')       ?? '');
+  let filterBrowser    = $state(sp.get('br')       ?? '');
+  let filterBrowserVer = $state(sp.get('brv')      ?? '');
+  let filterCpu        = $state(sp.get('cpu')      ?? '');
+  let filterGpu        = $state(sp.get('gpu')      ?? '');
+  let filterGpuDriver  = $state(sp.get('gpudrv')   ?? '');
+  let filterNpuDriver  = $state(sp.get('npudrv')   ?? '');
 
-  const backends = $derived(data.distinctBackends ?? []);
+  // Sync filter state → URL (replaceState so it doesn't pollute browser history)
+  $effect(() => {
+    if (!browser) return;
+    const params = new URLSearchParams();
+    if (filterQuery)      params.set('q',       filterQuery);
+    if (filterDataType)   params.set('dtype',    filterDataType);
+    if (filterBackend)    params.set('backend',  filterBackend);
+    if (filterWebnnEp)    params.set('ep',       filterWebnnEp);
+    if (filterFramework)  params.set('fw',       filterFramework);
+    if (filterStatus)     params.set('status',   filterStatus);
+    if (filterOs)         params.set('os',       filterOs);
+    if (filterBrowser)    params.set('br',       filterBrowser);
+    if (filterBrowserVer) params.set('brv',      filterBrowserVer);
+    if (filterCpu)        params.set('cpu',      filterCpu);
+    if (filterGpu)        params.set('gpu',      filterGpu);
+    if (filterGpuDriver)  params.set('gpudrv',   filterGpuDriver);
+    if (filterNpuDriver)  params.set('npudrv',   filterNpuDriver);
+    const qs = params.toString();
+    const next = qs ? `?${qs}` : location.pathname;
+    history.replaceState(history.state, '', next);
+  });
+
+  const backends  = $derived(data.distinctBackends  ?? []);
   const dataTypes = $derived(data.distinctDataTypes ?? []);
-  const statuses = $derived(data.distinctStatuses ?? []);
-  const webnnEps = $derived(data.distinctWebnnEps ?? []);
+  const statuses  = $derived(data.distinctStatuses  ?? []);
+  const webnnEps  = $derived(data.distinctWebnnEps  ?? []);
   const frameworks = $derived(data.distinctFrameworks ?? []);
+
+  const distinctOs         = $derived([...new Set(data.results.map((r: ResultRow) => r.os).filter(Boolean))].sort() as string[]);
+  const distinctBrowsers   = $derived([...new Set(data.results.map((r: ResultRow) => r.browser).filter(Boolean))].sort() as string[]);
+  const distinctBrowserVers = $derived([...new Set(data.results.map((r: ResultRow) => r.browser_version).filter(Boolean))].sort() as string[]);
+  const distinctCpus       = $derived([...new Set(data.results.map((r: ResultRow) => r.cpu).filter(Boolean))].sort() as string[]);
+  const distinctGpus       = $derived([...new Set(data.results.map((r: ResultRow) => r.gpu).filter(Boolean))].sort() as string[]);
+  const distinctGpuDrivers = $derived([...new Set(data.results.map((r: ResultRow) => r.gpu_driver_version).filter(Boolean))].sort() as string[]);
+  const distinctNpuDrivers = $derived([...new Set(data.results.map((r: ResultRow) => r.npu_driver_version).filter(Boolean))].sort() as string[]);
 
   function getFrameworkLabel(r: ResultRow): string {
     if (r.ort_version) return `ORT Web ${r.ort_version}`;
@@ -34,11 +74,18 @@
 
   const filtered = $derived(
     data.results.filter((r: ResultRow) => {
-      if (filterBackend && r.backend !== filterBackend) return false;
-      if (filterDataType && r.data_type !== filterDataType) return false;
-      if (filterStatus && r.status !== filterStatus) return false;
-      if (filterWebnnEp && r.webnn_ep !== filterWebnnEp) return false;
-      if (filterFramework && getFrameworkLabel(r) !== filterFramework) return false;
+      if (filterBackend    && r.backend !== filterBackend) return false;
+      if (filterDataType   && r.data_type !== filterDataType) return false;
+      if (filterStatus     && r.status !== filterStatus) return false;
+      if (filterWebnnEp    && r.webnn_ep !== filterWebnnEp) return false;
+      if (filterFramework  && getFrameworkLabel(r) !== filterFramework) return false;
+      if (filterOs         && r.os !== filterOs) return false;
+      if (filterBrowser    && r.browser !== filterBrowser) return false;
+      if (filterBrowserVer && r.browser_version !== filterBrowserVer) return false;
+      if (filterCpu        && r.cpu !== filterCpu) return false;
+      if (filterGpu        && r.gpu !== filterGpu) return false;
+      if (filterGpuDriver  && r.gpu_driver_version !== filterGpuDriver) return false;
+      if (filterNpuDriver  && r.npu_driver_version !== filterNpuDriver) return false;
       if (filterQuery) {
         const q = filterQuery.toLowerCase();
         if (!r.model_id.toLowerCase().includes(q) && !r.file_path.toLowerCase().includes(q)) return false;
@@ -90,12 +137,71 @@
     })
   );
 
+  // Pagination
+  const PAGE_SIZE_OPTIONS = [10, 20, 50, 100, 500, 1000];
+  let pageSize = $state(20);
   let currentPage = $state(1);
-  const PAGE_SIZE = 20;
-  const totalPages = $derived(Math.ceil(sorted.length / PAGE_SIZE));
-  const paged = $derived(sorted.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE));
+  const totalPages = $derived(Math.ceil(sorted.length / pageSize));
+  const paged = $derived(sorted.slice((currentPage - 1) * pageSize, currentPage * pageSize));
 
-  $effect(() => { void filterQuery, filterBackend, filterDataType, filterStatus, filterWebnnEp, filterFramework; currentPage = 1; });
+  $effect(() => { void filterQuery, filterBackend, filterDataType, filterStatus, filterWebnnEp, filterFramework, filterOs, filterBrowser, filterBrowserVer, filterCpu, filterGpu, filterGpuDriver, filterNpuDriver, pageSize; currentPage = 1; });
+
+  // Bulk selection — current page only
+  let selectedIds = $state<Set<string>>(new Set());
+
+  // Reset selection when page changes
+  $effect(() => {
+    void currentPage;
+    selectedIds = new Set();
+  });
+
+  const pagedIds = $derived(paged.map((r: ResultRow) => r.id));
+  const allPageSelected = $derived(pagedIds.length > 0 && pagedIds.every((id: string) => selectedIds.has(id)));
+  const somePageSelected = $derived(pagedIds.some((id: string) => selectedIds.has(id)));
+
+  function toggleSelectAll() {
+    if (allPageSelected) {
+      const next = new Set(selectedIds);
+      pagedIds.forEach((id: string) => next.delete(id));
+      selectedIds = next;
+    } else {
+      const next = new Set(selectedIds);
+      pagedIds.forEach((id: string) => next.add(id));
+      selectedIds = next;
+    }
+  }
+
+  function toggleRow(id: string) {
+    const next = new Set(selectedIds);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    selectedIds = next;
+  }
+
+  // Delete selected rows
+  let deleteInProgress = $state(false);
+  let deleteError = $state('');
+
+  async function deleteSelected() {
+    const ids = [...selectedIds];
+    if (ids.length === 0) return;
+    if (!confirm(`Delete ${ids.length} result${ids.length !== 1 ? 's' : ''}?`)) return;
+    deleteInProgress = true;
+    deleteError = '';
+    try {
+      const supabase = createClient();
+      const { error, count } = await (supabase.from('results') as any).delete().in('id', ids).select('id', { count: 'exact', head: true });
+      if (error) throw new Error(error.message);
+      if (count === 0) throw new Error('Delete blocked — no permission or rows not found.');
+      // Remove from local state via reactive reassignment
+      data = { ...data, results: data.results.filter((r: ResultRow) => !selectedIds.has(r.id)) };
+      selectedIds = new Set();
+    } catch (e: any) {
+      deleteError = e.message ?? 'Delete failed';
+    } finally {
+      deleteInProgress = false;
+    }
+  }
 
   function fmt(val: number | null): string {
     if (val == null) return '—';
@@ -112,6 +218,106 @@
     cellCopiedMsg = 'Copied!';
     setTimeout(() => cellCopiedMsg = '', 1500);
   }
+
+  // Indeterminate state for select-all checkbox
+  let selectAllEl = $state<HTMLInputElement | null>(null);
+  $effect(() => {
+    if (selectAllEl) selectAllEl.indeterminate = somePageSelected && !allPageSelected;
+  });
+
+  // Backend badge colors
+  const BACKEND_COLORS: Record<string, string> = {
+    wasm_1:    'backend-wasm',
+    wasm_n:    'backend-wasm',
+    webgpu:    'backend-webgpu',
+    webnn_cpu: 'backend-webnn-cpu',
+    webnn_gpu: 'backend-webnn-gpu',
+    webnn_npu: 'backend-webnn-npu',
+  };
+  function backendClass(id: string): string {
+    return BACKEND_COLORS[id] ?? 'backend-unknown';
+  }
+
+  // Optional columns — user can show/hide, persisted to localStorage
+  type OptColKey =
+    | 'dtype' | 'backend' | 'webnn_ep' | 'status'
+    | 'compilation' | 'load_compile' | 'first_inf' | 'ttf'
+    | 'avg' | 'median' | 'best' | 'p90' | 'fps'
+    | 'framework' | 'iterations'
+    | 'os' | 'browser' | 'browser_ver' | 'cpu' | 'gpu' | 'gpu_driver' | 'npu_driver';
+
+  interface OptCol {
+    key: OptColKey;
+    label: string;
+    defaultVisible: boolean;
+  }
+
+  const OPTIONAL_COLS: OptCol[] = [
+    // Default-on
+    { key: 'dtype',       label: 'Data Type',       defaultVisible: true  },
+    { key: 'backend',     label: 'Backend',         defaultVisible: true  },
+    { key: 'webnn_ep',    label: 'WebNN EP',        defaultVisible: true  },
+    { key: 'status',      label: 'Status',          defaultVisible: true  },
+    { key: 'compilation', label: 'Compile',         defaultVisible: true  },
+    { key: 'load_compile',label: 'Load+Compile',    defaultVisible: true  },
+    { key: 'first_inf',   label: '1st Inf',         defaultVisible: true  },
+    { key: 'ttf',         label: 'TTF',             defaultVisible: true  },
+    { key: 'avg',         label: 'Avg',             defaultVisible: true  },
+    { key: 'median',      label: 'Median',          defaultVisible: true  },
+    { key: 'best',        label: 'Best',            defaultVisible: true  },
+    { key: 'p90',         label: 'P90',             defaultVisible: true  },
+    { key: 'fps',         label: 'FPS',             defaultVisible: true  },
+    // Default-off
+    { key: 'framework',   label: 'JS Framework',    defaultVisible: false },
+    { key: 'iterations',  label: 'Iterations',      defaultVisible: false },
+    { key: 'os',          label: 'OS',              defaultVisible: false },
+    { key: 'browser',     label: 'Browser',         defaultVisible: false },
+    { key: 'browser_ver', label: 'Browser Version', defaultVisible: false },
+    { key: 'cpu',         label: 'CPU',             defaultVisible: false },
+    { key: 'gpu',         label: 'GPU',             defaultVisible: false },
+    { key: 'gpu_driver',  label: 'GPU Driver',      defaultVisible: false },
+    { key: 'npu_driver',  label: 'NPU Driver',      defaultVisible: false },
+  ];
+
+  const LS_KEY = 'results_visible_cols_v2';
+
+  function loadVisibleCols(): Set<OptColKey> {
+    const defaults = new Set(OPTIONAL_COLS.filter(c => c.defaultVisible).map(c => c.key));
+    if (!browser) return defaults;
+    try {
+      const raw = localStorage.getItem(LS_KEY);
+      if (raw !== null) return new Set(JSON.parse(raw) as OptColKey[]);
+    } catch {}
+    // First visit — persist defaults immediately
+    localStorage.setItem(LS_KEY, JSON.stringify([...defaults]));
+    return defaults;
+  }
+
+  let visibleCols = $state<Set<OptColKey>>(loadVisibleCols());
+
+  function toggleCol(key: OptColKey) {
+    const next = new Set(visibleCols);
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
+    visibleCols = next;
+    if (browser) localStorage.setItem(LS_KEY, JSON.stringify([...next]));
+  }
+
+  function isVisible(key: OptColKey): boolean {
+    return visibleCols.has(key);
+  }
+
+  let colPickerOpen = $state(false);
+  let colPickerEl = $state<HTMLDivElement | null>(null);
+
+  $effect(() => {
+    if (!browser || !colPickerOpen) return;
+    function onOutside(e: MouseEvent) {
+      if (colPickerEl && !colPickerEl.contains(e.target as Node)) colPickerOpen = false;
+    }
+    document.addEventListener('mousedown', onOutside);
+    return () => document.removeEventListener('mousedown', onOutside);
+  });
 </script>
 
 <div class="results-page">
@@ -164,48 +370,134 @@
           <option value={s}>{s}</option>
         {/each}
       </select>
+
+      <div class="filters-actions">
+        <!-- Column picker -->
+        <div class="col-picker-wrap" bind:this={colPickerEl}>
+          <button class="col-picker-btn" onclick={() => colPickerOpen = !colPickerOpen}>
+            Columns {visibleCols.size > 0 ? `(+${visibleCols.size})` : ''}
+          </button>
+          {#if colPickerOpen}
+            <div class="col-picker-dropdown">
+              {#each OPTIONAL_COLS as col}
+                <label class="col-picker-item">
+                  <input
+                    type="checkbox"
+                    class="row-check"
+                    checked={isVisible(col.key)}
+                    onchange={() => toggleCol(col.key)}
+                  />
+                  {col.label}
+                </label>
+              {/each}
+            </div>
+          {/if}
+        </div>
+
+        {#if selectedIds.size > 0}
+          <button
+            class="delete-btn"
+            onclick={deleteSelected}
+            disabled={deleteInProgress}
+          >
+            {deleteInProgress ? 'Deleting…' : `Delete ${selectedIds.size} row${selectedIds.size !== 1 ? 's' : ''}`}
+          </button>
+          {#if deleteError}
+            <span class="delete-error">{deleteError}</span>
+          {/if}
+        {/if}
+      </div>
     </div>
 
     <div class="table-wrapper">
       <table class="results-table">
         <thead>
           <tr>
+            <th class="th-check">
+              <input
+                bind:this={selectAllEl}
+                type="checkbox"
+                class="row-check"
+                checked={allPageSelected}
+                onchange={toggleSelectAll}
+                title="Select all on this page"
+              />
+            </th>
             <th class="th-model sortable" onclick={() => toggleSort('model')}>Model{sortIndicator('model')}</th>
             <th class="th-file sortable" onclick={() => toggleSort('file')}>File{sortIndicator('file')}</th>
-            <th class="sortable" onclick={() => toggleSort('dtype')}>Type{sortIndicator('dtype')}</th>
-            <th class="sortable" onclick={() => toggleSort('backend')}>Backend{sortIndicator('backend')}</th>
-            <th class="sortable" onclick={() => toggleSort('webnn_ep')}>WebNN EP{sortIndicator('webnn_ep')}</th>
-            <th class="sortable" onclick={() => toggleSort('status')}>Status{sortIndicator('status')}</th>
-            <th class="sortable" onclick={() => toggleSort('compilation')}>Compile{sortIndicator('compilation')}</th>
-            <th class="sortable" onclick={() => toggleSort('load_compile')}>Load+Compile{sortIndicator('load_compile')}</th>
-            <th class="sortable" onclick={() => toggleSort('first_inf')}>1st Inf{sortIndicator('first_inf')}</th>
-            <th class="sortable" onclick={() => toggleSort('ttf')}>TTF{sortIndicator('ttf')}</th>
-            <th class="sortable" onclick={() => toggleSort('avg')}>Avg{sortIndicator('avg')}</th>
-            <th class="sortable" onclick={() => toggleSort('median')}>Median{sortIndicator('median')}</th>
-            <th class="sortable" onclick={() => toggleSort('best')}>Best{sortIndicator('best')}</th>
-            <th class="sortable" onclick={() => toggleSort('p90')}>P90{sortIndicator('p90')}</th>
-            <th class="sortable" onclick={() => toggleSort('fps')}>FPS{sortIndicator('fps')}</th>
+            {#if isVisible('dtype')}<th class="sortable" onclick={() => toggleSort('dtype')}>Type{sortIndicator('dtype')}</th>{/if}
+            {#if isVisible('backend')}<th class="sortable" onclick={() => toggleSort('backend')}>Backend{sortIndicator('backend')}</th>{/if}
+            {#if isVisible('webnn_ep')}<th class="sortable" onclick={() => toggleSort('webnn_ep')}>WebNN EP{sortIndicator('webnn_ep')}</th>{/if}
+            {#if isVisible('status')}<th class="sortable" onclick={() => toggleSort('status')}>Status{sortIndicator('status')}</th>{/if}
+            {#if isVisible('compilation')}<th class="sortable" onclick={() => toggleSort('compilation')}>Compile{sortIndicator('compilation')}</th>{/if}
+            {#if isVisible('load_compile')}<th class="sortable" onclick={() => toggleSort('load_compile')}>Load+Compile{sortIndicator('load_compile')}</th>{/if}
+            {#if isVisible('first_inf')}<th class="sortable" onclick={() => toggleSort('first_inf')}>1st Inf{sortIndicator('first_inf')}</th>{/if}
+            {#if isVisible('ttf')}<th class="sortable" onclick={() => toggleSort('ttf')}>TTF{sortIndicator('ttf')}</th>{/if}
+            {#if isVisible('avg')}<th class="sortable" onclick={() => toggleSort('avg')}>Avg{sortIndicator('avg')}</th>{/if}
+            {#if isVisible('median')}<th class="sortable" onclick={() => toggleSort('median')}>Median{sortIndicator('median')}</th>{/if}
+            {#if isVisible('best')}<th class="sortable" onclick={() => toggleSort('best')}>Best{sortIndicator('best')}</th>{/if}
+            {#if isVisible('p90')}<th class="sortable" onclick={() => toggleSort('p90')}>P90{sortIndicator('p90')}</th>{/if}
+            {#if isVisible('fps')}<th class="sortable" onclick={() => toggleSort('fps')}>FPS{sortIndicator('fps')}</th>{/if}
+            {#if isVisible('framework')}<th>Framework</th>{/if}
+            {#if isVisible('iterations')}<th>Iters</th>{/if}
+            {#if isVisible('os')}<th>OS</th>{/if}
+            {#if isVisible('browser')}<th>Browser</th>{/if}
+            {#if isVisible('browser_ver')}<th>Browser Ver</th>{/if}
+            {#if isVisible('cpu')}<th>CPU</th>{/if}
+            {#if isVisible('gpu')}<th>GPU</th>{/if}
+            {#if isVisible('gpu_driver')}<th>GPU Driver</th>{/if}
+            {#if isVisible('npu_driver')}<th>NPU Driver</th>{/if}
+            <th class="th-tested">By</th>
             <th class="sortable" onclick={() => toggleSort('started')}>Date{sortIndicator('started')}</th>
           </tr>
         </thead>
         <tbody>
           {#each paged as row}
-            <tr>
+            <tr class:row-selected={selectedIds.has(row.id)}>
+              <td class="cell-check">
+                <input
+                  type="checkbox"
+                  class="row-check"
+                  checked={selectedIds.has(row.id)}
+                  onchange={() => toggleRow(row.id)}
+                />
+              </td>
               <td class="cell-model cell-copy" title="Click to copy: {row.model_id}" onclick={() => copyCell(row.model_id)}>{row.model_id}</td>
               <td class="cell-file"><a href="/results/{row.id}" class="cell-link" title={row.file_path}>{row.file_path}</a></td>
-              <td><span class="badge">{row.data_type}</span></td>
-              <td><span class="badge">{getBackendLabel(row.backend)}</span></td>
-              <td class="cell-ep">{row.webnn_ep || '—'}</td>
-              <td><span class="status-dot" class:status-ok={row.status === 'completed'} class:status-error={row.status === 'error'} class:status-running={row.status === 'running'} title={row.error_message || row.status}></span></td>
-              <td class="cell-metric">{fmt(row.compilation_ms)}</td>
-              <td class="cell-metric">{fmt(row.load_and_compile_ms)}</td>
-              <td class="cell-metric">{fmt(row.first_inference_ms)}</td>
-              <td class="cell-metric">{fmt(row.time_to_first_ms)}</td>
-              <td class="cell-metric">{fmt(row.average_ms)}</td>
-              <td class="cell-metric">{fmt(row.median_ms)}</td>
-              <td class="cell-metric">{fmt(row.best_ms)}</td>
-              <td class="cell-metric">{fmt(row.p90_ms)}</td>
-              <td class="cell-metric">{fmt(row.throughput_fps)}</td>
+              {#if isVisible('dtype')}<td><span class="dtype-chip" data-dtype={row.data_type}>{row.data_type}</span></td>{/if}
+              {#if isVisible('backend')}<td><span class="badge-backend {backendClass(row.backend)}">{getBackendLabel(row.backend)}</span></td>{/if}
+              {#if isVisible('webnn_ep')}<td class="cell-ep">{row.webnn_ep || '—'}</td>{/if}
+              {#if isVisible('status')}<td><span class="status-dot" class:status-ok={row.status === 'completed'} class:status-error={row.status === 'error'} class:status-running={row.status === 'running'} title={row.error_message || row.status}></span></td>{/if}
+              {#if isVisible('compilation')}<td class="cell-metric">{fmt(row.compilation_ms)}</td>{/if}
+              {#if isVisible('load_compile')}<td class="cell-metric">{fmt(row.load_and_compile_ms)}</td>{/if}
+              {#if isVisible('first_inf')}<td class="cell-metric">{fmt(row.first_inference_ms)}</td>{/if}
+              {#if isVisible('ttf')}<td class="cell-metric">{fmt(row.time_to_first_ms)}</td>{/if}
+              {#if isVisible('avg')}<td class="cell-metric">{fmt(row.average_ms)}</td>{/if}
+              {#if isVisible('median')}<td class="cell-metric">{fmt(row.median_ms)}</td>{/if}
+              {#if isVisible('best')}<td class="cell-metric">{fmt(row.best_ms)}</td>{/if}
+              {#if isVisible('p90')}<td class="cell-metric">{fmt(row.p90_ms)}</td>{/if}
+              {#if isVisible('fps')}<td class="cell-metric">{fmt(row.throughput_fps)}</td>{/if}
+              {#if isVisible('framework')}<td class="cell-opt">{getFrameworkLabel(row) || '—'}</td>{/if}
+              {#if isVisible('iterations')}<td class="cell-opt">{row.iterations_completed}/{row.iterations}</td>{/if}
+              {#if isVisible('os')}<td class="cell-opt">{row.os || '—'}</td>{/if}
+              {#if isVisible('browser')}<td class="cell-opt">{row.browser || '—'}</td>{/if}
+              {#if isVisible('browser_ver')}<td class="cell-opt">{row.browser_version || '—'}</td>{/if}
+              {#if isVisible('cpu')}<td class="cell-opt cell-opt-long" title={row.cpu}>{row.cpu || '—'}</td>{/if}
+              {#if isVisible('gpu')}<td class="cell-opt cell-opt-long" title={row.gpu}>{row.gpu || '—'}</td>{/if}
+              {#if isVisible('gpu_driver')}<td class="cell-opt">{row.gpu_driver_version || '—'}</td>{/if}
+              {#if isVisible('npu_driver')}<td class="cell-opt">{row.npu_driver_version || '—'}</td>{/if}
+              <td class="cell-tested">
+                <div class="tested-avatar-wrap" title={data.profile?.display_name ?? 'You'}>
+                  {#if data.profile?.avatar_url}
+                    <img src={data.profile.avatar_url} alt="" class="tested-avatar" crossorigin="anonymous" />
+                  {:else}
+                    <span class="tested-avatar tested-avatar-placeholder">
+                      {(data.profile?.display_name ?? 'Y')[0].toUpperCase()}
+                    </span>
+                  {/if}
+                  <span class="tested-tooltip">{data.profile?.display_name ?? 'You'}</span>
+                </div>
+              </td>
               <td class="cell-date">{fmtDate(row.started_at)}</td>
             </tr>
           {/each}
@@ -213,13 +505,59 @@
       </table>
     </div>
 
-    {#if totalPages > 1}
-      <div class="pagination">
-        <button class="page-btn" disabled={currentPage === 1} onclick={() => currentPage--}>Prev</button>
-        <span class="page-info">{currentPage}/{totalPages}</span>
-        <button class="page-btn" disabled={currentPage === totalPages} onclick={() => currentPage++}>Next</button>
+    <div class="env-filters">
+      <select class="filter-select" bind:value={filterOs}>
+        <option value="">OS</option>
+        {#each distinctOs as v}<option value={v}>{v}</option>{/each}
+      </select>
+      <select class="filter-select" bind:value={filterBrowser}>
+        <option value="">Browser</option>
+        {#each distinctBrowsers as v}<option value={v}>{v}</option>{/each}
+      </select>
+      <select class="filter-select" bind:value={filterBrowserVer}>
+        <option value="">Browser Version</option>
+        {#each distinctBrowserVers as v}<option value={v}>{v}</option>{/each}
+      </select>
+      <select class="filter-select filter-select-wide" bind:value={filterCpu}>
+        <option value="">CPU</option>
+        {#each distinctCpus as v}<option value={v}>{v}</option>{/each}
+      </select>
+      <select class="filter-select filter-select-wide" bind:value={filterGpu}>
+        <option value="">GPU</option>
+        {#each distinctGpus as v}<option value={v}>{v}</option>{/each}
+      </select>
+      <select class="filter-select" bind:value={filterGpuDriver}>
+        <option value="">GPU Driver</option>
+        {#each distinctGpuDrivers as v}<option value={v}>{v}</option>{/each}
+      </select>
+      <select class="filter-select" bind:value={filterNpuDriver}>
+        <option value="">NPU Driver</option>
+        {#each distinctNpuDrivers as v}<option value={v}>{v}</option>{/each}
+      </select>
+    </div>
+
+    <div class="table-footer">
+      <div class="footer-left">
+        <span class="footer-count">{sorted.length} result{sorted.length !== 1 ? 's' : ''}</span>
       </div>
-    {/if}
+
+      <div class="footer-center">
+        {#if totalPages > 1}
+          <button class="page-btn" disabled={currentPage === 1} onclick={() => currentPage--}>Prev</button>
+          <span class="page-info">{currentPage}/{totalPages}</span>
+          <button class="page-btn" disabled={currentPage === totalPages} onclick={() => currentPage++}>Next</button>
+        {/if}
+      </div>
+
+      <div class="footer-right">
+        <span class="rows-label">Rows</span>
+        <select class="rows-select" bind:value={pageSize}>
+          {#each PAGE_SIZE_OPTIONS as n}
+            <option value={n}>{n}</option>
+          {/each}
+        </select>
+      </div>
+    </div>
   {/if}
 </div>
 
@@ -267,6 +605,93 @@
     cursor: pointer;
   }
 
+  .filter-select-wide {
+    min-width: 220px;
+  }
+
+  .env-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-1);
+    margin-top: var(--space-2);
+    padding-top: var(--space-2);
+    border-top: 1px solid var(--color-border);
+  }
+
+  .filters-actions {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+  }
+
+  /* ── Column picker ────────────────────────────────────── */
+  .col-picker-wrap {
+    position: relative;
+  }
+
+  .col-picker-btn {
+    font-family: var(--font-ui);
+    font-size: var(--text-sm);
+    padding: var(--space-1) var(--space-2);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-base);
+    background: none;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: border-color var(--transition-base), color var(--transition-base);
+  }
+
+  .col-picker-btn:hover {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+  }
+
+  .col-picker-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    background: var(--color-surface-raised);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-base);
+    box-shadow: var(--shadow-dropdown);
+    padding: var(--space-1) 0;
+    min-width: 160px;
+    z-index: 100;
+  }
+
+  .col-picker-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px var(--space-2);
+    font-family: var(--font-ui);
+    font-size: var(--text-xs);
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .col-picker-item:hover {
+    background: var(--color-nav-item-hover);
+    color: var(--color-text-primary);
+  }
+
+  /* ── Optional cells ───────────────────────────────────── */
+  .cell-opt {
+    font-family: var(--font-ui);
+    font-size: 10px;
+    color: var(--color-text-muted);
+    white-space: nowrap;
+  }
+
+  .cell-opt-long {
+    max-width: 12vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
   .empty {
     text-align: center;
     padding: var(--space-4);
@@ -297,10 +722,19 @@
     white-space: nowrap;
   }
 
+  .th-check {
+    width: 28px;
+    padding: var(--space-1) 6px !important;
+  }
+
   .th-model, .th-file {
     text-align: left;
     max-width: 10vw;
     width: 10vw;
+  }
+
+  .th-tested {
+    width: 28px;
   }
 
   .sortable {
@@ -313,7 +747,7 @@
   }
 
   .results-table td {
-    padding: var(--space-1) var(--space-1);
+    padding: 0 var(--space-1);
     border-bottom: 1px solid var(--color-border);
     text-align: center;
     white-space: nowrap;
@@ -321,6 +755,23 @@
 
   .results-table tbody tr:hover {
     background: var(--color-nav-item-hover);
+  }
+
+  .results-table tbody tr.row-selected {
+    background: var(--color-accent-light);
+  }
+
+  .cell-check {
+    padding: 0 6px !important;
+    width: 28px;
+  }
+
+  .row-check {
+    cursor: pointer;
+    accent-color: var(--color-primary);
+    width: 14px;
+    height: 14px;
+    vertical-align: middle;
   }
 
   .cell-model, .cell-file {
@@ -347,12 +798,6 @@
     color: var(--color-primary);
   }
 
-  .cell-ep {
-    font-family: var(--font-ui);
-    font-size: 10px;
-    color: var(--color-text-muted);
-  }
-
   .cell-metric {
     font-variant-numeric: tabular-nums;
   }
@@ -363,15 +808,45 @@
     color: var(--color-text-muted);
   }
 
-  .badge {
-    font-family: var(--font-ui);
-    font-size: 10px;
-    padding: 1px 5px;
-    border-radius: var(--radius-sm);
-    border: 1px solid var(--color-border);
-    color: var(--color-text-secondary);
+  /* ── Data type chip — reuses global dtype-chip but overrides min-width for table */
+  :global(.results-table .dtype-chip) {
+    min-width: unset;
   }
 
+  /* ── Backend badges ────────────────────────────────────── */
+  .badge-backend {
+    font-family: var(--font-ui);
+    font-size: 10px;
+    font-weight: 600;
+    padding: 1px 6px;
+    border-radius: var(--radius-sm);
+    border: 1px solid;
+    white-space: nowrap;
+    display: inline-block;
+    min-width: 72px;
+    text-align: center;
+    box-sizing: border-box;
+    transition: opacity var(--transition-base);
+  }
+
+  .badge-backend:hover {
+    opacity: 0.8;
+  }
+
+  .backend-wasm      { color: #78716c; border-color: #78716c; }
+  .backend-webgpu    { color: #d97706; border-color: #d97706; }
+  .backend-webnn-cpu { color: #0953DE; border-color: #0953DE; }
+  .backend-webnn-gpu { color: #7c3aed; border-color: #7c3aed; }
+  .backend-webnn-npu { color: #059669; border-color: #059669; }
+  .backend-unknown   { color: var(--color-text-muted); border-color: var(--color-border); }
+
+  :global([data-theme="dark"]) .backend-wasm      { color: #a8a29e; border-color: #a8a29e; }
+  :global([data-theme="dark"]) .backend-webgpu    { color: #fbbf24; border-color: #fbbf24; }
+  :global([data-theme="dark"]) .backend-webnn-cpu { color: #63B3ED; border-color: #63B3ED; }
+  :global([data-theme="dark"]) .backend-webnn-gpu { color: #a78bfa; border-color: #a78bfa; }
+  :global([data-theme="dark"]) .backend-webnn-npu { color: #34d399; border-color: #34d399; }
+
+  /* ── Status dot ───────────────────────────────────────── */
   .status-dot {
     display: inline-block;
     width: 8px;
@@ -384,12 +859,129 @@
   .status-error { background: var(--color-error); }
   .status-running { background: var(--color-primary); }
 
-  .pagination {
-    display: flex;
+  /* ── Tested-by avatar ─────────────────────────────────── */
+  .cell-tested {
+    width: 28px;
+    padding: var(--space-1) 4px;
+    vertical-align: middle;
+    line-height: 0;
+  }
+
+  .tested-avatar-wrap {
+    position: relative;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
+    line-height: 0;
+  }
+
+  .tested-avatar {
+    margin: 2px 0px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    display: block;
+    flex-shrink: 0;
+    border: 1px solid var(--color-border);
+    outline-offset: -1px;
+  }
+
+  .tested-avatar-placeholder {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-surface-sunken);
+    font-family: var(--font-ui);
+    font-size: 9px;
+    font-weight: 700;
+    color: var(--color-text-secondary);
+  }
+
+  .tested-tooltip {
+    display: none;
+    position: absolute;
+    bottom: calc(100% + 5px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--color-surface-raised);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: 2px 8px;
+    font-family: var(--font-ui);
+    font-size: 11px;
+    color: var(--color-text-primary);
+    white-space: nowrap;
+    pointer-events: none;
+    box-shadow: var(--shadow-dropdown);
+    z-index: 10;
+  }
+
+  .tested-avatar-wrap:hover .tested-tooltip {
+    display: block;
+  }
+
+  /* ── Table footer ─────────────────────────────────────── */
+  .table-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     gap: var(--space-2);
     margin-top: var(--space-2);
+    flex-wrap: wrap;
+  }
+
+  .footer-left {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+    min-width: 120px;
+  }
+
+  .footer-center {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+  }
+
+  .footer-right {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+    min-width: 120px;
+    justify-content: flex-end;
+  }
+
+  .footer-count {
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+  }
+
+  .delete-btn {
+    font-family: var(--font-ui);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    padding: var(--space-1) var(--space-3);
+    border: 1px solid var(--color-error);
+    border-radius: var(--radius-base);
+    background-color: transparent;
+    color: var(--color-error);
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .delete-btn:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-error) 100%, black);
+    color: white;
+  }
+
+  .delete-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .delete-error {
+    font-size: var(--text-xs);
+    color: var(--color-error);
   }
 
   .page-btn {
@@ -416,6 +1008,29 @@
   .page-info {
     font-size: var(--text-xs);
     color: var(--color-text-muted);
+  }
+
+  .rows-label {
+    font-family: var(--font-ui);
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+  }
+
+  .rows-select {
+    font-family: var(--font-ui);
+    font-size: var(--text-xs);
+    padding: 3px 6px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: none;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    min-width: 60px;
+  }
+
+  .rows-select:hover {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
   }
 
   .error-text {
@@ -446,6 +1061,19 @@
 
     .filter-select, .filter-input {
       width: 100%;
+    }
+
+    .table-footer {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .footer-center {
+      justify-content: center;
+    }
+
+    .footer-right {
+      justify-content: flex-start;
     }
   }
 </style>
