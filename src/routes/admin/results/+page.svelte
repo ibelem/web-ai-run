@@ -301,6 +301,7 @@
       <h1>All Results <span class="admin-badge">admin</span></h1>
       <p>{filtered.length} result{filtered.length !== 1 ? 's' : ''} across {users.length} user{users.length !== 1 ? 's' : ''}</p>
     </div>
+    <input class="filter-input header-search" type="text" placeholder="Search model or file..." bind:value={filterQuery} />
   </header>
 
   {#if data.error}
@@ -309,7 +310,6 @@
     <div class="empty"><p>No results yet.</p></div>
   {:else}
     <div class="filters">
-      <input class="filter-input" type="text" placeholder="Search model or file..." bind:value={filterQuery} />
 
       <select class="filter-select filter-select-wide" bind:value={filterUser}>
         <option value="">All Users</option>
@@ -514,7 +514,16 @@
   .results-page { max-width: 100%; }
 
   .page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
     margin-bottom: var(--space-3);
+  }
+
+  .header-search {
+    flex-shrink: 0;
+    min-width: 220px;
   }
 
   .page-header h1 {
