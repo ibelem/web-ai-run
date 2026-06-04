@@ -3,7 +3,9 @@ import type { Backend, TestResult, DownloadProgress, BenchmarkMetrics, WebNNCapa
 export interface WorkerRequest {
   type: 'run';
   id: string;
-  modelSource: { kind: 'url'; hfModelId: string; filePath: string } | { kind: 'buffer'; fileName: string; buffer: ArrayBuffer };
+  modelSource:
+    | { kind: 'url'; hfModelId: string; filePath: string }
+    | { kind: 'buffer'; fileName: string; buffer: ArrayBuffer; externalData?: { path: string; data: ArrayBuffer }[] };
   runtime: 'onnx' | 'litert';
   backend: Backend;
   iterations: number;
@@ -292,6 +294,7 @@ async function downloadFromHost(
   hfModelId: string,
   filePath: string,
   id: string,
+  agg?: { total: number; prior: number },
 ): Promise<{ arrayBuffer: ArrayBuffer; cacheKey: string; useCache: boolean }> {
   const url = `${base}/${hfModelId}/resolve/main/${filePath}`;
 
@@ -340,10 +343,18 @@ async function downloadFromHost(
     if (done) break;
     chunks.push(value);
     loaded += value.byteLength;
+    const aggLoaded = agg ? agg.prior + loaded : loaded;
+    const aggTotal = agg ? agg.total : contentLength;
     post({
       type: 'progress',
       id,
-      progress: { model_id: hfModelId, file_path: filePath, loaded_bytes: loaded, total_bytes: contentLength, percent: contentLength > 0 ? (loaded / contentLength) * 100 : 0 },
+      progress: {
+        model_id: hfModelId,
+        file_path: filePath,
+        loaded_bytes: aggLoaded,
+        total_bytes: aggTotal,
+        percent: aggTotal > 0 ? (aggLoaded / aggTotal) * 100 : 0,
+      },
     });
   }
 
@@ -360,39 +371,122 @@ async function downloadFromHost(
   return { arrayBuffer: buffer.buffer, cacheKey, useCache };
 }
 
-async function downloadModel(hfModelId: string, filePath: string, id: string): Promise<ArrayBuffer> {
-  const primary = await getHfBase();
-  const fallback = primary === HF_MAIN ? HF_MIRROR : HF_MAIN;
-
-  let result: { arrayBuffer: ArrayBuffer; cacheKey: string; useCache: boolean };
+async function downloadSingleFile(
+  base: string,
+  fallback: string,
+  hfModelId: string,
+  filePath: string,
+  id: string,
+  agg?: { total: number; prior: number },
+): Promise<{ arrayBuffer: ArrayBuffer; cacheKey: string; useCache: boolean }> {
   try {
-    result = await downloadFromHost(primary, hfModelId, filePath, id);
+    return await downloadFromHost(base, hfModelId, filePath, id, agg);
   } catch (primaryErr: any) {
-    // Primary host failed (rate-limited, 5xx, mid-stream drop, etc.). Invalidate
-    // the cached host choice so subsequent calls re-probe, then try the other one.
-    log(id, `Primary ${primary} failed (${primaryErr?.message ?? primaryErr}); retrying via ${fallback}`);
+    log(id, `Primary ${base} failed (${primaryErr?.message ?? primaryErr}); retrying via ${fallback}`);
     cachedHfBase = null;
     cachedHfBaseAt = 0;
     try {
-      result = await downloadFromHost(fallback, hfModelId, filePath, id);
-      // Mirror worked — pin to it for this session
+      const result = await downloadFromHost(fallback, hfModelId, filePath, id, agg);
       cachedHfBase = fallback;
       cachedHfBaseAt = Date.now();
+      return result;
     } catch (fallbackErr: any) {
-      throw new Error(`Both ${primary} and ${fallback} failed: ${primaryErr?.message ?? primaryErr} / ${fallbackErr?.message ?? fallbackErr}`);
+      throw new Error(`Both ${base} and ${fallback} failed: ${primaryErr?.message ?? primaryErr} / ${fallbackErr?.message ?? fallbackErr}`);
     }
   }
-
-  if (result.useCache) {
-    await saveToOPFS(result.cacheKey, result.arrayBuffer);
-    log(id, `Saved to OPFS cache`);
-  } else {
-    log(id, `HEAD unavailable — bypassing OPFS cache`);
-  }
-  return result.arrayBuffer;
 }
 
-async function runOrt(req: WorkerRequest, modelBuffer: ArrayBuffer): Promise<TestResult> {
+// Probe for .onnx_data sidecar files. Returns paths that exist (HTTP 200/206 HEAD).
+// ORT Web names them: <basename>.onnx_data, <basename>.onnx_data_1, ..., <basename>.onnx_data_N.
+async function probeSidecars(base: string, hfModelId: string, mainFilePath: string): Promise<string[]> {
+  const dir = mainFilePath.includes('/') ? mainFilePath.slice(0, mainFilePath.lastIndexOf('/') + 1) : '';
+  const fileBase = mainFilePath.replace(/\.onnx$/, '');
+  const sidecars: string[] = [];
+
+  const probe = async (path: string): Promise<boolean> => {
+    try {
+      const res = await fetch(`${base}/${hfModelId}/resolve/main/${path}`, { method: 'HEAD' });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  };
+
+  // Check base sidecar
+  const basePath = `${fileBase}.onnx_data`;
+  if (await probe(basePath)) {
+    sidecars.push(basePath);
+    // Check numbered sidecars until one is missing
+    for (let i = 1; i <= 99; i++) {
+      const numberedPath = `${fileBase}.onnx_data_${i}`;
+      if (await probe(numberedPath)) {
+        sidecars.push(numberedPath);
+      } else {
+        break;
+      }
+    }
+  }
+  return sidecars;
+}
+
+interface DownloadedBundle {
+  modelBuffer: ArrayBuffer;
+  externalData: { path: string; data: ArrayBuffer }[];
+}
+
+async function downloadModel(hfModelId: string, filePath: string, id: string): Promise<DownloadedBundle> {
+  const primary = await getHfBase();
+  const fallback = primary === HF_MAIN ? HF_MIRROR : HF_MAIN;
+
+  // Probe for external data sidecars before downloading
+  const sidecarPaths = filePath.endsWith('.onnx') ? await probeSidecars(primary, hfModelId, filePath) : [];
+  if (sidecarPaths.length > 0) {
+    log(id, `Found ${sidecarPaths.length} external data sidecar(s): ${sidecarPaths.join(', ')}`);
+  }
+
+  // Collect total sizes for aggregate progress bar via HEAD requests
+  let totalBytes = 0;
+  const allPaths = [filePath, ...sidecarPaths];
+  for (const p of allPaths) {
+    try {
+      const res = await fetch(`${primary}/${hfModelId}/resolve/main/${p}`, { method: 'HEAD' });
+      totalBytes += Number(res.headers.get('content-length') ?? 0);
+    } catch {}
+  }
+
+  // Download main model
+  let priorBytes = 0;
+  const mainResult = await downloadSingleFile(primary, fallback, hfModelId, filePath, id,
+    totalBytes > 0 ? { total: totalBytes, prior: priorBytes } : undefined);
+  if (mainResult.useCache) {
+    await saveToOPFS(mainResult.cacheKey, mainResult.arrayBuffer);
+    log(id, `Saved ${filePath} to OPFS cache`);
+  } else {
+    log(id, `HEAD unavailable — bypassing OPFS cache for ${filePath}`);
+  }
+  priorBytes += mainResult.arrayBuffer.byteLength;
+
+  // Download sidecars
+  const externalData: { path: string; data: ArrayBuffer }[] = [];
+  for (const sidecarPath of sidecarPaths) {
+    const sidecarResult = await downloadSingleFile(primary, fallback, hfModelId, sidecarPath, id,
+      totalBytes > 0 ? { total: totalBytes, prior: priorBytes } : undefined);
+    if (sidecarResult.useCache) {
+      await saveToOPFS(sidecarResult.cacheKey, sidecarResult.arrayBuffer);
+      log(id, `Saved ${sidecarPath} to OPFS cache`);
+    }
+    // ORT Web expects the path key to match what's encoded inside the .onnx file —
+    // typically just the filename without directory prefix.
+    const sidecarName = sidecarPath.includes('/') ? sidecarPath.slice(sidecarPath.lastIndexOf('/') + 1) : sidecarPath;
+    externalData.push({ path: sidecarName, data: sidecarResult.arrayBuffer });
+    priorBytes += sidecarResult.arrayBuffer.byteLength;
+  }
+
+  return { modelBuffer: mainResult.arrayBuffer, externalData };
+}
+
+async function runOrt(req: WorkerRequest, bundle: DownloadedBundle): Promise<TestResult> {
+  const { modelBuffer, externalData } = bundle;
   const { id, backend, iterations, warmupRuns, runtimeVersion } = req;
   const startedAt = new Date().toISOString();
   const fileName = req.modelSource.kind === 'buffer' ? req.modelSource.fileName : req.modelSource.filePath;
@@ -437,6 +531,11 @@ async function runOrt(req: WorkerRequest, modelBuffer: ArrayBuffer): Promise<Tes
   if (backend.startsWith('webnn_') && req.freeDimensionOverrides && Object.keys(req.freeDimensionOverrides).length > 0) {
     sessionOptions.freeDimensionOverrides = req.freeDimensionOverrides;
     log(id, `freeDimensionOverrides: ${JSON.stringify(req.freeDimensionOverrides)}`);
+  }
+
+  if (externalData.length > 0) {
+    sessionOptions.externalData = externalData;
+    log(id, `External data: ${externalData.map(e => e.path).join(', ')}`);
   }
 
   const captureWebnn = backend.startsWith('webnn_');
@@ -611,7 +710,8 @@ async function runOrt(req: WorkerRequest, modelBuffer: ArrayBuffer): Promise<Tes
   };
 }
 
-async function runLiteRt(req: WorkerRequest, modelBuffer: ArrayBuffer): Promise<TestResult> {
+async function runLiteRt(req: WorkerRequest, bundle: DownloadedBundle): Promise<TestResult> {
+  const { modelBuffer } = bundle; // LiteRT.js doesn't support external data
   const { id, backend, iterations, warmupRuns, runtimeVersion } = req;
   const startedAt = new Date().toISOString();
   const fileName = req.modelSource.kind === 'buffer' ? req.modelSource.fileName : req.modelSource.filePath;
@@ -895,15 +995,16 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
   try {
     let modelBuffer: ArrayBuffer;
 
+    let bundle: DownloadedBundle;
     if (req.modelSource.kind === 'buffer') {
-      modelBuffer = req.modelSource.buffer;
+      bundle = { modelBuffer: req.modelSource.buffer, externalData: req.modelSource.externalData ?? [] };
     } else {
-      modelBuffer = await downloadModel(req.modelSource.hfModelId, req.modelSource.filePath, req.id);
+      bundle = await downloadModel(req.modelSource.hfModelId, req.modelSource.filePath, req.id);
     }
 
     const result = req.runtime === 'onnx'
-      ? await runOrt(req, modelBuffer)
-      : await runLiteRt(req, modelBuffer);
+      ? await runOrt(req, bundle)
+      : await runLiteRt(req, bundle);
 
     post({ type: 'result', id: req.id, result });
   } catch (err: any) {

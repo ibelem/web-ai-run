@@ -97,7 +97,11 @@ export function runInWorker(options: WorkerRunOptions): Promise<TestResult> {
     worker.addEventListener('error', handleError);
 
     if (options.modelSource.kind === 'buffer') {
-      worker.postMessage(request, [options.modelSource.buffer]);
+      const transferList: ArrayBuffer[] = [options.modelSource.buffer];
+      for (const e of options.modelSource.externalData ?? []) {
+        transferList.push(e.data);
+      }
+      worker.postMessage(request, transferList);
     } else {
       worker.postMessage(request);
     }

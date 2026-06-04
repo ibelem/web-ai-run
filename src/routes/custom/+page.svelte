@@ -21,6 +21,7 @@
 
   let file = $state<File | null>(null);
   let modelBuffer = $state<ArrayBuffer | null>(null);
+  let sidecarFiles = $state<{ path: string; data: ArrayBuffer }[]>([]);
   let dragOver = $state(false);
   let isRunning = $state(false);
   $effect(() => { isRunningStore.set(isRunning); });
@@ -130,35 +131,57 @@
   function handleDrop(e: DragEvent) {
     e.preventDefault();
     dragOver = false;
-    const droppedFile = e.dataTransfer?.files?.[0];
-    if (droppedFile) validateAndSetFile(droppedFile);
+    const files = e.dataTransfer?.files;
+    if (files && files.length > 0) validateAndSetFiles(Array.from(files));
   }
 
   function handleFileInput(e: Event) {
     const input = e.target as HTMLInputElement;
-    const selected = input.files?.[0];
-    if (selected) validateAndSetFile(selected);
+    if (input.files && input.files.length > 0) validateAndSetFiles(Array.from(input.files));
   }
 
-  async function validateAndSetFile(f: File) {
-    const r = inferRuntime(f.name);
-    const lower = f.name.toLowerCase();
+  // Detect sidecar name pattern: "<basename>.onnx_data" or "<basename>.onnx_data_N"
+  function isSidecar(name: string): boolean {
+    return /\.onnx_data(?:_\d+)?$/.test(name);
+  }
+
+  async function validateAndSetFiles(picked: File[]) {
+    // Find the primary model file
+    const primary = picked.find(f => !isSidecar(f.name));
+    if (!primary) {
+      errorMessage = 'No primary model file found. Please include the .onnx or .tflite file.';
+      return;
+    }
+
+    const r = inferRuntime(primary.name);
+    const lower = primary.name.toLowerCase();
     const isLlmOnly = lower.endsWith('.litertlm') || lower.endsWith('.task');
     if (!r && !isLlmOnly) {
       errorMessage = 'Unsupported file type. Please use .onnx, .tflite, .litertlm, or .task files.';
       file = null;
       modelBuffer = null;
+      sidecarFiles = [];
       return;
     }
     if (isLlmOnly) {
       errorMessage = 'LLM benchmark coming soon — .litertlm and .task files are recognized but not yet runnable. Inference runtime is pending.';
       file = null;
       modelBuffer = null;
+      sidecarFiles = [];
       return;
     }
+
     errorMessage = '';
-    file = f;
-    modelBuffer = await f.arrayBuffer();
+    file = primary;
+    modelBuffer = await primary.arrayBuffer();
+
+    // Collect sidecar buffers — sort by name so _1 < _2 < ... order is preserved
+    const sidecars = picked
+      .filter(f => isSidecar(f.name))
+      .sort((a, b) => a.name.localeCompare(b.name));
+    sidecarFiles = await Promise.all(
+      sidecars.map(async f => ({ path: f.name, data: await f.arrayBuffer() }))
+    );
   }
 
   function formatSize(bytes: number): string {
@@ -217,7 +240,12 @@
       let result: TestResult;
       try {
         result = await runInWorker({
-          modelSource: { kind: 'buffer', fileName, buffer: modelBuffer.slice(0) },
+          modelSource: {
+            kind: 'buffer',
+            fileName,
+            buffer: modelBuffer.slice(0),
+            externalData: sidecarFiles.map(s => ({ path: s.path, data: s.data.slice(0) })),
+          },
           runtime: item.runtime,
           backend: item.backend,
           iterations: config.iterations,
@@ -321,7 +349,12 @@
     let result: TestResult;
     try {
       result = await runInWorker({
-        modelSource: { kind: 'buffer', fileName, buffer: modelBuffer.slice(0) },
+        modelSource: {
+          kind: 'buffer',
+          fileName,
+          buffer: modelBuffer.slice(0),
+          externalData: sidecarFiles.map(s => ({ path: s.path, data: s.data.slice(0) })),
+        },
         runtime: item.runtime,
         backend: item.backend,
         iterations,
@@ -396,6 +429,7 @@
   function clearFile() {
     file = null;
     modelBuffer = null;
+    sidecarFiles = [];
     results = [];
     queue = [];
     runLogs = [];
@@ -429,11 +463,13 @@
       </svg>
       <p class="drop-text">Drop a model file here or <span class="drop-browse">click to browse</span></p>
       <p class="drop-hint">Supports .onnx, .tflite <span class="drop-hint-todo">(.litertlm, .task LLM formats: coming soon)</span></p>
+      <p class="drop-hint drop-hint-sidecar">For models with external data (.onnx_data*), select all files to upload, or drag all files together</p>
     </div>
     <input
       id="file-input"
       type="file"
       accept=".onnx,.tflite"
+      multiple
       style="display:none"
       onchange={handleFileInput}
     />
@@ -450,6 +486,9 @@
         <span class="file-name">{file.name}</span>
         <span class="file-size">{formatSize(file.size)}</span>
         {#if runtime}<span class="badge">{runtime}</span>{/if}
+        {#if sidecarFiles.length > 0}
+          <span class="badge badge-sidecar" title={sidecarFiles.map(s => s.path).join(', ')}>+{sidecarFiles.length} data</span>
+        {/if}
       </div>
       <button class="btn-clear" onclick={clearFile}>Remove</button>
     </div>
@@ -686,6 +725,18 @@
     margin-left: 4px;
   }
 
+  .drop-hint-sidecar {
+    margin-top: 2px;
+    font-size: 11px;
+    color: var(--color-text-muted);
+    opacity: 0.7;
+  }
+
+  .badge-sidecar {
+    color: var(--color-primary);
+    border-color: var(--color-primary);
+  }
+
   .drop-browse {
     color: var(--color-primary);
   }
@@ -871,7 +922,7 @@
 
   .status-section {
     width: 90vw;
-    max-width: 50vw;
+    max-width: 760px;
     margin-inline: auto;
     display: flex;
     flex-direction: column;
@@ -879,7 +930,6 @@
     padding: var(--space-3) var(--space-6);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-base);
-    margin-bottom: var(--space-3);
   }
 
   .status-row {
@@ -993,7 +1043,7 @@
 
   .results-section-running {
     width: 90vw;
-    max-width: 50vw;
+    max-width: 760px;
     margin-inline: auto;
   }
 

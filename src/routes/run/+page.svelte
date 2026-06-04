@@ -1709,7 +1709,6 @@
     padding: var(--space-3) var(--space-6);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-base);
-    margin-bottom: var(--space-3);
   }
 
   .status-row {
