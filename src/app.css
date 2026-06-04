@@ -137,6 +137,8 @@
   --color-fmt-onnx:     #3b82f6;
   --color-fmt-tflite:   #10b981;
   --color-fmt-litertlm: #f97316;
+  --color-fmt-task:     #06b6d4;       /* used by "soon" coming-soon badge */
+  --color-fmt-task-icon: #8b5cf6;      /* used by the .task circle T icon */
 
   /* Runtime colors */
   --color-runtime-ort: #181818;
@@ -214,6 +216,8 @@
   --color-fmt-onnx:     #60a5fa;
   --color-fmt-tflite:   #34d399;
   --color-fmt-litertlm: #fb923c;
+  --color-fmt-task:     #22d3ee;
+  --color-fmt-task-icon: #a78bfa;
 
   /* Runtime dark */
   --color-runtime-ort: rgba(255, 255, 255, 0.8);

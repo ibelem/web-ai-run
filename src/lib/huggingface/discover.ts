@@ -19,6 +19,10 @@ export async function discoverModels(orgs: OrgConfig[]): Promise<ModelEntry[]> {
       for (const file of files) {
         const parsed = parseModelFile(file.rfilename, file.size, repo.id);
         if (!parsed) continue;
+        // Skip LLM-only formats from server-side model discovery — the models
+        // table expects an executable runtime ('onnx' | 'litert'). LLM benchmark
+        // path is pending (.litertlm and .task).
+        if (parsed.runtime === 'llm') continue;
 
         entries.push({
           hf_model_id: repo.id,

@@ -1,4 +1,15 @@
-export const MODEL_EXTENSIONS = ['.onnx', '.tflite', '.litertlm'];
+export const MODEL_EXTENSIONS = ['.onnx', '.tflite', '.litertlm', '.task'];
+
+// Formats that are discoverable (search / browse / inspect) but NOT yet runnable —
+// the LLM benchmark runtime is pending. Keep this in sync with cart blocking and
+// recipe filtering. See ~/.gstack/projects/ibelem-web-ai-run/designs/2026-06-03-llm-benchmark-design.md
+export const LLM_ONLY_FORMATS = ['litertlm', 'task'] as const;
+export type LlmOnlyFormat = (typeof LLM_ONLY_FORMATS)[number];
+
+export function isLlmOnlyFormat(filename: string): boolean {
+  const lower = filename.toLowerCase();
+  return lower.endsWith('.litertlm') || lower.endsWith('.task');
+}
 
 export const DTYPE_ORDER = ['fp32', 'fp16', 'bf16', 'fp8', 'int8', 'uint8', 'int4', 'uint4', 'q4', 'q4f16', 'bnb4', 'quantized'];
 
@@ -35,6 +46,9 @@ export function inferRuntime(filename: string): 'onnx' | 'litert' | null {
   const lower = filename.toLowerCase();
   if (lower.endsWith('.onnx') && !SKIP_PATTERNS.some((s) => lower.includes(s))) return 'onnx';
   if (lower.endsWith('.tflite') || lower.endsWith('.litertlm')) return 'litert';
+  // .task is recognized for discovery purposes but has no inference runtime yet —
+  // see LLM_ONLY_FORMATS / isLlmOnlyFormat. Returning null keeps these files out
+  // of the existing /run pipeline.
   return null;
 }
 
@@ -52,6 +66,7 @@ export function inferDataType(filename: string): string {
 export function inferFormat(path: string): string {
   const lower = path.toLowerCase();
   if (lower.endsWith('.litertlm')) return 'litertlm';
+  if (lower.endsWith('.task')) return 'task';
   if (lower.endsWith('.tflite')) return 'tflite';
   if (lower.endsWith('.onnx')) return 'onnx';
   return 'unknown';
@@ -72,7 +87,10 @@ export interface ParsedFile {
   file_path: string;
   data_type: string;
   size_bytes: number;
-  runtime: 'onnx' | 'litert';
+  // 'llm' = discoverable format whose runtime is not yet wired up (.task today).
+  // .litertlm currently maps to 'litert' for back-compat with existing carts/recipes;
+  // the cart layer rejects both .litertlm and .task via isLlmOnlyFormat().
+  runtime: 'onnx' | 'litert' | 'llm';
 }
 
 export function parseModelFile(
@@ -87,12 +105,25 @@ export function parseModelFile(
   }
 
   const runtime = inferRuntime(filename);
-  if (!runtime) return null;
+  if (runtime) {
+    return {
+      file_path: filename,
+      data_type: inferDataType(filename),
+      size_bytes: sizeBytes,
+      runtime,
+    };
+  }
 
-  return {
-    file_path: filename,
-    data_type: inferDataType(filename),
-    size_bytes: sizeBytes,
-    runtime,
-  };
+  // .task and similar LLM-only formats: surface for discovery, mark as 'llm'
+  // so cart / recipe / run layers can skip or block them explicitly.
+  if (lower.endsWith('.task')) {
+    return {
+      file_path: filename,
+      data_type: inferDataType(filename),
+      size_bytes: sizeBytes,
+      runtime: 'llm',
+    };
+  }
+
+  return null;
 }

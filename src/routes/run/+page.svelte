@@ -1216,7 +1216,14 @@
             </div>
           {/if}
           <div class="env-row">
-            <span class="env-label">WebNN EP</span>
+            <span class="env-label"
+              >WebNN EP<span
+                class="ep-help"
+                title={'Not sure which EP to pick?\nOpen chrome://webnn-internals/ in a new tab, run the model once, then check the "Active Contexts" tab — the Runtime Backend and selected Execution Provider are listed there.'}
+                aria-label="How to find your WebNN Execution Provider"
+                tabindex="0">?</span
+              ></span
+            >
             <select class="version-select" bind:value={webnnEp}>
               {#each WEBNN_EP_OPTIONS as opt}
                 <option value={opt.value}>{opt.label}</option>
@@ -1869,6 +1876,30 @@
     color: var(--color-text-muted);
     border-color: var(--color-border);
     opacity: 0.6;
+  }
+
+  .ep-help {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 4px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 1px solid transparent;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--color-text-muted);
+    cursor: help;
+    user-select: none;
+    transition: color var(--transition-base), border-color var(--transition-base);
+  }
+
+  .ep-help:hover,
+  .ep-help:focus-visible {
+    color: var(--color-warning);
+    border: 1px solid var(--color-warning);
+    outline: none;
   }
 
   .env-value {

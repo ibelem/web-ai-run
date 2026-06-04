@@ -142,8 +142,16 @@
 
   async function validateAndSetFile(f: File) {
     const r = inferRuntime(f.name);
-    if (!r) {
-      errorMessage = 'Unsupported file type. Please use .onnx, .tflite, or .litertlm files.';
+    const lower = f.name.toLowerCase();
+    const isLlmOnly = lower.endsWith('.litertlm') || lower.endsWith('.task');
+    if (!r && !isLlmOnly) {
+      errorMessage = 'Unsupported file type. Please use .onnx, .tflite, .litertlm, or .task files.';
+      file = null;
+      modelBuffer = null;
+      return;
+    }
+    if (isLlmOnly) {
+      errorMessage = 'LLM benchmark coming soon — .litertlm and .task files are recognized but not yet runnable. Inference runtime is pending.';
       file = null;
       modelBuffer = null;
       return;
@@ -163,6 +171,7 @@
   function fileFormat(name: string): string {
     if (name.endsWith('.tflite')) return 'tflite';
     if (name.endsWith('.litertlm')) return 'litertlm';
+    if (name.endsWith('.task')) return 'task';
     return 'onnx';
   }
 
@@ -419,12 +428,12 @@
         <line x1="12" y1="3" x2="12" y2="15"/>
       </svg>
       <p class="drop-text">Drop a model file here or <span class="drop-browse">click to browse</span></p>
-      <p class="drop-hint">Supports .onnx, .tflite, .litertlm</p>
+      <p class="drop-hint">Supports .onnx, .tflite <span class="drop-hint-todo">(.litertlm, .task LLM formats: coming soon)</span></p>
     </div>
     <input
       id="file-input"
       type="file"
-      accept=".onnx,.tflite,.litertlm"
+      accept=".onnx,.tflite"
       style="display:none"
       onchange={handleFileInput}
     />
@@ -668,6 +677,13 @@
   .drop-hint {
     font-size: var(--text-sm);
     color: var(--color-text-muted);
+  }
+
+  .drop-hint-todo {
+    color: var(--color-fmt-task);
+    font-style: italic;
+    font-size: 11px;
+    margin-left: 4px;
   }
 
   .drop-browse {

@@ -88,6 +88,11 @@
 
   async function handleSave() {
     if (!canSave) return;
+    const blocked = recipeModels.filter(m => /\.(litertlm|task)$/i.test(m.file_path));
+    if (blocked.length > 0) {
+      errorMessage = `LLM benchmark coming soon — cannot save recipe with ${blocked.length} .litertlm/.task model(s) yet.`;
+      return;
+    }
     saving = true;
     errorMessage = '';
     try {
@@ -178,7 +183,7 @@
       {:else}
         <ul class="model-list">
           {#each recipeModels as m, i (`${m.hf_model_id}::${m.file_path}`)}
-            {@const ext = m.file_path.endsWith('.litertlm') ? 'litertlm' : m.file_path.endsWith('.tflite') ? 'tflite' : 'onnx'}
+            {@const ext = m.file_path.endsWith('.litertlm') ? 'litertlm' : m.file_path.endsWith('.task') ? 'task' : m.file_path.endsWith('.tflite') ? 'tflite' : 'onnx'}
             {@const ck = checkStatuses[`${m.hf_model_id}::${m.file_path}`] ?? 'idle'}
             <li class="model-item">
               <div class="model-item-left">

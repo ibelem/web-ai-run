@@ -1,6 +1,7 @@
 <script lang="ts">
   import FormatIcon from './FormatIcon.svelte';
   import NetronLink from './NetronLink.svelte';
+  import { LLM_ONLY_FORMATS } from '$lib/huggingface/parser';
 
   interface Variant {
     id: string;
@@ -53,6 +54,7 @@
   );
 
   const hasSelection = $derived(variants.some((v) => selectedIds.has(v.id)));
+  const llmOnly = $derived((LLM_ONLY_FORMATS as readonly string[]).includes(format));
 
   // When there's only one variant, show its real file_path instead of the stripped base name
   const displayPath = $derived(
@@ -62,7 +64,7 @@
   );
 </script>
 
-<div class="model-card" class:has-selection={hasSelection} role="group" aria-label="Model: {hfModelId}">
+<div class="model-card" class:has-selection={hasSelection} class:llm-only={llmOnly} role="group" aria-label="Model: {hfModelId}">
   <div class="card-left">
     <div class="card-row card-top">
       {#if task && task !== 'uncategorized'}
@@ -70,6 +72,9 @@
       {/if}
       {#if inLibrary}
         <span class="tag tag-inlib">In library</span>
+      {/if}
+      {#if llmOnly}
+        <span class="tag tag-coming-soon" title="LLM benchmark in development. You can view this model, but it can't be added to the cart or run yet.">soon</span>
       {/if}
       <span class="info-repo" title={hfModelId}>{hfModelId}</span>
     </div>
@@ -88,7 +93,8 @@
         class="chip"
         class:chip-selected={selectedIds.has(variant.id)}
         data-dtype={variant.dataType}
-        title={`${variant.dataType} · ${formatSize(variant.sizeBytes)}`}
+        disabled={llmOnly}
+        title={llmOnly ? "LLM benchmark in development. You can view this model, but it can't be added to the cart or run yet." : `${variant.dataType} · ${formatSize(variant.sizeBytes)}`}
         onclick={() => ontoggle?.(variant.id)}
       >{dtypeLabel(variant.dataType)}</button>
     {/each}
@@ -201,6 +207,31 @@
     flex-shrink: 0;
   }
 
+  .tag-coming-soon {
+    background: var(--color-fmt-task);
+    color: #fff;
+    border: 1px solid var(--color-fmt-task);
+    text-transform: lowercase;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    flex-shrink: 0;
+    /* Parent .model-card disables pointer events; restore them here so the
+       native title tooltip fires on hover. */
+    pointer-events: auto;
+    cursor: help;
+  }
+
+  .model-card.llm-only {
+    background: color-mix(in srgb, var(--color-fmt-task) 5%, var(--color-surface-raised));
+  }
+
+  .chip:disabled,
+  .chip:disabled:hover {
+    opacity: 0.45;
+    cursor: not-allowed;
+    transform: none;
+  }
 
   .chip {
     font-family: var(--font-mono);

@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { SelectedHFModel } from './HFSearch.svelte';
-  import { inferFormat, inferDataType, inferRuntime, stripExt } from '$lib/huggingface/parser';
+  import { inferFormat, inferDataType, inferRuntime, stripExt, isLlmOnlyFormat } from '$lib/huggingface/parser';
   import FormatIcon from './FormatIcon.svelte';
   import NetronLink from './NetronLink.svelte';
 
@@ -24,14 +24,14 @@
     size: number;
     format: string;
     dataType: string;
-    runtime: 'onnx' | 'litert';
+    runtime: 'onnx' | 'litert' | 'llm';
   }
 
   interface GroupedImportedFile {
     key: string;
     strippedPath: string;
     format: string;
-    runtime: 'onnx' | 'litert';
+    runtime: 'onnx' | 'litert' | 'llm';
     files: ImportedFile[];
   }
 
@@ -110,7 +110,15 @@
   // --- Helpers ---
 
   function isSupported(path: string): boolean {
-    return inferRuntime(path) !== null;
+    if (inferRuntime(path) !== null) return true;
+    // .task: surfaceable for discovery, runtime not yet wired up.
+    return path.toLowerCase().endsWith('.task');
+  }
+
+  function fileRuntime(path: string): 'onnx' | 'litert' | 'llm' {
+    const r = inferRuntime(path);
+    if (r) return r;
+    return 'llm'; // .task and similar
   }
 
   function formatSize(bytes: number): string {
@@ -146,7 +154,7 @@
           size: item.lfs?.size ?? item.size ?? 0,
           format: inferFormat(path),
           dataType: inferDataType(path),
-          runtime: inferRuntime(path) as 'onnx' | 'litert',
+          runtime: fileRuntime(path),
         };
       });
   }
@@ -169,7 +177,7 @@
       if (parsed.type === 'file' && parsed.repo && parsed.filePath) {
         const path = parsed.filePath;
         if (!isSupported(path)) {
-          error = `Unsupported file format. Only .onnx, .tflite, and .litertlm are supported.`;
+          error = `Unsupported file format. Only .onnx, .tflite, .litertlm, and .task are supported.`;
           return;
         }
         // Fetch tree to get accurate size
@@ -184,7 +192,7 @@
           size: 0,
           format: inferFormat(path),
           dataType: inferDataType(path),
-          runtime: inferRuntime(path) as 'onnx' | 'litert',
+          runtime: fileRuntime(path),
         };
         repos = [{ id: parsed.repo, task: meta.task, likes: meta.likes, files: [file] }];
 
@@ -245,7 +253,9 @@
   }
 
   function toggleFile(repo: ImportedRepo, file: ImportedFile) {
-    if (isSelected(repo.id, file.path)) {
+    const alreadyIn = isSelected(repo.id, file.path);
+    if (!alreadyIn && isLlmOnlyFormat(file.path)) return;
+    if (alreadyIn) {
       selectedHFModels = selectedHFModels.filter(
         (m) => !(m.hf_model_id === repo.id && m.file_path === file.path)
       );
@@ -304,7 +314,7 @@
                 {/if}
                 <a class="repo-name" href="https://huggingface.co/{repo.id}" target="_blank" rel="noopener noreferrer">{repo.id}</a>
                 {#if repo.files.length === 0}
-                  <span class="no-formats-label">No supported formats (onnx / tflite / litertlm)</span>
+                  <span class="no-formats-label">No supported formats (onnx / tflite / litertlm / task)</span>
                 {:else}
                   {#each counts as c (c.format)}
                     <span class="fmt-count-wrap">
@@ -332,16 +342,21 @@
               {#each grouped as group (group.key)}
                 {@const anySelected = group.files.some((f) => isSelected(repo.id, f.path))}
                 {@const inLibrary = group.files.some((f) => localSet.has(`${repo.id}::${f.path}`))}
+                {@const llmOnly = isLlmOnlyFormat(group.strippedPath + '.' + group.format)}
 
                 <div
                   class="file-card"
                   class:has-selection={anySelected}
                   class:in-library={inLibrary}
+                  class:llm-only={llmOnly}
                 >
                   <div class="card-left">
                     <div class="card-top">
                       {#if inLibrary}
                         <span class="tag tag-inlib">In library</span>
+                      {/if}
+                      {#if llmOnly}
+                        <span class="tag tag-coming-soon" title="LLM benchmark in development. You can view this model, but it can't be added to the cart or run yet.">soon</span>
                       {/if}
                       <FormatIcon format={group.format} size={14} hfModelId={repo.id} filePath="{group.strippedPath}.{group.format}" />
                       <NetronLink hfModelId={repo.id} filePath="{group.strippedPath}.{group.format}" />
@@ -355,6 +370,8 @@
                           class="chip-dtype"
                           class:chip-selected={isSelected(repo.id, file.path)}
                           data-dtype={file.dataType}
+                          disabled={llmOnly}
+                          title={llmOnly ? "LLM benchmark in development. You can view this model, but it can't be added to the cart or run yet." : ''}
                           onclick={() => toggleFile(repo, file)}
                         >{dtypeLabel(file.dataType)}</button>
                         {#if file.size}
@@ -592,6 +609,31 @@
   }
 
   .chip-dtype:hover { opacity: 0.8; transform: translateY(-1px); }
+
+  .chip-dtype:disabled,
+  .chip-dtype:disabled:hover {
+    opacity: 0.45;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  .file-card.llm-only {
+    background: color-mix(in srgb, var(--color-fmt-task) 6%, transparent);
+  }
+
+  .tag-coming-soon {
+    background: var(--color-fmt-task);
+    color: #fff;
+    border: 1px solid var(--color-fmt-task);
+    text-transform: lowercase;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    /* Parent .file-card disables pointer events; restore them here so the
+       native title tooltip fires on hover. */
+    pointer-events: auto;
+    cursor: help;
+  }
 
   .chip-size {
     font-weight: 500;

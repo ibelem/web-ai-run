@@ -67,6 +67,13 @@ export const actions: Actions = {
 
     if (models.length === 0) return fail(400, { error: 'At least one model is required.' });
 
+    const blocked = models.filter((m) => /\.(litertlm|task)$/i.test(m.file_path));
+    if (blocked.length > 0) {
+      return fail(400, {
+        error: `LLM benchmark coming soon — cannot import recipe with ${blocked.length} .litertlm/.task model(s) yet.`,
+      });
+    }
+
     const slug = `${slugify(name)}-${Date.now().toString(36)}`;
 
     const { data, error: dbError } = await (locals.supabase.from('recipes') as any)

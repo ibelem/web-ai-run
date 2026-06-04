@@ -108,7 +108,7 @@
       <span class="card-date">{formatDate(recipe.updated_at)}</span>
     </div>
     {#if showOwner}
-      {@const formats = [...new Set(recipe.models.map((m: any) => m.file_path.endsWith('.tflite') ? 'tflite' : m.file_path.endsWith('.litertlm') ? 'litertlm' : 'onnx'))]}
+      {@const formats = [...new Set(recipe.models.map((m: any) => m.file_path.endsWith('.tflite') ? 'tflite' : m.file_path.endsWith('.litertlm') ? 'litertlm' : m.file_path.endsWith('.task') ? 'task' : 'onnx'))]}
       <div class="card-owner">
         <div class="card-owner-left">
           {#if recipe.owner_avatar_url}

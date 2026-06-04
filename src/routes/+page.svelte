@@ -207,6 +207,7 @@
           <span class="hero-tag">Wasm</span>
           <span class="hero-tag">.tflite</span>
           <span class="hero-tag">.litertlm</span>
+          <span class="hero-tag">.task</span>
           <span class="hero-tag">.onnx</span>
           <span class="hero-tag">LiteRT.js</span>
           <span class="hero-tag">ONNX Runtime Web</span>

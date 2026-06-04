@@ -10,6 +10,7 @@
   function getFormat(filePath: string): string {
     if (filePath.endsWith('.tflite')) return 'tflite';
     if (filePath.endsWith('.litertlm')) return 'litertlm';
+    if (filePath.endsWith('.task')) return 'task';
     return 'onnx';
   }
 

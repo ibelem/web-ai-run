@@ -360,10 +360,12 @@
   .tag[data-format="onnx"]:not(.selected)     { color: var(--color-fmt-onnx);     border-color: var(--color-fmt-onnx); }
   .tag[data-format="tflite"]:not(.selected)   { color: var(--color-fmt-tflite);   border-color: var(--color-fmt-tflite); }
   .tag[data-format="litertlm"]:not(.selected) { color: var(--color-fmt-litertlm); border-color: var(--color-fmt-litertlm); }
+  .tag[data-format="task"]:not(.selected)     { color: var(--color-fmt-task);     border-color: var(--color-fmt-task); }
 
   .tag.selected[data-format="onnx"]     { background: var(--color-fmt-onnx);     border-color: var(--color-fmt-onnx); }
   .tag.selected[data-format="tflite"]   { background: var(--color-fmt-tflite);   border-color: var(--color-fmt-tflite); }
   .tag.selected[data-format="litertlm"] { background: var(--color-fmt-litertlm); border-color: var(--color-fmt-litertlm); }
+  .tag.selected[data-format="task"]     { background: var(--color-fmt-task);     border-color: var(--color-fmt-task); }
 
   .tag.selected[data-format="tflite"] :global(.fmt-icon),
   .tag.selected[data-format="litertlm"] :global(.fmt-icon) {

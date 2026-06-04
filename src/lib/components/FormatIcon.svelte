@@ -11,7 +11,8 @@
   const labels: Record<string, string> = {
     onnx:      'ONNX - Open Neural Network Exchange',
     tflite:    'TFLite - TensorFlow Lite (LiteRT)',
-    litertlm:  'LiteRT LM - LiteRT Language Model',
+    litertlm:  'LiteRT LM - LiteRT Language Model (LLM benchmark coming soon)',
+    task:      'MediaPipe Task - LLM bundle (LLM benchmark coming soon)',
   };
 
   const label = $derived(labels[format] ?? format);
@@ -31,6 +32,8 @@
         <img src="/icons/litert-icon.svg" width={size} height={size} alt="tflite" class="fmt-icon" />
       {:else if format === 'litertlm'}
         <img src="/icons/litertlm-icon.svg" width={size} height={size} alt="litertlm" class="fmt-icon" />
+      {:else if format === 'task'}
+        <span class="fmt-icon-task" style="height: {size}px; font-size: {Math.max(9, Math.floor(size * 0.7))}px;">task</span>
       {:else}
         <span class="fmt-icon-unknown">{format}</span>
       {/if}
@@ -64,6 +67,7 @@
     transition: opacity var(--transition-base);
     line-height: 0;
     pointer-events: auto;
+    text-decoration: none;
   }
 
   .fmt-icon-link:hover {
@@ -106,5 +110,23 @@
     font-family: var(--font-mono);
     font-size: 11px;
     font-weight: 600;
+  }
+
+  .fmt-icon-task {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    border: 1px solid var(--color-fmt-task-icon, #8b5cf6);
+    background: transparent;
+    color: var(--color-fmt-task-icon, #8b5cf6);
+    font-family: var(--font-mono);
+    font-weight: 700;
+    line-height: 1;
+    flex-shrink: 0;
+    box-sizing: border-box;
+    padding: 0 5px;
+    text-transform: lowercase;
+    letter-spacing: 0.02em;
   }
 </style>
