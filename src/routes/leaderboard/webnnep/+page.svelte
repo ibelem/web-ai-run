@@ -76,6 +76,8 @@
     file_path: string;
     backend: string;
     data_type: string;
+    browser: string | null;
+    browser_version: string | null;
     valA: number | null;
     valB: number | null;
     errorA: string | null;
@@ -84,11 +86,11 @@
 
   const compareRows = $derived.by(() => {
     // Data is sorted newest-first. Only use the latest result per model+ep.
-    const map = new Map<string, { valA: number | null; valB: number | null; errA: string | null; errB: string | null; seenA: boolean; seenB: boolean }>();
+    const map = new Map<string, { valA: number | null; valB: number | null; errA: string | null; errB: string | null; browser: string | null; browser_version: string | null; seenA: boolean; seenB: boolean }>();
 
     for (const r of filtered) {
       const key = `${r.model_id}::${r.file_path}::${r.backend}::${r.data_type}`;
-      if (!map.has(key)) map.set(key, { valA: null, valB: null, errA: null, errB: null, seenA: false, seenB: false });
+      if (!map.has(key)) map.set(key, { valA: null, valB: null, errA: null, errB: null, browser: null, browser_version: null, seenA: false, seenB: false });
       const entry = map.get(key)!;
 
       if (r.webnn_ep === epA && !entry.seenA) {
@@ -99,6 +101,8 @@
           const val = (r as any)[selectedMetric] as number | null;
           entry.valA = val;
         }
+        if (entry.browser == null) entry.browser = r.browser ?? null;
+        if (entry.browser_version == null) entry.browser_version = r.browser_version ?? null;
       }
       if (r.webnn_ep === epB && !entry.seenB) {
         entry.seenB = true;
@@ -108,14 +112,16 @@
           const val = (r as any)[selectedMetric] as number | null;
           entry.valB = val;
         }
+        if (entry.browser == null) entry.browser = r.browser ?? null;
+        if (entry.browser_version == null) entry.browser_version = r.browser_version ?? null;
       }
     }
 
     const rows: CompareRow[] = [];
-    for (const [key, { valA, valB, errA, errB }] of map) {
+    for (const [key, { valA, valB, errA, errB, browser, browser_version }] of map) {
       if (valA == null && valB == null && !errA && !errB) continue;
       const [model_id, file_path, backend, data_type] = key.split('::');
-      rows.push({ model_id, file_path, backend, data_type, valA, valB, errorA: errA, errorB: errB });
+      rows.push({ model_id, file_path, backend, data_type, browser, browser_version, valA, valB, errorA: errA, errorB: errB });
     }
 
     return rows;
@@ -134,7 +140,7 @@
     return (other / base) * 100;
   }
 
-  let sortCol = $state<'model' | 'file' | 'backend' | 'type' | 'valA' | 'valB'>('model');
+  let sortCol = $state<'model' | 'file' | 'backend' | 'type' | 'browser' | 'browser_version' | 'valA' | 'valB'>('model');
   let sortAsc = $state(true);
 
   function toggleSort(col: typeof sortCol) {
@@ -150,6 +156,8 @@
         case 'file': av = a.file_path.toLowerCase(); bv = b.file_path.toLowerCase(); break;
         case 'backend': av = a.backend; bv = b.backend; break;
         case 'type': av = a.data_type; bv = b.data_type; break;
+        case 'browser': av = (a.browser ?? '').toLowerCase(); bv = (b.browser ?? '').toLowerCase(); break;
+        case 'browser_version': av = a.browser_version ?? ''; bv = b.browser_version ?? ''; break;
         case 'valA': av = a.valA ?? Infinity; bv = b.valA ?? Infinity; break;
         case 'valB': av = a.valB ?? Infinity; bv = b.valB ?? Infinity; break;
       }
@@ -182,7 +190,7 @@
   let cellCopiedMsg = $state('');
 
   function toMarkdown(): string {
-    const cols = ['Model', 'File', 'Type', 'Backend', `${epA} (ms)`, `${epB} (ms)`, `${epA} (%)`, `${epB} (%)`];
+    const cols = ['Model', 'File', 'Type', 'Browser', 'Browser Version', 'Backend', `${epA} (ms)`, `${epB} (ms)`, `${epA} (%)`, `${epB} (%)`];
     const sep = cols.map(() => '---');
     const rows = sortedRows.map(r => {
       const pctA = baseline === 'a' ? '100%' : (r.valA != null && r.valB != null && r.valB > 0 ? ((r.valA / r.valB) * 100).toFixed(1) + '%' : '—');
@@ -191,6 +199,8 @@
         r.model_id,
         r.file_path,
         r.data_type,
+        r.browser ?? '',
+        r.browser_version ?? '',
         getBackendLabel(r.backend),
         r.errorA ? 'Error' : fmt(r.valA),
         r.errorB ? 'Error' : fmt(r.valB),
@@ -209,6 +219,8 @@
         model: r.model_id,
         file: r.file_path,
         data_type: r.data_type,
+        browser: r.browser,
+        browser_version: r.browser_version,
         backend: r.backend,
         [`${epA}_ms`]: r.errorA ? null : r.valA,
         [`${epB}_ms`]: r.errorB ? null : r.valB,
@@ -219,7 +231,7 @@
   }
 
   function toCSV(): string {
-    const cols = ['Model', 'File', 'Type', 'Backend', `${epA} (ms)`, `${epB} (ms)`, `${epA} (%)`, `${epB} (%)`];
+    const cols = ['Model', 'File', 'Type', 'Browser', 'Browser Version', 'Backend', `${epA} (ms)`, `${epB} (ms)`, `${epA} (%)`, `${epB} (%)`];
     const rows = sortedRows.map(r => {
       const pctA = baseline === 'a' ? '100' : (r.valA != null && r.valB != null && r.valB > 0 ? ((r.valA / r.valB) * 100).toFixed(1) : '');
       const pctB = baseline === 'b' ? '100' : (r.valA != null && r.valB != null && r.valA > 0 ? ((r.valB / r.valA) * 100).toFixed(1) : '');
@@ -227,6 +239,8 @@
         `"${r.model_id}"`,
         `"${r.file_path}"`,
         r.data_type,
+        `"${r.browser ?? ''}"`,
+        `"${r.browser_version ?? ''}"`,
         getBackendLabel(r.backend),
         r.errorA ? 'Error' : fmt(r.valA),
         r.errorB ? 'Error' : fmt(r.valB),
@@ -411,6 +425,8 @@
               <th class="th-model sortable" onclick={() => toggleSort('model')}>Model{sortCol === 'model' ? (sortAsc ? ' ↑' : ' ↓') : ''}</th>
               <th class="th-file sortable" onclick={() => toggleSort('file')}>File{sortCol === 'file' ? (sortAsc ? ' ↑' : ' ↓') : ''}</th>
               <th class="th-dtype sortable" onclick={() => toggleSort('type')}>Type{sortCol === 'type' ? (sortAsc ? ' ↑' : ' ↓') : ''}</th>
+              <th class="th-browser sortable" onclick={() => toggleSort('browser')}>Browser{sortCol === 'browser' ? (sortAsc ? ' ↑' : ' ↓') : ''}</th>
+              <th class="th-browser-ver sortable" onclick={() => toggleSort('browser_version')}>Browser Version{sortCol === 'browser_version' ? (sortAsc ? ' ↑' : ' ↓') : ''}</th>
               <th class="th-backend sortable" onclick={() => toggleSort('backend')}>Backend{sortCol === 'backend' ? (sortAsc ? ' ↑' : ' ↓') : ''}</th>
               <th class="th-metric sortable" onclick={() => toggleSort('valA')}>
                 {epA}{sortCol === 'valA' ? (sortAsc ? ' ↑' : ' ↓') : ''}
@@ -430,7 +446,7 @@
           </thead>
           <tbody>
             <tr class="geomean-row">
-              <td class="cell-geomean" colspan="4">Geomean ({validRows.length}/{compareRows.length} models)</td>
+              <td class="cell-geomean" colspan="6">Geomean ({validRows.length}/{compareRows.length} models)</td>
               <td class="cell-metric cell-geomean">{fmt(geomeanA)}</td>
               <td class="cell-metric cell-geomean">{fmt(geomeanB)}</td>
               <td class="cell-pct cell-geomean">{baseline === 'a' ? '100%' : fmtPct(geomeanA != null && geomeanB != null && geomeanB > 0 ? (geomeanA / geomeanB) * 100 : null)}</td>
@@ -441,6 +457,8 @@
                 <td class="cell-model cell-copy" title="Click to copy: {row.model_id}" onclick={() => { navigator.clipboard.writeText(row.model_id); cellCopiedMsg = 'Copied!'; setTimeout(() => cellCopiedMsg = '', 1500); }}>{row.model_id}</td>
                 <td class="cell-file cell-copy" title="Click to copy: {row.file_path}" onclick={() => { navigator.clipboard.writeText(row.file_path); cellCopiedMsg = 'Copied!'; setTimeout(() => cellCopiedMsg = '', 1500); }}>{row.file_path}</td>
                 <td><span>{row.data_type}</span></td>
+                <td><span>{row.browser ?? '—'}</span></td>
+                <td><span>{row.browser_version ?? '—'}</span></td>
                 <td><span>{getBackendLabel(row.backend)}</span></td>
                 <td class="cell-metric">
                   {#if row.errorA}
@@ -477,7 +495,7 @@
               </tr>
             {/each}
             <tr class="geomean-row">
-              <td class="cell-geomean" colspan="4">Geomean ({validRows.length}/{compareRows.length} models)</td>
+              <td class="cell-geomean" colspan="6">Geomean ({validRows.length}/{compareRows.length} models)</td>
               <td class="cell-metric cell-geomean">{fmt(geomeanA)}</td>
               <td class="cell-metric cell-geomean">{fmt(geomeanB)}</td>
               <td class="cell-pct cell-geomean">{baseline === 'a' ? '100%' : fmtPct(geomeanA != null && geomeanB != null && geomeanB > 0 ? (geomeanA / geomeanB) * 100 : null)}</td>

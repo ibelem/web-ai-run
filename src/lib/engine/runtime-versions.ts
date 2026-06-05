@@ -25,13 +25,16 @@ async function fetchNpmVersions(pkg: string): Promise<PackageVersions> {
 export async function fetchRuntimeVersions(): Promise<{
   ort: PackageVersions;
   litert: PackageVersions;
+  transformers: PackageVersions;
 }> {
-  const [ort, litert] = await Promise.allSettled([
+  const [ort, litert, transformers] = await Promise.allSettled([
     fetchNpmVersions('onnxruntime-web'),
     fetchNpmVersions('@litertjs/core'),
+    fetchNpmVersions('@huggingface/transformers'),
   ]);
   return {
     ort: ort.status === 'fulfilled' ? ort.value : { dev: ['1.21.0'], stable: ['1.21.0'] },
     litert: litert.status === 'fulfilled' ? litert.value : { dev: ['1.1.0'], stable: ['1.1.0'] },
+    transformers: transformers.status === 'fulfilled' ? transformers.value : { dev: ['4.2.0'], stable: ['4.2.0'] },
   };
 }

@@ -8,7 +8,8 @@
 
   let { data } = $props();
 
-  let recipeName = $state('');
+  // svelte-ignore state_referenced_locally
+  let recipeName = $state(data.forkName ? `${data.forkName} (fork)` : '');
   let visibility = $state<'personal' | 'public'>('personal');
   let saving = $state(false);
   let errorMessage = $state('');
@@ -21,8 +22,14 @@
   })));
 
   type LinkRow = { label: string; url: string };
-  let description = $state('');
-  let links = $state<LinkRow[]>([{ label: '', url: '' }]);
+  // svelte-ignore state_referenced_locally
+  let description = $state(data.forkDescription ?? '');
+  // svelte-ignore state_referenced_locally
+  let links = $state<LinkRow[]>(
+    data.forkLinks?.length
+      ? data.forkLinks.map((l: any) => ({ label: l.label ?? '', url: l.url ?? l }))
+      : [{ label: '', url: '' }]
+  );
 
   function addLink() {
     if (links.length < 10) links = [...links, { label: '', url: '' }];
@@ -42,7 +49,15 @@
   }
 
   let hfSearchQuery = $state('');
-  let hfModels = $state<SelectedHFModel[]>([]);
+  // svelte-ignore state_referenced_locally
+  let hfModels = $state<SelectedHFModel[]>(
+    (data.forkModels ?? []).map((m: any) => ({
+      hf_model_id: m.hf_model_id,
+      file_path: m.file_path,
+      data_type: m.data_type ?? null,
+      size_bytes: m.size_bytes ?? null,
+    }))
+  );
 
   type CheckStatus = 'idle' | 'checking' | 'ok' | 'not-found' | 'error';
   let checkStatuses = $state<Record<string, CheckStatus>>({});
@@ -142,7 +157,10 @@
 
   <div class="edit-page">
     <header class="page-header">
-      <h1>New Recipe</h1>
+      <h1>{data.forkName ? 'Fork Recipe' : 'New Recipe'}</h1>
+      {#if data.forkName}
+        <p class="fork-notice">Forked from <strong>{data.forkName}</strong> — edit below, then save as your own.</p>
+      {/if}
     </header>
 
     <!-- Name + Visibility -->
@@ -467,6 +485,12 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-3);
+  }
+
+  .fork-notice {
+    font-size: var(--text-sm);
+    color: var(--color-text-secondary);
+    margin: 4px 0 0;
   }
 
   .meta-row {

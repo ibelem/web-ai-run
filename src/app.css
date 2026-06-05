@@ -62,7 +62,8 @@
 
   /* Primary accent */
   --color-primary: rgba(9, 83, 222, 1);
-  --color-primary-light: rgb(9, 83, 222, 0.5);
+  --color-primary-light: rgba(9, 83, 222, 0.5);
+  --color-primary-lightest: rgba(9, 83, 222, 0.1);
   --color-primary-hover: rgba(6, 63, 180, 1);
   --color-primary-active: rgba(6, 53, 148, 1);
   --color-accent: rgba(0, 199, 253, 1);
@@ -486,4 +487,6 @@ body {
 .btn-primary:hover { background: var(--color-primary-hover); }
 .btn-primary:disabled { background: var(--color-disabled); color: var(--color-text-muted); cursor: not-allowed; }
 
-
+code {
+  font-family: var(--font-mono);
+}

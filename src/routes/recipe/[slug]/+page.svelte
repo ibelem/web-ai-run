@@ -7,6 +7,10 @@
 
   let { data } = $props();
 
+  // svelte-ignore state_referenced_locally
+  let recipe = $state<Recipe>(data.recipe as Recipe);
+  $effect(() => { recipe = data.recipe as Recipe; });
+
   function getFormat(filePath: string): string {
     if (filePath.endsWith('.tflite')) return 'tflite';
     if (filePath.endsWith('.litertlm')) return 'litertlm';
@@ -41,15 +45,15 @@
   }
 
   async function handleDelete() {
-    if (!confirm(`Delete "${data.recipe.name}"?`)) return;
-    await deleteRecipe(data.recipe.id);
+    if (!confirm(`Delete "${recipe.name}"?`)) return;
+    await deleteRecipe(recipe.id);
     goto('/recipe');
   }
 
   async function toggleVisibility() {
-    const next = data.recipe.visibility === 'public' ? 'personal' : 'public';
-    await updateRecipe(data.recipe.id, { visibility: next });
-    data.recipe = { ...data.recipe, visibility: next };
+    const next = recipe.visibility === 'public' ? 'personal' : 'public';
+    await updateRecipe(recipe.id, { visibility: next });
+    recipe = { ...recipe, visibility: next };
   }
 
   let copyFeedback = $state(false);
@@ -75,15 +79,15 @@
   }
 
   function safeName() {
-    return data.recipe.name.replace(/[^a-z0-9]+/gi, '-').toLowerCase();
+    return recipe.name.replace(/[^a-z0-9]+/gi, '-').toLowerCase();
   }
 
   function exportJSON() {
     const payload = {
-      name: data.recipe.name,
-      ...(data.recipe.description ? { description: data.recipe.description } : {}),
-      ...((data.recipe.links?.length) ? { links: data.recipe.links } : {}),
-      models: data.recipe.models.map((m: any) => ({
+      name: recipe.name,
+      ...(recipe.description ? { description: recipe.description } : {}),
+      ...((recipe.links?.length) ? { links: recipe.links } : {}),
+      models: recipe.models.map((m: any) => ({
         hf_model_id: m.hf_model_id,
         file_path: m.file_path,
       })),
@@ -94,26 +98,26 @@
   function exportCSV() {
     const rows = [
       ['hf_model_id', 'file_path'],
-      ...data.recipe.models.map((m: any) => [m.hf_model_id, m.file_path]),
+      ...recipe.models.map((m: any) => [m.hf_model_id, m.file_path]),
     ];
     const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
     downloadFile(csv, `${safeName()}.csv`, 'text/csv');
   }
 
   function exportMD() {
-    const lines: string[] = [`# ${data.recipe.name}`, ''];
-    if (data.recipe.description) {
-      lines.push(data.recipe.description, '');
+    const lines: string[] = [`# ${recipe.name}`, ''];
+    if (recipe.description) {
+      lines.push(recipe.description, '');
     }
-    if (data.recipe.links?.length) {
-      for (const l of data.recipe.links) {
+    if (recipe.links?.length) {
+      for (const l of recipe.links) {
         lines.push(`- [${l.label || l.url}](${l.url})`);
       }
       lines.push('');
     }
     lines.push('| hf_model_id | file_path |');
     lines.push('|---|---|');
-    for (const m of data.recipe.models) {
+    for (const m of recipe.models) {
       lines.push(`| ${m.hf_model_id} | ${m.file_path} |`);
     }
     downloadFile(lines.join('\n'), `${safeName()}.md`, 'text/markdown');
@@ -128,11 +132,11 @@
   async function checkAllModels() {
     checking = true;
     const initial: Record<string, CheckStatus> = {};
-    for (const m of data.recipe.models) {
+    for (const m of recipe.models) {
       initial[`${m.hf_model_id}::${m.file_path}`] = 'checking';
     }
     checkStatuses = initial;
-    await Promise.all(data.recipe.models.map(async (m: any) => {
+    await Promise.all(recipe.models.map(async (m: any) => {
       const key = `${m.hf_model_id}::${m.file_path}`;
       const url = `https://huggingface.co/${m.hf_model_id}/resolve/main/${m.file_path}`;
       try {
@@ -149,11 +153,11 @@
 <div class="recipe-detail">
   <header class="page-header">
     <div class="page-header-text">
-      <h1>{data.recipe.name}</h1>
-      <p>{data.recipe.models.length} model{data.recipe.models.length !== 1 ? 's' : ''} &middot; {data.recipe.visibility} &middot; Updated {formatDate(data.recipe.updated_at)}</p>
+      <h1>{recipe.name}</h1>
+      <p>{recipe.models.length} model{recipe.models.length !== 1 ? 's' : ''} &middot; {recipe.visibility} &middot; Updated {formatDate(recipe.updated_at)}</p>
     </div>
     <div class="header-actions">
-      <button class="btn-run" onclick={() => runRecipe(data.recipe)}>Run</button>
+      <button class="btn-run" onclick={() => runRecipe(recipe)}>Run</button>
       <button class="btn-share" onclick={copyShareLink}>
         {copyFeedback ? 'Copied!' : 'Share'}
       </button>
@@ -175,8 +179,9 @@
           </div>
         {/if}
       </div>
+      <a href="/recipe/new?fork={recipe.slug}" class="btn-fork">Fork</a>
       {#if data.isOwner}
-        <a href="/recipe/{data.recipe.slug}/edit" class="btn-edit">Edit</a>
+        <a href="/recipe/{recipe.slug}/edit" class="btn-edit">Edit</a>
         <button class="btn-delete" onclick={handleDelete}>Delete</button>
       {/if}
     </div>
@@ -185,10 +190,10 @@
   <div class="models-section">
     <div class="zone-label">
       Models
-      <span class="count-badge">{data.recipe.models.length}</span>
+      <span class="count-badge">{recipe.models.length}</span>
     </div>
     <ul class="model-list">
-      {#each data.recipe.models as m (`${m.hf_model_id}::${m.file_path}`)}
+      {#each recipe.models as m (`${m.hf_model_id}::${m.file_path}`)}
         {@const ext = getFormat(m.file_path)}
         {@const ck = checkStatuses[`${m.hf_model_id}::${m.file_path}`] ?? 'idle'}
         <li class="model-item">
@@ -226,14 +231,14 @@
     </ul>
   </div>
 
-  {#if data.recipe.description || (data.recipe.links && data.recipe.links.length > 0)}
+  {#if recipe.description || (recipe.links && recipe.links.length > 0)}
     <div class="meta-section">
-      {#if data.recipe.description}
-        <p class="recipe-description">{data.recipe.description}</p>
+      {#if recipe.description}
+        <p class="recipe-description">{recipe.description}</p>
       {/if}
-      {#if data.recipe.links && data.recipe.links.length > 0}
+      {#if recipe.links && recipe.links.length > 0}
         <div class="recipe-links">
-          {#each data.recipe.links as link}
+          {#each recipe.links as link}
             <a
               href={link.url}
               class="recipe-link"
@@ -248,8 +253,8 @@
 
   {#if data.isOwner}
     <div class="visibility-section">
-      <button class="vis-toggle" class:is-public={data.recipe.visibility === 'public'} onclick={toggleVisibility}>
-        {data.recipe.visibility === 'public' ? 'Make Personal' : 'Make Public'}
+      <button class="vis-toggle" class:is-public={recipe.visibility === 'public'} onclick={toggleVisibility}>
+        {recipe.visibility === 'public' ? 'Make Personal' : 'Make Public'}
       </button>
     </div>
   {/if}
@@ -293,11 +298,14 @@
     flex-wrap: wrap;
   }
 
-  .btn-run, .btn-share, .btn-edit, .btn-delete {
+  .btn-run, .btn-share, .btn-edit, .btn-fork, .btn-delete {
+    display: inline-flex;
+    align-items: center;
+    height: 32px;
+    padding: 0 var(--space-3);
     font-family: var(--font-ui);
     font-size: var(--text-base);
     font-weight: 500;
-    padding: var(--space-1) var(--space-3);
     border-radius: var(--radius-base);
     border: none;
     cursor: pointer;
@@ -326,13 +334,13 @@
     color: var(--color-primary);
   }
 
-  .btn-edit {
+  .btn-edit, .btn-fork {
     background: none;
     border: 1px solid var(--color-border);
     color: var(--color-text-secondary);
   }
 
-  .btn-edit:hover {
+  .btn-edit:hover, .btn-fork:hover {
     border-color: var(--color-primary);
     color: var(--color-primary);
   }
@@ -352,11 +360,12 @@
   .btn-check {
     display: inline-flex;
     align-items: center;
+    height: 32px;
     gap: 5px;
     font-family: var(--font-ui);
     font-size: var(--text-base);
     font-weight: 500;
-    padding: var(--space-1) var(--space-3);
+    padding: 0 var(--space-3);
     border-radius: var(--radius-base);
     border: 1px solid var(--color-border);
     background: none;
@@ -399,10 +408,13 @@
   }
 
   .btn-export {
+    display: inline-flex;
+    align-items: center;
+    height: 32px;
     font-family: var(--font-ui);
     font-size: var(--text-base);
     font-weight: 500;
-    padding: var(--space-1) var(--space-3);
+    padding: 0 var(--space-3);
     border-radius: var(--radius-base);
     border: 1px solid var(--color-border);
     background: none;
@@ -602,7 +614,7 @@
       width: 100%;
     }
 
-    .btn-run, .btn-share, .btn-export, .btn-edit, .btn-delete {
+    .btn-run, .btn-share, .btn-export, .btn-edit, .btn-fork, .btn-delete {
       flex: 1;
       text-align: center;
     }

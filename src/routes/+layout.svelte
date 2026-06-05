@@ -120,19 +120,18 @@
   let showAdminMenu = $state(false);
   let showLeaderboardMenu = $state(false);
   let showMobileAdmin = $state(false);
+  let showRecipeMenu = $state(false);
+  let showResultsMenu = $state(false);
 
   function closeMobileMenu() {
     showMobileMenu = false;
     showMobileAdmin = false;
+    showRecipeMenu = false;
+    showResultsMenu = false;
   }
 
   const navItems = $derived([
-    { href: '/browse',      label: 'Browse',      show: true },
-    { href: '/recipe',      label: 'Recipe',      show: true },
-    { href: '/custom',      label: 'Custom',      show: true },
-    { href: '/run',         label: 'Run',         show: false },
-    { href: '/results',     label: 'Results',     show: $isAuthenticated },
-    { href: '/onnx/overrides', label: 'Overrides', show: $isAuthenticated },
+    { href: '/browse', label: 'Browse', show: true },
   ]);
 
   const showLeaderboard = $derived(isAtLeast($auth.role ?? 'anonymous', 'partner'));
@@ -207,6 +206,23 @@
           </a>
         {/if}
       {/each}
+
+      <!-- Recipe -->
+      <a href="/recipe" class="nav-item" class:active={$page.url.pathname === '/recipe' || ($page.url.pathname.startsWith('/recipe/') && !$page.url.pathname.startsWith('/recipe-llm'))}>Recipe</a>
+
+      <!-- Custom -->
+      <a href="/custom" class="nav-item" class:active={$page.url.pathname.startsWith('/custom')}>Custom</a>
+
+      <!-- Results -->
+      {#if $isAuthenticated}
+        <a href="/results" class="nav-item" class:active={$page.url.pathname === '/results' || ($page.url.pathname.startsWith('/results/') && !$page.url.pathname.startsWith('/results-llm'))}>Results</a>
+      {/if}
+
+      <!-- Overrides -->
+      {#if $isAuthenticated}
+        <a href="/onnx/overrides" class="nav-item" class:active={$page.url.pathname.startsWith('/onnx/overrides')}>Overrides</a>
+      {/if}
+
       {#if showLeaderboard}
         <div class="admin-menu-wrapper">
           <button
@@ -357,6 +373,23 @@
         </a>
       {/if}
     {/each}
+
+    <!-- Recipe -->
+    <a href="/recipe" class="mobile-menu-item" class:active={$page.url.pathname === '/recipe' || ($page.url.pathname.startsWith('/recipe/') && !$page.url.pathname.startsWith('/recipe-llm'))} onclick={closeMobileMenu}>Recipe</a>
+
+    <!-- Custom -->
+    <a href="/custom" class="mobile-menu-item" class:active={$page.url.pathname.startsWith('/custom')} onclick={closeMobileMenu}>Custom</a>
+
+    <!-- Results -->
+    {#if $isAuthenticated}
+      <a href="/results" class="mobile-menu-item" class:active={$page.url.pathname === '/results' || ($page.url.pathname.startsWith('/results/') && !$page.url.pathname.startsWith('/results-llm'))} onclick={closeMobileMenu}>Results</a>
+    {/if}
+
+    <!-- Overrides -->
+    {#if $isAuthenticated}
+      <a href="/onnx/overrides" class="mobile-menu-item" class:active={$page.url.pathname.startsWith('/onnx/overrides')} onclick={closeMobileMenu}>Overrides</a>
+    {/if}
+
     {#if showLeaderboard}
       <a href="/leaderboard" class="mobile-menu-item" class:active={$page.url.pathname === '/leaderboard'} onclick={closeMobileMenu}>Leaderboard</a>
       <a href="/leaderboard/litertjs" class="mobile-menu-item mobile-admin-item" onclick={closeMobileMenu}>LiteRT.js</a>

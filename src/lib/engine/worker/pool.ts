@@ -76,7 +76,7 @@ export function runInWorker(options: WorkerRunOptions): Promise<TestResult> {
           clearTimeout(timeoutId);
           worker.removeEventListener('message', handleMessage);
           worker.removeEventListener('error', handleError);
-          resolve(msg.result);
+          resolve(msg.result as TestResult);
           break;
       }
     }

@@ -8,6 +8,11 @@
   type LinkRow = { label: string; url: string };
   type Mode = 'create' | 'merge';
 
+  // Input mode
+  type InputMode = 'file' | 'text';
+  let inputMode = $state<InputMode>('file');
+  let pasteText = $state('');
+
   // File parse state
   let parsedModels = $state<ParsedModel[]>([]);
   let parseError = $state('');
@@ -177,6 +182,45 @@
     }
   }
 
+  function parsePasteText(text: string) {
+    parseError = '';
+    parsedModels = [];
+    fileName = '';
+    if (!text.trim()) return;
+    const lower = text.trimStart();
+    try {
+      if (lower.startsWith('{') || lower.startsWith('[')) {
+        parsedModels = parseJson(text);
+      } else if (lower.startsWith('|')) {
+        parsedModels = parseMd(text);
+      } else if (lower.toLowerCase().startsWith('hf_model_id')) {
+        parsedModels = parseCsv(text);
+      } else {
+        // Try each in order
+        try { parsedModels = parseJson(text); return; } catch {}
+        try { parsedModels = parseMd(text); return; } catch {}
+        parsedModels = parseCsv(text);
+      }
+      if (parsedModels.length === 0) parseError = 'No models found in text.';
+    } catch (e: any) {
+      parseError = e.message ?? 'Failed to parse text.';
+    }
+  }
+
+  $effect(() => {
+    if (inputMode === 'text') {
+      parsePasteText(pasteText);
+    }
+  });
+
+  function switchInputMode(m: InputMode) {
+    inputMode = m;
+    parsedModels = [];
+    parseError = '';
+    fileName = '';
+    pasteText = '';
+  }
+
   function handleDrop(e: DragEvent) {
     e.preventDefault();
     isDragOver = false;
@@ -224,44 +268,58 @@
     <a href="/recipe" class="btn-cancel">Cancel</a>
   </header>
 
-  <!-- Upload zone -->
+  <!-- Input mode toggle + zone -->
   <section class="zone">
-    <div class="zone-label">Upload file</div>
+    <div class="input-mode-toggle">
+      <button class="input-mode-btn" class:active={inputMode === 'file'} onclick={() => switchInputMode('file')}>Upload file</button>
+      <button class="input-mode-btn" class:active={inputMode === 'text'} onclick={() => switchInputMode('text')}>Paste text</button>
+    </div>
 
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <label
-      class="upload-zone"
-      class:drag-over={isDragOver}
-      ondragover={(e) => { e.preventDefault(); isDragOver = true; }}
-      ondragleave={() => { isDragOver = false; }}
-      ondrop={handleDrop}
-    >
-      <input
-        type="file"
-        accept=".json,.csv,.md"
-        class="file-input-hidden"
-        onchange={handleFileInput}
-      />
-      {#if fileName && !parseError}
-        <span class="upload-filename">{fileName}</span>
-        <span class="upload-hint">Click to replace</span>
-      {:else}
-        <span class="upload-icon">↑</span>
-        <span class="upload-hint">Drag & drop or click to upload</span>
-        <span class="upload-types">.json · .csv · .md</span>
-      {/if}
-    </label>
+    {#if inputMode === 'file'}
+      <!-- svelte-ignore a11y_no_static_element_interactions -->
+      <label
+        class="upload-zone"
+        class:drag-over={isDragOver}
+        ondragover={(e) => { e.preventDefault(); isDragOver = true; }}
+        ondragleave={() => { isDragOver = false; }}
+        ondrop={handleDrop}
+      >
+        <input
+          type="file"
+          accept=".json,.csv,.md"
+          class="file-input-hidden"
+          onchange={handleFileInput}
+        />
+        {#if fileName && !parseError}
+          <span class="upload-filename">{fileName}</span>
+          <span class="upload-hint">Click to replace</span>
+        {:else}
+          <span class="upload-icon">↑</span>
+          <span class="upload-hint">Drag & drop or click to upload</span>
+          <span class="upload-types">.json · .csv · .md</span>
+        {/if}
+      </label>
+
+      <div class="template-links">
+        <span class="template-label">Templates:</span>
+        <a href="/templates/recipe-import.json" download class="template-link">JSON</a>
+        <a href="/templates/recipe-import.csv" download class="template-link">CSV</a>
+        <a href="/templates/recipe-import.md" download class="template-link">Markdown</a>
+      </div>
+    {:else}
+      <p class="zone-hint">Paste JSON, CSV, or Markdown table with <code>hf_model_id</code> and <code>file_path</code> columns.</p>
+      <textarea
+        class="paste-input"
+        rows="10"
+        placeholder="Paste your JSON, CSV, or Markdown here…"
+        bind:value={pasteText}
+        spellcheck="false"
+      ></textarea>
+    {/if}
 
     {#if parseError}
       <p class="parse-error">{parseError}</p>
     {/if}
-
-    <div class="template-links">
-      <span class="template-label">Templates:</span>
-      <a href="/templates/recipe-import.json" download class="template-link">JSON</a>
-      <a href="/templates/recipe-import.csv" download class="template-link">CSV</a>
-      <a href="/templates/recipe-import.md" download class="template-link">Markdown</a>
-    </div>
   </section>
 
   <!-- Parsed models preview -->
@@ -526,7 +584,7 @@
 
 <style>
   .import-page {
-    max-width: 680px;
+    max-width: 100%;
   }
 
   .page-header {
@@ -542,6 +600,10 @@
     font-weight: 600;
     color: var(--color-text-primary);
     margin: 0;
+  }
+
+  code {
+    font-family: var(--font-mono);
   }
 
   .page-header-text p {
@@ -568,6 +630,53 @@
   .btn-cancel:hover {
     background: var(--color-surface-sunken);
   }
+
+  /* Input mode toggle */
+  .input-mode-toggle {
+    display: flex;
+    border-radius: var(--radius-base);
+    overflow: hidden;
+    width: fit-content;
+    margin-bottom: var(--space-1);
+  }
+
+  .input-mode-btn {
+    font-family: var(--font-ui);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    padding: var(--space-1) var(--space-3);
+    border: 1px solid var(--color-border);
+    background: var(--color-surface-sunken);
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    transition: background var(--transition-base), color var(--transition-base), border-color var(--transition-base);
+  }
+
+  .input-mode-btn + .input-mode-btn { border-left: none; }
+
+  .input-mode-btn.active {
+    background: var(--color-primary);
+    border-color: var(--color-primary);
+    color: var(--color-text-on-primary);
+  }
+
+  .zone-hint {
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+    margin: 0;
+  }
+
+  .paste-input {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    line-height: 1.6;
+    width: 100%;
+    box-sizing: border-box;
+    resize: vertical;
+    padding: var(--space-2);
+  }
+
+  .paste-input:focus-visible { border-color: var(--color-focus-ring); outline: none; }
 
   .zone {
     display: flex;

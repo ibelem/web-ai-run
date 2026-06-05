@@ -615,7 +615,6 @@
     gap: var(--space-1);
     margin-top: var(--space-2);
     padding-top: var(--space-2);
-    border-top: 1px solid var(--color-border);
   }
 
   .filters-actions {
@@ -678,13 +677,6 @@
     color: var(--color-text-primary);
   }
 
-  /* ── Optional cells ───────────────────────────────────── */
-  .cell-opt {
-    font-family: var(--font-ui);
-    font-size: 10px;
-    color: var(--color-text-muted);
-    white-space: nowrap;
-  }
 
   .cell-opt-long {
     max-width: 12vw;
@@ -747,7 +739,7 @@
   }
 
   .results-table td {
-    padding: 0 var(--space-1);
+    padding: 2px var(--space-1);
     border-bottom: 1px solid var(--color-border);
     text-align: center;
     white-space: nowrap;

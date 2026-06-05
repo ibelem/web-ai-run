@@ -41,7 +41,7 @@ export class ResultsWriter {
       browser_version: this.environment.browser_version,
       ort_version: item.runtime === 'onnx' ? this.ortVersion : '',
       litert_version: item.runtime === 'litert' ? this.litertVersion : '',
-      webnn_ep: this.webnnEp || 'Default / Unknown',
+      webnn_ep: this.webnnEp || null,
       gpu_driver_version: this.gpuDriverVersion || null,
       npu_driver_version: this.npuDriverVersion || null,
       iterations,

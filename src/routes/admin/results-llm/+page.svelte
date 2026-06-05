@@ -1,29 +1,23 @@
 <script lang="ts">
-  import type { AdminResultRow, UserProfile } from './+page.server';
-  import { getBackendLabel } from '$lib/engine/backends';
+  import type { AdminResultsLlmRow, UserProfile } from './+page.server';
   import { browser } from '$app/environment';
   import { createClient } from '$lib/supabase/client';
 
   let { data } = $props();
 
-  // Initialise filters from URL params
   const sp = browser ? new URL(location.href).searchParams : new URLSearchParams();
-  let filterUser       = $state(sp.get('user')    ?? '');
-  let filterBackend    = $state(sp.get('backend') ?? '');
-  let filterDataType   = $state(sp.get('dtype')   ?? '');
-  let filterStatus     = $state(sp.get('status')  ?? '');
-  let filterWebnnEp    = $state(sp.get('ep')      ?? '');
-  let filterFramework  = $state(sp.get('fw')      ?? '');
-  let filterQuery      = $state(sp.get('q')       ?? '');
-  let filterOs         = $state(sp.get('os')      ?? '');
-  let filterBrowser    = $state(sp.get('br')      ?? '');
-  let filterBrowserVer = $state(sp.get('brv')     ?? '');
-  let filterCpu        = $state(sp.get('cpu')     ?? '');
-  let filterGpu        = $state(sp.get('gpu')     ?? '');
-  let filterGpuDriver  = $state(sp.get('gpudrv')  ?? '');
-  let filterNpuDriver  = $state(sp.get('npudrv')  ?? '');
+  let filterUser      = $state(sp.get('user')    ?? '');
+  let filterBackend   = $state(sp.get('backend') ?? '');
+  let filterDataType  = $state(sp.get('dtype')   ?? '');
+  let filterRuntime   = $state(sp.get('runtime') ?? '');
+  let filterStatus    = $state(sp.get('status')  ?? '');
+  let filterQuery     = $state(sp.get('q')       ?? '');
+  let filterOs        = $state(sp.get('os')      ?? '');
+  let filterBrowser   = $state(sp.get('br')      ?? '');
+  let filterBrowserVer = $state(sp.get('brv')    ?? '');
+  let filterCpu       = $state(sp.get('cpu')     ?? '');
+  let filterGpu       = $state(sp.get('gpu')     ?? '');
 
-  // Sync filters → URL
   $effect(() => {
     if (!browser) return;
     const params = new URLSearchParams();
@@ -31,70 +25,55 @@
     if (filterQuery)      params.set('q',       filterQuery);
     if (filterDataType)   params.set('dtype',   filterDataType);
     if (filterBackend)    params.set('backend', filterBackend);
-    if (filterWebnnEp)    params.set('ep',      filterWebnnEp);
-    if (filterFramework)  params.set('fw',      filterFramework);
+    if (filterRuntime)    params.set('runtime', filterRuntime);
     if (filterStatus)     params.set('status',  filterStatus);
     if (filterOs)         params.set('os',      filterOs);
     if (filterBrowser)    params.set('br',      filterBrowser);
     if (filterBrowserVer) params.set('brv',     filterBrowserVer);
     if (filterCpu)        params.set('cpu',     filterCpu);
     if (filterGpu)        params.set('gpu',     filterGpu);
-    if (filterGpuDriver)  params.set('gpudrv',  filterGpuDriver);
-    if (filterNpuDriver)  params.set('npudrv',  filterNpuDriver);
     const qs = params.toString();
     history.replaceState(history.state, '', qs ? `?${qs}` : location.pathname);
   });
 
-  const backends   = $derived(data.distinctBackends   ?? []);
-  const dataTypes  = $derived(data.distinctDataTypes  ?? []);
-  const statuses   = $derived(data.distinctStatuses   ?? []);
-  const webnnEps   = $derived(data.distinctWebnnEps   ?? []);
-  const frameworks = $derived(data.distinctFrameworks ?? []);
+  const backends  = $derived(data.distinctBackends  ?? []);
+  const dataTypes = $derived(data.distinctDataTypes ?? []);
+  const runtimes  = $derived(data.distinctRuntimes  ?? []);
+  const statuses  = $derived(data.distinctStatuses  ?? []);
   const distinctOs          = $derived(data.distinctOs          ?? []);
   const distinctBrowsers    = $derived(data.distinctBrowsers    ?? []);
   const distinctBrowserVers = $derived(data.distinctBrowserVers ?? []);
   const distinctCpus        = $derived(data.distinctCpus        ?? []);
   const distinctGpus        = $derived(data.distinctGpus        ?? []);
-  const distinctGpuDrivers  = $derived(data.distinctGpuDrivers  ?? []);
-  const distinctNpuDrivers  = $derived(data.distinctNpuDrivers  ?? []);
   const users               = $derived((data.users ?? []) as UserProfile[]);
 
-  function getFrameworkLabel(r: AdminResultRow): string {
-    if (r.ort_version)    return `ORT Web ${r.ort_version}`;
-    if (r.litert_version) return `LiteRT.js ${r.litert_version}`;
-    return '';
-  }
-
   const filtered = $derived(
-    data.results.filter((r: AdminResultRow) => {
-      if (filterUser       && r.user_id !== filterUser) return false;
-      if (filterBackend    && r.backend !== filterBackend) return false;
-      if (filterDataType   && r.data_type !== filterDataType) return false;
-      if (filterStatus     && r.status !== filterStatus) return false;
-      if (filterWebnnEp    && r.webnn_ep !== filterWebnnEp) return false;
-      if (filterFramework  && getFrameworkLabel(r) !== filterFramework) return false;
-      if (filterOs         && r.os !== filterOs) return false;
-      if (filterBrowser    && r.browser !== filterBrowser) return false;
+    (data.results as AdminResultsLlmRow[]).filter(r => {
+      if (filterUser      && r.user_id !== filterUser) return false;
+      if (filterBackend   && r.backend !== filterBackend) return false;
+      if (filterDataType  && r.data_type !== filterDataType) return false;
+      if (filterRuntime   && r.runtime !== filterRuntime) return false;
+      if (filterStatus    && r.status !== filterStatus) return false;
+      if (filterOs        && r.os !== filterOs) return false;
+      if (filterBrowser   && r.browser !== filterBrowser) return false;
       if (filterBrowserVer && r.browser_version !== filterBrowserVer) return false;
-      if (filterCpu        && r.cpu !== filterCpu) return false;
-      if (filterGpu        && r.gpu !== filterGpu) return false;
-      if (filterGpuDriver  && r.gpu_driver_version !== filterGpuDriver) return false;
-      if (filterNpuDriver  && r.npu_driver_version !== filterNpuDriver) return false;
+      if (filterCpu       && r.cpu !== filterCpu) return false;
+      if (filterGpu       && r.gpu !== filterGpu) return false;
       if (filterQuery) {
         const q = filterQuery.toLowerCase();
-        if (!r.model_id.toLowerCase().includes(q) && !r.file_path.toLowerCase().includes(q)) return false;
+        if (!r.hf_model_id.toLowerCase().includes(q)) return false;
       }
       return true;
     })
   );
 
-  type SortCol = 'user' | 'model' | 'file' | 'backend' | 'webnn_ep' | 'dtype' | 'status' | 'compilation' | 'load_compile' | 'first_inf' | 'ttf' | 'avg' | 'median' | 'best' | 'p90' | 'fps' | 'started';
+  type SortCol = 'user' | 'model' | 'dtype' | 'runtime' | 'backend' | 'status' | 'ttft' | 'tps' | 'tpot' | 'e2e' | 'e2e_tps' | 'tokens' | 'compile' | 'started';
   let sortCol = $state<SortCol>('started');
   let sortAsc = $state(false);
 
   function toggleSort(col: SortCol) {
     if (sortCol === col) sortAsc = !sortAsc;
-    else { sortCol = col; sortAsc = col === 'model' || col === 'file' || col === 'user'; }
+    else { sortCol = col; sortAsc = col === 'model' || col === 'user'; }
   }
 
   function sortIndicator(col: SortCol): string {
@@ -103,26 +82,23 @@
   }
 
   const sorted = $derived(
-    [...filtered].sort((a: AdminResultRow, b: AdminResultRow) => {
+    [...filtered].sort((a: AdminResultsLlmRow, b: AdminResultsLlmRow) => {
       let av: any, bv: any;
       switch (sortCol) {
-        case 'user':         av = (a.user_display_name ?? '').toLowerCase(); bv = (b.user_display_name ?? '').toLowerCase(); break;
-        case 'model':        av = a.model_id.toLowerCase(); bv = b.model_id.toLowerCase(); break;
-        case 'file':         av = a.file_path.toLowerCase(); bv = b.file_path.toLowerCase(); break;
-        case 'backend':      av = a.backend; bv = b.backend; break;
-        case 'webnn_ep':     av = a.webnn_ep || ''; bv = b.webnn_ep || ''; break;
-        case 'dtype':        av = a.data_type; bv = b.data_type; break;
-        case 'status':       av = a.status; bv = b.status; break;
-        case 'compilation':  av = a.compilation_ms ?? Infinity; bv = b.compilation_ms ?? Infinity; break;
-        case 'load_compile': av = a.load_and_compile_ms ?? Infinity; bv = b.load_and_compile_ms ?? Infinity; break;
-        case 'first_inf':    av = a.first_inference_ms ?? Infinity; bv = b.first_inference_ms ?? Infinity; break;
-        case 'ttf':          av = a.time_to_first_ms ?? Infinity; bv = b.time_to_first_ms ?? Infinity; break;
-        case 'avg':          av = a.average_ms ?? Infinity; bv = b.average_ms ?? Infinity; break;
-        case 'median':       av = a.median_ms ?? Infinity; bv = b.median_ms ?? Infinity; break;
-        case 'best':         av = a.best_ms ?? Infinity; bv = b.best_ms ?? Infinity; break;
-        case 'p90':          av = a.p90_ms ?? Infinity; bv = b.p90_ms ?? Infinity; break;
-        case 'fps':          av = a.throughput_fps ?? -Infinity; bv = b.throughput_fps ?? -Infinity; break;
-        case 'started':      av = a.started_at; bv = b.started_at; break;
+        case 'user':    av = (a.user_display_name ?? '').toLowerCase(); bv = (b.user_display_name ?? '').toLowerCase(); break;
+        case 'model':   av = a.hf_model_id.toLowerCase(); bv = b.hf_model_id.toLowerCase(); break;
+        case 'dtype':   av = a.data_type; bv = b.data_type; break;
+        case 'runtime': av = a.runtime; bv = b.runtime; break;
+        case 'backend': av = a.backend; bv = b.backend; break;
+        case 'status':  av = a.status; bv = b.status; break;
+        case 'ttft':    av = a.ttft_ms ?? Infinity; bv = b.ttft_ms ?? Infinity; break;
+        case 'tps':     av = a.tps ?? -Infinity; bv = b.tps ?? -Infinity; break;
+        case 'tpot':    av = a.tpot_ms ?? Infinity; bv = b.tpot_ms ?? Infinity; break;
+        case 'e2e':     av = a.e2e_ms ?? Infinity; bv = b.e2e_ms ?? Infinity; break;
+        case 'e2e_tps': av = a.e2e_tps ?? -Infinity; bv = b.e2e_tps ?? -Infinity; break;
+        case 'tokens':  av = a.output_tokens ?? -Infinity; bv = b.output_tokens ?? -Infinity; break;
+        case 'compile': av = a.compilation_ms ?? Infinity; bv = b.compilation_ms ?? Infinity; break;
+        case 'started': av = a.started_at; bv = b.started_at; break;
       }
       if (typeof av === 'string') {
         const cmp = av.localeCompare(bv);
@@ -132,26 +108,23 @@
     })
   );
 
-  // Pagination
   const PAGE_SIZE_OPTIONS = [10, 20, 50, 100, 500, 1000];
-  let pageSize = $state(20);
+  let pageSize    = $state(20);
   let currentPage = $state(1);
   const totalPages = $derived(Math.ceil(sorted.length / pageSize));
-  const paged = $derived(sorted.slice((currentPage - 1) * pageSize, currentPage * pageSize));
+  const paged      = $derived(sorted.slice((currentPage - 1) * pageSize, currentPage * pageSize));
 
   $effect(() => {
-    void filterUser, filterQuery, filterBackend, filterDataType, filterStatus,
-         filterWebnnEp, filterFramework, filterOs, filterBrowser, filterBrowserVer,
-         filterCpu, filterGpu, filterGpuDriver, filterNpuDriver, pageSize;
+    void filterUser, filterQuery, filterBackend, filterDataType, filterRuntime,
+         filterStatus, filterOs, filterBrowser, filterBrowserVer, filterCpu, filterGpu, pageSize;
     currentPage = 1;
   });
 
-  // Bulk selection — current page only
   let selectedIds = $state<Set<string>>(new Set());
   $effect(() => { void currentPage; selectedIds = new Set(); });
 
-  const pagedIds = $derived(paged.map((r: AdminResultRow) => r.id));
-  const allPageSelected = $derived(pagedIds.length > 0 && pagedIds.every((id: string) => selectedIds.has(id)));
+  const pagedIds = $derived(paged.map((r: AdminResultsLlmRow) => r.id));
+  const allPageSelected  = $derived(pagedIds.length > 0 && pagedIds.every((id: string) => selectedIds.has(id)));
   const somePageSelected = $derived(pagedIds.some((id: string) => selectedIds.has(id)));
 
   let selectAllEl = $state<HTMLInputElement | null>(null);
@@ -173,12 +146,10 @@
 
   function toggleRow(id: string) {
     const next = new Set(selectedIds);
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
+    if (next.has(id)) next.delete(id); else next.add(id);
     selectedIds = next;
   }
 
-  // Delete selected rows (admin — no user_id filter needed)
   let deleteInProgress = $state(false);
   let deleteError = $state('');
 
@@ -186,13 +157,12 @@
     const ids = [...selectedIds];
     if (ids.length === 0) return;
     if (!confirm(`Delete ${ids.length} result${ids.length !== 1 ? 's' : ''}?`)) return;
-    deleteInProgress = true;
-    deleteError = '';
+    deleteInProgress = true; deleteError = '';
     try {
       const supabase = createClient();
-      const { error } = await (supabase.from('results') as any).delete().in('id', ids);
+      const { error } = await (supabase.from('results_llm') as any).delete().in('id', ids);
       if (error) throw new Error(error.message);
-      data = { ...data, results: data.results.filter((r: AdminResultRow) => !selectedIds.has(r.id)) };
+      data = { ...data, results: data.results.filter((r: AdminResultsLlmRow) => !selectedIds.has(r.id)) };
       selectedIds = new Set();
     } catch (e: any) {
       deleteError = e.message ?? 'Delete failed';
@@ -201,64 +171,29 @@
     }
   }
 
-  function fmt(val: number | null): string {
-    if (val == null) return '—';
-    return val < 1 ? val.toFixed(3) : val.toFixed(2);
-  }
+  type OptColKey = 'dtype' | 'runtime' | 'backend' | 'status' | 'ttft' | 'ttft_p90' | 'tps' | 'tpot' | 'e2e' | 'e2e_tps' | 'tokens' | 'compile' | 'os' | 'browser' | 'browser_ver' | 'cpu' | 'gpu';
 
-  function fmtDate(iso: string): string {
-    return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-  }
-
-  let cellCopiedMsg = $state('');
-  function copyCell(text: string) {
-    navigator.clipboard.writeText(text);
-    cellCopiedMsg = 'Copied!';
-    setTimeout(() => cellCopiedMsg = '', 1500);
-  }
-
-  // Backend badge colors
-  const BACKEND_COLORS: Record<string, string> = {
-    wasm_1: 'backend-wasm', wasm_n: 'backend-wasm',
-    webgpu: 'backend-webgpu',
-    webnn_cpu: 'backend-webnn-cpu', webnn_gpu: 'backend-webnn-gpu', webnn_npu: 'backend-webnn-npu',
-  };
-  function backendClass(id: string): string { return BACKEND_COLORS[id] ?? 'backend-unknown'; }
-
-  // Optional columns — separate LS key from user page
-  type OptColKey =
-    | 'dtype' | 'backend' | 'webnn_ep' | 'status'
-    | 'compilation' | 'load_compile' | 'first_inf' | 'ttf'
-    | 'avg' | 'median' | 'best' | 'p90' | 'fps'
-    | 'framework' | 'iterations'
-    | 'os' | 'browser' | 'browser_ver' | 'cpu' | 'gpu' | 'gpu_driver' | 'npu_driver';
-
-  const OPTIONAL_COLS = [
-    { key: 'dtype'       as OptColKey, label: 'Data Type',       defaultVisible: true  },
-    { key: 'backend'     as OptColKey, label: 'Backend',         defaultVisible: true  },
-    { key: 'webnn_ep'    as OptColKey, label: 'WebNN EP',        defaultVisible: true  },
-    { key: 'status'      as OptColKey, label: 'Status',          defaultVisible: true  },
-    { key: 'compilation' as OptColKey, label: 'Compile',         defaultVisible: true  },
-    { key: 'load_compile'as OptColKey, label: 'Load+Compile',    defaultVisible: true  },
-    { key: 'first_inf'   as OptColKey, label: '1st Inf',         defaultVisible: true  },
-    { key: 'ttf'         as OptColKey, label: 'TTF',             defaultVisible: true  },
-    { key: 'avg'         as OptColKey, label: 'Avg',             defaultVisible: true  },
-    { key: 'median'      as OptColKey, label: 'Median',          defaultVisible: true  },
-    { key: 'best'        as OptColKey, label: 'Best',            defaultVisible: true  },
-    { key: 'p90'         as OptColKey, label: 'P90',             defaultVisible: true  },
-    { key: 'fps'         as OptColKey, label: 'FPS',             defaultVisible: true  },
-    { key: 'framework'   as OptColKey, label: 'JS Framework',    defaultVisible: false },
-    { key: 'iterations'  as OptColKey, label: 'Iterations',      defaultVisible: false },
-    { key: 'os'          as OptColKey, label: 'OS',              defaultVisible: false },
-    { key: 'browser'     as OptColKey, label: 'Browser',         defaultVisible: false },
-    { key: 'browser_ver' as OptColKey, label: 'Browser Version', defaultVisible: false },
-    { key: 'cpu'         as OptColKey, label: 'CPU',             defaultVisible: false },
-    { key: 'gpu'         as OptColKey, label: 'GPU',             defaultVisible: false },
-    { key: 'gpu_driver'  as OptColKey, label: 'GPU Driver',      defaultVisible: false },
-    { key: 'npu_driver'  as OptColKey, label: 'NPU Driver',      defaultVisible: false },
+  const OPTIONAL_COLS: { key: OptColKey; label: string; defaultVisible: boolean }[] = [
+    { key: 'dtype',       label: 'Data Type',    defaultVisible: true  },
+    { key: 'runtime',     label: 'Runtime',      defaultVisible: true  },
+    { key: 'backend',     label: 'Backend',      defaultVisible: true  },
+    { key: 'status',      label: 'Status',       defaultVisible: true  },
+    { key: 'ttft',        label: 'TTFT avg',     defaultVisible: true  },
+    { key: 'ttft_p90',    label: 'TTFT P90',     defaultVisible: true  },
+    { key: 'tps',         label: 'TPS',          defaultVisible: true  },
+    { key: 'tpot',        label: 'TPOT',         defaultVisible: true  },
+    { key: 'e2e',         label: 'E2E',          defaultVisible: true  },
+    { key: 'e2e_tps',     label: 'E2E TPS',      defaultVisible: true  },
+    { key: 'tokens',      label: 'Tokens',       defaultVisible: true  },
+    { key: 'compile',     label: 'Compile',      defaultVisible: true  },
+    { key: 'os',          label: 'OS',           defaultVisible: false },
+    { key: 'browser',     label: 'Browser',      defaultVisible: false },
+    { key: 'browser_ver', label: 'Browser Ver',  defaultVisible: false },
+    { key: 'cpu',         label: 'CPU',          defaultVisible: false },
+    { key: 'gpu',         label: 'GPU',          defaultVisible: false },
   ];
 
-  const LS_KEY = 'admin_results_visible_cols_v1';
+  const LS_KEY = 'admin_results_llm_visible_cols_v1';
 
   function loadVisibleCols(): Set<OptColKey> {
     const defaults = new Set(OPTIONAL_COLS.filter(c => c.defaultVisible).map(c => c.key));
@@ -275,8 +210,7 @@
 
   function toggleCol(key: OptColKey) {
     const next = new Set(visibleCols);
-    if (next.has(key)) next.delete(key);
-    else next.add(key);
+    if (next.has(key)) next.delete(key); else next.add(key);
     visibleCols = next;
     if (browser) localStorage.setItem(LS_KEY, JSON.stringify([...next]));
   }
@@ -293,24 +227,45 @@
     document.addEventListener('mousedown', onOutside);
     return () => document.removeEventListener('mousedown', onOutside);
   });
+
+  const BACKEND_COLORS: Record<string, string> = {
+    wasm: 'backend-wasm', webgpu: 'backend-webgpu',
+    webnn_cpu: 'backend-webnn-cpu', webnn_gpu: 'backend-webnn-gpu', webnn_npu: 'backend-webnn-npu',
+  };
+  function backendClass(id: string): string { return BACKEND_COLORS[id] ?? 'backend-unknown'; }
+
+  function fmt(n: number | null | undefined, digits = 0, unit = ''): string {
+    if (n == null || isNaN(n as number)) return '—';
+    return (n as number).toFixed(digits) + unit;
+  }
+
+  function fmtDate(iso: string): string {
+    return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  }
+
+  let cellCopiedMsg = $state('');
+  function copyCell(text: string) {
+    navigator.clipboard.writeText(text);
+    cellCopiedMsg = 'Copied!';
+    setTimeout(() => cellCopiedMsg = '', 1500);
+  }
 </script>
 
 <div class="results-page">
   <header class="page-header">
     <div>
-      <h1>All Results <span class="admin-badge">admin</span></h1>
+      <h1>All LLM Results <span class="admin-badge">admin</span></h1>
       <p>{filtered.length} result{filtered.length !== 1 ? 's' : ''} across {users.length} user{users.length !== 1 ? 's' : ''}</p>
     </div>
-    <input class="filter-input header-search" type="text" placeholder="Search model or file..." bind:value={filterQuery} />
+    <input class="filter-input header-search" type="text" placeholder="Search model…" bind:value={filterQuery} />
   </header>
 
   {#if data.error}
     <p class="error-text">{data.error}</p>
   {:else if data.results.length === 0}
-    <div class="empty"><p>No results yet.</p></div>
+    <div class="empty"><p>No LLM results yet.</p></div>
   {:else}
     <div class="filters">
-
       <select class="filter-select filter-select-wide" bind:value={filterUser}>
         <option value="">All Users</option>
         {#each users as u}
@@ -325,17 +280,12 @@
 
       <select class="filter-select" bind:value={filterBackend}>
         <option value="">Backend</option>
-        {#each backends as b}<option value={b}>{getBackendLabel(b)}</option>{/each}
+        {#each backends as b}<option value={b}>{b}</option>{/each}
       </select>
 
-      <select class="filter-select" bind:value={filterWebnnEp}>
-        <option value="">WebNN EP</option>
-        {#each webnnEps as ep}<option value={ep}>{ep}</option>{/each}
-      </select>
-
-      <select class="filter-select" bind:value={filterFramework}>
-        <option value="">JS Framework</option>
-        {#each frameworks as fw}<option value={fw}>{fw}</option>{/each}
+      <select class="filter-select" bind:value={filterRuntime}>
+        <option value="">Runtime</option>
+        {#each runtimes as r}<option value={r}>{r}</option>{/each}
       </select>
 
       <select class="filter-select" bind:value={filterStatus}>
@@ -378,29 +328,23 @@
                 checked={allPageSelected} onchange={toggleSelectAll} title="Select all on this page" />
             </th>
             <th class="th-model sortable" onclick={() => toggleSort('model')}>Model{sortIndicator('model')}</th>
-            <th class="th-file sortable" onclick={() => toggleSort('file')}>File{sortIndicator('file')}</th>
             {#if isVisible('dtype')}<th class="sortable" onclick={() => toggleSort('dtype')}>Type{sortIndicator('dtype')}</th>{/if}
+            {#if isVisible('runtime')}<th class="sortable" onclick={() => toggleSort('runtime')}>Runtime{sortIndicator('runtime')}</th>{/if}
             {#if isVisible('backend')}<th class="sortable" onclick={() => toggleSort('backend')}>Backend{sortIndicator('backend')}</th>{/if}
-            {#if isVisible('webnn_ep')}<th class="sortable" onclick={() => toggleSort('webnn_ep')}>WebNN EP{sortIndicator('webnn_ep')}</th>{/if}
             {#if isVisible('status')}<th class="sortable" onclick={() => toggleSort('status')}>Status{sortIndicator('status')}</th>{/if}
-            {#if isVisible('compilation')}<th class="sortable" onclick={() => toggleSort('compilation')}>Compile{sortIndicator('compilation')}</th>{/if}
-            {#if isVisible('load_compile')}<th class="sortable" onclick={() => toggleSort('load_compile')}>Load+Compile{sortIndicator('load_compile')}</th>{/if}
-            {#if isVisible('first_inf')}<th class="sortable" onclick={() => toggleSort('first_inf')}>1st Inf{sortIndicator('first_inf')}</th>{/if}
-            {#if isVisible('ttf')}<th class="sortable" onclick={() => toggleSort('ttf')}>TTF{sortIndicator('ttf')}</th>{/if}
-            {#if isVisible('avg')}<th class="sortable" onclick={() => toggleSort('avg')}>Avg{sortIndicator('avg')}</th>{/if}
-            {#if isVisible('median')}<th class="sortable" onclick={() => toggleSort('median')}>Median{sortIndicator('median')}</th>{/if}
-            {#if isVisible('best')}<th class="sortable" onclick={() => toggleSort('best')}>Best{sortIndicator('best')}</th>{/if}
-            {#if isVisible('p90')}<th class="sortable" onclick={() => toggleSort('p90')}>P90{sortIndicator('p90')}</th>{/if}
-            {#if isVisible('fps')}<th class="sortable" onclick={() => toggleSort('fps')}>FPS{sortIndicator('fps')}</th>{/if}
-            {#if isVisible('framework')}<th>Framework</th>{/if}
-            {#if isVisible('iterations')}<th>Iters</th>{/if}
+            {#if isVisible('ttft')}<th class="sortable" onclick={() => toggleSort('ttft')}>TTFT{sortIndicator('ttft')}</th>{/if}
+            {#if isVisible('ttft_p90')}<th>TTFT P90</th>{/if}
+            {#if isVisible('tps')}<th class="sortable" onclick={() => toggleSort('tps')}>TPS{sortIndicator('tps')}</th>{/if}
+            {#if isVisible('tpot')}<th class="sortable" onclick={() => toggleSort('tpot')}>TPOT{sortIndicator('tpot')}</th>{/if}
+            {#if isVisible('e2e')}<th class="sortable" onclick={() => toggleSort('e2e')}>E2E{sortIndicator('e2e')}</th>{/if}
+            {#if isVisible('e2e_tps')}<th class="sortable" onclick={() => toggleSort('e2e_tps')}>E2E TPS{sortIndicator('e2e_tps')}</th>{/if}
+            {#if isVisible('tokens')}<th class="sortable" onclick={() => toggleSort('tokens')}>Tokens{sortIndicator('tokens')}</th>{/if}
+            {#if isVisible('compile')}<th class="sortable" onclick={() => toggleSort('compile')}>Compile{sortIndicator('compile')}</th>{/if}
             {#if isVisible('os')}<th>OS</th>{/if}
             {#if isVisible('browser')}<th>Browser</th>{/if}
             {#if isVisible('browser_ver')}<th>Browser Ver</th>{/if}
             {#if isVisible('cpu')}<th>CPU</th>{/if}
             {#if isVisible('gpu')}<th>GPU</th>{/if}
-            {#if isVisible('gpu_driver')}<th>GPU Driver</th>{/if}
-            {#if isVisible('npu_driver')}<th>NPU Driver</th>{/if}
             <th class="th-user sortable" onclick={() => toggleSort('user')}>User{sortIndicator('user')}</th>
             <th class="sortable" onclick={() => toggleSort('started')}>Date{sortIndicator('started')}</th>
           </tr>
@@ -411,30 +355,24 @@
               <td class="cell-check">
                 <input type="checkbox" class="row-check" checked={selectedIds.has(row.id)} onchange={() => toggleRow(row.id)} />
               </td>
-              <td class="cell-model cell-copy" title="Click to copy: {row.model_id}" onclick={() => copyCell(row.model_id)}>{row.model_id}</td>
-              <td class="cell-file"><a href="/results/{row.id}" class="cell-link" title={row.file_path}>{row.file_path}</a></td>
+              <td class="cell-model cell-copy" title="Click to copy: {row.hf_model_id}" onclick={() => copyCell(row.hf_model_id)}>{row.hf_model_id}</td>
               {#if isVisible('dtype')}<td><span class="dtype-chip" data-dtype={row.data_type}>{row.data_type}</span></td>{/if}
-              {#if isVisible('backend')}<td><span class="badge-backend {backendClass(row.backend)}">{getBackendLabel(row.backend)}</span></td>{/if}
-              {#if isVisible('webnn_ep')}<td class="cell-ep">{row.webnn_ep || '—'}</td>{/if}
-              {#if isVisible('status')}<td><span class="status-dot" class:status-ok={row.status === 'completed'} class:status-error={row.status === 'error'} class:status-running={row.status === 'running'} title={row.error_message || row.status}></span></td>{/if}
-              {#if isVisible('compilation')}<td class="cell-metric">{fmt(row.compilation_ms)}</td>{/if}
-              {#if isVisible('load_compile')}<td class="cell-metric">{fmt(row.load_and_compile_ms)}</td>{/if}
-              {#if isVisible('first_inf')}<td class="cell-metric">{fmt(row.first_inference_ms)}</td>{/if}
-              {#if isVisible('ttf')}<td class="cell-metric">{fmt(row.time_to_first_ms)}</td>{/if}
-              {#if isVisible('avg')}<td class="cell-metric">{fmt(row.average_ms)}</td>{/if}
-              {#if isVisible('median')}<td class="cell-metric">{fmt(row.median_ms)}</td>{/if}
-              {#if isVisible('best')}<td class="cell-metric">{fmt(row.best_ms)}</td>{/if}
-              {#if isVisible('p90')}<td class="cell-metric">{fmt(row.p90_ms)}</td>{/if}
-              {#if isVisible('fps')}<td class="cell-metric">{fmt(row.throughput_fps)}</td>{/if}
-              {#if isVisible('framework')}<td class="cell-opt">{getFrameworkLabel(row) || '—'}</td>{/if}
-              {#if isVisible('iterations')}<td class="cell-opt">{row.iterations_completed}/{row.iterations}</td>{/if}
-              {#if isVisible('os')}<td class="cell-opt">{row.os || '—'}</td>{/if}
-              {#if isVisible('browser')}<td class="cell-opt">{row.browser || '—'}</td>{/if}
-              {#if isVisible('browser_ver')}<td class="cell-opt">{row.browser_version || '—'}</td>{/if}
-              {#if isVisible('cpu')}<td class="cell-opt cell-opt-long" title={row.cpu}>{row.cpu || '—'}</td>{/if}
-              {#if isVisible('gpu')}<td class="cell-opt cell-opt-long" title={row.gpu}>{row.gpu || '—'}</td>{/if}
-              {#if isVisible('gpu_driver')}<td class="cell-opt">{row.gpu_driver_version || '—'}</td>{/if}
-              {#if isVisible('npu_driver')}<td class="cell-opt">{row.npu_driver_version || '—'}</td>{/if}
+              {#if isVisible('runtime')}<td class="cell-opt">{row.runtime}</td>{/if}
+              {#if isVisible('backend')}<td><span class="badge-backend {backendClass(row.backend)}">{row.backend}</span></td>{/if}
+              {#if isVisible('status')}<td><span class="status-dot" class:status-ok={row.status === 'completed'} class:status-error={row.status === 'error'} title={row.error_message ?? row.status}></span></td>{/if}
+              {#if isVisible('ttft')}<td class="cell-metric">{fmt(row.ttft_ms, 0, 'ms')}</td>{/if}
+              {#if isVisible('ttft_p90')}<td class="cell-metric">{fmt(row.ttft_p90_ms, 0, 'ms')}</td>{/if}
+              {#if isVisible('tps')}<td class="cell-metric">{fmt(row.tps, 1, 't/s')}</td>{/if}
+              {#if isVisible('tpot')}<td class="cell-metric">{fmt(row.tpot_ms, 1, 'ms')}</td>{/if}
+              {#if isVisible('e2e')}<td class="cell-metric">{fmt(row.e2e_ms ? row.e2e_ms / 1000 : null, 2, 's')}</td>{/if}
+              {#if isVisible('e2e_tps')}<td class="cell-metric">{fmt(row.e2e_tps, 1, 't/s')}</td>{/if}
+              {#if isVisible('tokens')}<td class="cell-metric">{row.output_tokens ?? '—'}</td>{/if}
+              {#if isVisible('compile')}<td class="cell-metric">{fmt(row.compilation_ms ? row.compilation_ms / 1000 : null, 1, 's')}</td>{/if}
+              {#if isVisible('os')}<td class="cell-opt">{row.os ?? '—'}</td>{/if}
+              {#if isVisible('browser')}<td class="cell-opt">{row.browser ?? '—'}</td>{/if}
+              {#if isVisible('browser_ver')}<td class="cell-opt">{row.browser_version ?? '—'}</td>{/if}
+              {#if isVisible('cpu')}<td class="cell-opt cell-opt-long" title={row.cpu ?? ''}>{row.cpu ?? '—'}</td>{/if}
+              {#if isVisible('gpu')}<td class="cell-opt cell-opt-long" title={row.gpu ?? ''}>{row.gpu ?? '—'}</td>{/if}
               <td class="cell-user">
                 <div class="user-cell-wrap" title={row.user_display_name ?? row.user_id}>
                   {#if row.user_avatar_url}
@@ -475,14 +413,6 @@
         <option value="">GPU</option>
         {#each distinctGpus as v}<option value={v}>{v}</option>{/each}
       </select>
-      <select class="filter-select" bind:value={filterGpuDriver}>
-        <option value="">GPU Driver</option>
-        {#each distinctGpuDrivers as v}<option value={v}>{v}</option>{/each}
-      </select>
-      <select class="filter-select" bind:value={filterNpuDriver}>
-        <option value="">NPU Driver</option>
-        {#each distinctNpuDrivers as v}<option value={v}>{v}</option>{/each}
-      </select>
     </div>
 
     <div class="table-footer">
@@ -521,10 +451,7 @@
     margin-bottom: var(--space-3);
   }
 
-  .header-search {
-    flex-shrink: 0;
-    min-width: 220px;
-  }
+  .header-search { flex-shrink: 0; min-width: 220px; }
 
   .page-header h1 {
     font-size: var(--text-lg);
@@ -549,10 +476,7 @@
     letter-spacing: 0.05em;
   }
 
-  .page-header p {
-    font-size: var(--text-sm);
-    color: var(--color-text-muted);
-  }
+  .page-header p { font-size: var(--text-sm); color: var(--color-text-muted); }
 
   .filters {
     display: flex;
@@ -561,26 +485,11 @@
     margin-bottom: var(--space-2);
   }
 
-  .filter-input {
-    min-width: 200px;
-    padding: var(--space-1) var(--space-2);
-  }
-
-  .filter-select {
-    min-width: 140px;
-    height: auto;
-    padding: var(--space-1) var(--space-2);
-    cursor: pointer;
-  }
-
+  .filter-input { min-width: 200px; padding: var(--space-1) var(--space-2); }
+  .filter-select { min-width: 140px; height: auto; padding: var(--space-1) var(--space-2); cursor: pointer; }
   .filter-select-wide { min-width: 200px; }
 
-  .filters-actions {
-    margin-left: auto;
-    display: flex;
-    align-items: center;
-    gap: var(--space-1);
-  }
+  .filters-actions { margin-left: auto; display: flex; align-items: center; gap: var(--space-1); }
 
   .env-filters {
     display: flex;
@@ -588,13 +497,10 @@
     gap: var(--space-1);
     margin-top: var(--space-2);
     padding-top: var(--space-2);
+    border-top: 1px solid var(--color-border);
   }
 
-  .empty {
-    padding: var(--space-4);
-    text-align: center;
-    color: var(--color-text-muted);
-  }
+  .empty { padding: var(--space-4); text-align: center; color: var(--color-text-muted); }
 
   .table-wrapper { overflow-x: auto; }
 
@@ -620,7 +526,7 @@
 
   .th-check { width: 28px; padding: var(--space-1) 6px !important; }
   .th-user  { text-align: left; min-width: 120px; }
-  .th-model, .th-file { text-align: left; max-width: 10vw; width: 10vw; }
+  .th-model { text-align: left; max-width: 14vw; width: 14vw; }
 
   .sortable { cursor: pointer; user-select: none; }
   .sortable:hover { color: var(--color-text-primary); }
@@ -637,33 +543,13 @@
 
   .cell-check { padding: var(--space-1) 6px !important; width: 28px; }
 
-  .row-check {
-    cursor: pointer;
-    accent-color: var(--color-primary);
-    width: 14px;
-    height: 14px;
-    vertical-align: middle;
-  }
+  .row-check { cursor: pointer; accent-color: var(--color-primary); width: 14px; height: 14px; vertical-align: middle; }
 
-  /* User cell */
   .cell-user { text-align: left; }
 
-  .user-cell-wrap {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    max-width: 160px;
-    overflow: hidden;
-  }
+  .user-cell-wrap { display: inline-flex; align-items: center; gap: 6px; max-width: 160px; overflow: hidden; }
 
-  .user-avatar {
-    width: 18px;
-    height: 18px;
-    border-radius: 50%;
-    flex-shrink: 0;
-    outline: 1px solid var(--color-border);
-    outline-offset: -1px;
-  }
+  .user-avatar { width: 18px; height: 18px; border-radius: 50%; flex-shrink: 0; outline: 1px solid var(--color-border); outline-offset: -1px; }
 
   .user-avatar-placeholder {
     display: inline-flex;
@@ -680,52 +566,19 @@
     flex-shrink: 0;
   }
 
-  .user-name {
-    font-family: var(--font-ui);
-    font-size: 11px;
-    color: var(--color-text-secondary);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
+  .user-name { font-family: var(--font-ui); font-size: 11px; color: var(--color-text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-  .cell-model, .cell-file {
-    text-align: left;
-    max-width: 10vw;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
+  .cell-model { text-align: left; max-width: 14vw; overflow: hidden; text-overflow: ellipsis; }
   .cell-copy { cursor: pointer; }
   .cell-copy:hover { color: var(--color-primary); }
 
-  .cell-link { color: inherit; text-decoration: none; }
-  .cell-link:hover { color: var(--color-primary); }
-
   .cell-metric { font-variant-numeric: tabular-nums; }
-
-  .cell-date {
-    font-family: var(--font-ui);
-    font-size: 10px;
-    color: var(--color-text-muted);
-  }
-
-  .cell-opt {
-    font-family: var(--font-ui);
-    font-size: 10px;
-    color: var(--color-text-muted);
-    white-space: nowrap;
-  }
-
-  .cell-opt-long {
-    max-width: 12vw;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
+  .cell-date { font-family: var(--font-ui); font-size: 10px; color: var(--color-text-muted); }
+  .cell-opt { font-family: var(--font-ui); font-size: 10px; color: var(--color-text-muted); white-space: nowrap; }
+  .cell-opt-long { max-width: 12vw; overflow: hidden; text-overflow: ellipsis; }
 
   :global(.results-table .dtype-chip) { min-width: unset; }
 
-  /* Backend badges */
   .badge-backend {
     font-family: var(--font-ui);
     font-size: 10px;
@@ -738,10 +591,7 @@
     min-width: 72px;
     text-align: center;
     box-sizing: border-box;
-    transition: opacity var(--transition-base);
   }
-
-  .badge-backend:hover { opacity: 0.8; }
 
   .backend-wasm      { color: #78716c; border-color: #78716c; }
   .backend-webgpu    { color: #d97706; border-color: #d97706; }
@@ -756,19 +606,10 @@
   :global([data-theme="dark"]) .backend-webnn-gpu { color: #a78bfa; border-color: #a78bfa; }
   :global([data-theme="dark"]) .backend-webnn-npu { color: #34d399; border-color: #34d399; }
 
-  .status-dot {
-    display: inline-block;
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: var(--color-text-muted);
-  }
+  .status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--color-text-muted); }
+  .status-ok    { background: #16a34a; }
+  .status-error { background: var(--color-error); }
 
-  .status-ok      { background: #16a34a; }
-  .status-error   { background: var(--color-error); }
-  .status-running { background: var(--color-primary); }
-
-  /* Column picker */
   .col-picker-wrap { position: relative; }
 
   .col-picker-btn {
@@ -813,7 +654,6 @@
 
   .col-picker-item:hover { background: var(--color-nav-item-hover); color: var(--color-text-primary); }
 
-  /* Delete button */
   .delete-btn {
     font-family: var(--font-ui);
     font-size: var(--text-sm);
@@ -830,13 +670,8 @@
 
   .delete-btn:hover:not(:disabled) { background: color-mix(in srgb, var(--color-error) 85%, black); }
   .delete-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .delete-error { font-size: var(--text-xs); color: var(--color-error); }
 
-  .delete-error {
-    font-size: var(--text-xs);
-    color: var(--color-error);
-  }
-
-  /* Footer */
   .table-footer {
     display: flex;
     align-items: center;
@@ -849,7 +684,6 @@
   .footer-left { display: flex; align-items: center; gap: var(--space-1); min-width: 120px; }
   .footer-center { display: flex; align-items: center; gap: var(--space-2); }
   .footer-right { display: flex; align-items: center; gap: var(--space-1); min-width: 120px; justify-content: flex-end; }
-
   .footer-count { font-size: var(--text-xs); color: var(--color-text-muted); }
 
   .page-btn {
@@ -865,9 +699,7 @@
 
   .page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
   .page-btn:not(:disabled):hover { border-color: var(--color-primary); color: var(--color-primary); }
-
   .page-info { font-size: var(--text-xs); color: var(--color-text-muted); }
-
   .rows-label { font-family: var(--font-ui); font-size: var(--text-xs); color: var(--color-text-muted); }
 
   .rows-select {
@@ -883,7 +715,6 @@
   }
 
   .rows-select:hover { border-color: var(--color-primary); color: var(--color-primary); }
-
   .error-text { color: var(--color-error); font-size: var(--text-sm); }
 
   .copy-toast {

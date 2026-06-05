@@ -719,9 +719,7 @@
   }
 
   .drop-hint-todo {
-    color: var(--color-fmt-task);
-    font-style: italic;
-    font-size: 11px;
+    color: var(--color-warning);
     margin-left: 4px;
   }
 

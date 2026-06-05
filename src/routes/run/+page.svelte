@@ -144,7 +144,7 @@
 
     if (usesOnnx && ortVersion) params.set("ort", ortVersion);
     if (usesLitert && litertVersion) params.set("litert", litertVersion);
-    if (webnnEp) params.set("webnn_ep", webnnEp);
+    if (usesWebnn && webnnEp) params.set("webnn_ep", webnnEp);
     replaceState(`#${params}`, {});
   }
 
@@ -200,6 +200,23 @@
   const totalModels = $derived(hashModels.length);
   const usesOnnx = $derived(hashModels.some((m) => m.runtime === "onnx"));
   const usesLitert = $derived(hashModels.some((m) => m.runtime === "litert"));
+  const usesWebnn = $derived(selectedBackends.some((b) => b.startsWith("webnn_")));
+  const webnnEpRequired = $derived(
+    saveResults &&
+    usesWebnn &&
+    isAtLeast($auth.role ?? 'anonymous', 'intel') &&
+    !webnnEp
+  );
+
+  type WarnKind = 'login_save' | 'login_multi' | 'cpu_os' | 'drivers' | 'webnn_ep' | 'no_models';
+  const warnings = $derived<WarnKind[]>([
+    ...(!$isAuthenticated && saveResults ? ['login_save' as const] : []),
+    ...(!$isAuthenticated && totalModels > 1 ? ['login_multi' as const] : []),
+    ...(saveResults && $isAuthenticated && (!cpuModel.trim() || !osModel.trim()) ? ['cpu_os' as const] : []),
+    ...(saveResults && $isAuthenticated && isAtLeast($auth.role ?? 'anonymous', 'intel') && (!gpuDriverVersion.trim() || !npuDriverVersion.trim()) ? ['drivers' as const] : []),
+    ...(webnnEpRequired ? ['webnn_ep' as const] : []),
+    ...(totalModels === 0 ? ['no_models' as const] : []),
+  ]);
 
   const completedCount = $derived(
     queue.filter((i) => i.status === "completed" || i.status === "error")
@@ -480,7 +497,7 @@
         },
         ortVersion,
         litertVersion,
-        webnnEp,
+        usesWebnn ? webnnEp : '',
         gpuDriverVersion.trim(),
         npuDriverVersion.trim(),
       );
@@ -645,7 +662,7 @@
         },
         ortVersion,
         litertVersion,
-        webnnEp,
+        usesWebnn ? webnnEp : '',
         gpuDriverVersion.trim(),
         npuDriverVersion.trim(),
       );
@@ -814,7 +831,7 @@
         os: osModel.trim() || undefined,
         ort: usesOnnx && ortVersion ? ortVersion : undefined,
         litert: usesLitert && litertVersion ? litertVersion : undefined,
-        webnn_ep: webnnEp || undefined,
+        webnn_ep: usesWebnn && webnnEp ? webnnEp : undefined,
       };
       const res = await fetch("/api/shared-config", {
         method: "POST",
@@ -867,7 +884,7 @@
         },
         ortVersion,
         litertVersion,
-        webnnEp,
+        usesWebnn ? webnnEp : '',
         gpuDriverVersion.trim(),
         npuDriverVersion.trim(),
       );
@@ -1215,21 +1232,30 @@
               >
             </div>
           {/if}
-          <div class="env-row">
-            <span class="env-label"
-              >WebNN EP<span
-                class="ep-help"
-                title={'Not sure which EP to pick?\nOpen chrome://webnn-internals/ in a new tab, run the model once, then check the "Active Contexts" tab — the Runtime Backend and selected Execution Provider are listed there.'}
-                aria-label="How to find your WebNN Execution Provider"
-                tabindex="0">?</span
-              ></span
-            >
-            <select class="version-select" bind:value={webnnEp}>
-              {#each WEBNN_EP_OPTIONS as opt}
-                <option value={opt.value}>{opt.label}</option>
-              {/each}
-            </select>
-          </div>
+          {#if saveResults && usesWebnn}
+            <div class="env-row">
+              <span class="env-label"
+                >WebNN EP{#if isAtLeast($auth.role ?? "anonymous", "intel")}<span
+                  class="req-badge"
+                  class:req-done={!!webnnEp}>req</span
+                >{/if}<span
+                  class="ep-help"
+                  title={'Not sure which EP to pick?\nOpen chrome://webnn-internals/ in a new tab, run the model once, then check the "Active Contexts" tab — the Runtime Backend and selected Execution Provider are listed there.'}
+                  aria-label="How to find your WebNN Execution Provider"
+                  tabindex="0">?</span
+                ></span
+              >
+              <select
+                class="version-select"
+                class:input-warn={webnnEpRequired}
+                bind:value={webnnEp}
+              >
+                {#each WEBNN_EP_OPTIONS as opt}
+                  <option value={opt.value}>{opt.label}</option>
+                {/each}
+              </select>
+            </div>
+          {/if}
           {#if usesOnnx && ortVersion}
             <div class="env-row">
               <span class="env-label">ORT Web</span>
@@ -1332,6 +1358,7 @@
                 (!$isAuthenticated ||
                   !cpuModel.trim() ||
                   !osModel.trim() ||
+                  webnnEpRequired ||
                   (isAtLeast($auth.role ?? "anonymous", "intel") &&
                     (!gpuDriverVersion.trim() || !npuDriverVersion.trim()))))}
             title="Ctrl+Enter"
@@ -1344,28 +1371,26 @@
             </button>
           {/if}
         </div>
-        {#if saveResults && !$isAuthenticated}
-          <p class="action-hint action-hint-warn">
-            <a href="/login">Sign in</a> to save results — CPU, GPU, and hardware info make your performance data meaningful.
-          </p>
-        {:else if saveResults && $isAuthenticated && (!cpuModel.trim() || !osModel.trim())}
-          <p class="action-hint action-hint-warn">
-            Fill in your CPU and OS above to enable result upload
-          </p>
-        {:else if saveResults && $isAuthenticated && isAtLeast($auth.role ?? "anonymous", "intel") && (!gpuDriverVersion.trim() || !npuDriverVersion.trim())}
-          <p class="action-hint action-hint-warn">
-            GPU Driver and NPU Driver versions are required for intel/admin roles
-          </p>
-        {/if}
-        {#if totalModels === 0}
-          <p class="action-hint">
-            No models selected. <a href="/browse">Browse models</a> to pick
-            one, or <a href="/custom">upload your own</a>.
-          </p>
-        {:else if totalModels > 1 && !$isAuthenticated}
-          <p class="action-hint action-hint-warn">
-            <a href="/login">Sign in</a> to run more than 1 model at a time.
-          </p>
+        {#if warnings.length > 0}
+          <ul class="action-hint-list">
+            {#each warnings as w}
+              <li class="action-hint" class:action-hint-warn={w !== 'no_models'}>
+                {#if w === 'login_save'}
+                  <a href="/login">Sign in</a> to save results — CPU, GPU, and hardware info make your performance data meaningful.
+                {:else if w === 'login_multi'}
+                  <a href="/login">Sign in</a> to run more than 1 model at a time.
+                {:else if w === 'cpu_os'}
+                  Fill in your CPU and OS above to enable result upload.
+                {:else if w === 'drivers'}
+                  GPU Driver and NPU Driver versions are required for intel/admin roles.
+                {:else if w === 'webnn_ep'}
+                  Pick a WebNN Execution Provider above — required for intel/admin roles when running a WebNN backend.
+                {:else if w === 'no_models'}
+                  No models selected. <a href="/browse">Browse models</a> to pick one, or <a href="/custom">upload your own</a>.
+                {/if}
+              </li>
+            {/each}
+          </ul>
         {/if}
       </div>
     </section>
@@ -1559,6 +1584,17 @@
     color: var(--color-text-secondary);
     margin-top: var(--space-1);
   }
+
+  .action-hint-list {
+    list-style: none;
+    padding: 0;
+    margin: var(--space-1) 0 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .action-hint-list .action-hint { margin-top: 0; }
 
   .action-hint a {
     color: var(--color-primary);
@@ -1917,12 +1953,15 @@
     min-width: 0;
   }
 
-  .cpu-input.input-warn {
+  .cpu-input.input-warn,
+  .version-select.input-warn {
     border-color: var(--color-warning, #f59e0b) !important;
   }
 
   .cpu-input.input-warn:focus,
-  .cpu-input.input-warn:focus-visible {
+  .cpu-input.input-warn:focus-visible,
+  .version-select.input-warn:focus,
+  .version-select.input-warn:focus-visible {
     border-color: var(--color-warning, #f59e0b) !important;
     outline-color: var(--color-warning, #f59e0b);
   }

@@ -122,6 +122,8 @@
     file_path: string;
     backend: string;
     data_type: string;
+    browser: string | null;
+    browser_version: string | null;
     valA: number | null;
     valB: number | null;
     change: number | null;
@@ -133,11 +135,11 @@
 
   const compareRows = $derived.by(() => {
     // Data is sorted newest-first. Only use the latest result per model+version.
-    const map = new Map<string, { valA: number | null; valB: number | null; errA: string | null; errB: string | null; capA: CapInfo | null; capB: CapInfo | null; seenA: boolean; seenB: boolean }>();
+    const map = new Map<string, { valA: number | null; valB: number | null; errA: string | null; errB: string | null; capA: CapInfo | null; capB: CapInfo | null; browser: string | null; browser_version: string | null; seenA: boolean; seenB: boolean }>();
 
     for (const r of filtered) {
       const key = `${r.model_id}::${r.file_path}::${r.backend}::${r.data_type}`;
-      if (!map.has(key)) map.set(key, { valA: null, valB: null, errA: null, errB: null, capA: null, capB: null, seenA: false, seenB: false });
+      if (!map.has(key)) map.set(key, { valA: null, valB: null, errA: null, errB: null, capA: null, capB: null, browser: null, browser_version: null, seenA: false, seenB: false });
       const entry = map.get(key)!;
 
       if (r.litert_version === versionA && !entry.seenA) {
@@ -150,6 +152,8 @@
         }
         const cap = r.webnn_capability;
         if (cap) entry.capA = { supported: cap.supported_nodes, total: cap.total_nodes, unsupported_ops: cap.unsupported_ops ?? [] };
+        if (entry.browser == null) entry.browser = r.browser ?? null;
+        if (entry.browser_version == null) entry.browser_version = r.browser_version ?? null;
       }
       if (r.litert_version === versionB && !entry.seenB) {
         entry.seenB = true;
@@ -161,24 +165,26 @@
         }
         const cap = r.webnn_capability;
         if (cap) entry.capB = { supported: cap.supported_nodes, total: cap.total_nodes, unsupported_ops: cap.unsupported_ops ?? [] };
+        if (entry.browser == null) entry.browser = r.browser ?? null;
+        if (entry.browser_version == null) entry.browser_version = r.browser_version ?? null;
       }
     }
 
     const rows: CompareRow[] = [];
-    for (const [key, { valA, valB, errA, errB, capA, capB }] of map) {
+    for (const [key, { valA, valB, errA, errB, capA, capB, browser, browser_version }] of map) {
       if (valA == null && valB == null && !errA && !errB) continue;
       const [model_id, file_path, backend, data_type] = key.split('::');
       let change: number | null = null;
       if (valA != null && valB != null && valA > 0 && !errA && !errB) {
         change = ((valB - valA) / valA) * 100;
       }
-      rows.push({ model_id, file_path, backend, data_type, valA, valB, change, errorA: errA, errorB: errB, capA, capB });
+      rows.push({ model_id, file_path, backend, data_type, browser, browser_version, valA, valB, change, errorA: errA, errorB: errB, capA, capB });
     }
 
     return rows;
   });
 
-  let sortCol = $state<'model' | 'file' | 'backend' | 'type' | 'valA' | 'valB' | 'change'>('model');
+  let sortCol = $state<'model' | 'file' | 'backend' | 'type' | 'browser' | 'browser_version' | 'valA' | 'valB' | 'change'>('model');
   let sortAsc = $state(true);
 
   function toggleSort(col: typeof sortCol) {
@@ -194,6 +200,8 @@
         case 'file': av = a.file_path.toLowerCase(); bv = b.file_path.toLowerCase(); break;
         case 'backend': av = a.backend; bv = b.backend; break;
         case 'type': av = a.data_type; bv = b.data_type; break;
+        case 'browser': av = (a.browser ?? '').toLowerCase(); bv = (b.browser ?? '').toLowerCase(); break;
+        case 'browser_version': av = a.browser_version ?? ''; bv = b.browser_version ?? ''; break;
         case 'valA': av = a.valA ?? Infinity; bv = b.valA ?? Infinity; break;
         case 'valB': av = a.valB ?? Infinity; bv = b.valB ?? Infinity; break;
         case 'change': av = a.change ?? Infinity; bv = b.change ?? Infinity; break;
@@ -228,15 +236,17 @@
   let cellCopiedMsg = $state('');
 
   function toMarkdown(): string {
-    const cols = ['Model', 'File', 'Backend', 'Type', `${versionA} ${metricLabel}`, `${versionB} ${metricLabel}`, 'Change'];
+    const cols = ['Model', 'File', 'Type', 'Browser', 'Browser Version', 'Backend', `${versionA} ${metricLabel}`, `${versionB} ${metricLabel}`, 'Change'];
     if (showUnsupportedOps) cols.push(`${versionA} Unsupported Ops`, `${versionB} Unsupported Ops`);
     const sep = cols.map(() => '---');
     const rows = sortedRows.map(r => {
       const row = [
         r.model_id,
         r.file_path,
-        getBackendLabel(r.backend),
         r.data_type,
+        r.browser ?? '',
+        r.browser_version ?? '',
+        getBackendLabel(r.backend),
         r.errorA ? 'Error' : fmt(r.valA),
         r.errorB ? 'Error' : fmt(r.valB),
         fmtChange(r.change),
@@ -252,8 +262,10 @@
       const obj: Record<string, any> = {
         model: r.model_id,
         file: r.file_path,
-        backend: r.backend,
         data_type: r.data_type,
+        browser: r.browser,
+        browser_version: r.browser_version,
+        backend: r.backend,
         [versionA]: r.errorA ? { error: r.errorA } : r.valA,
         [versionB]: r.errorB ? { error: r.errorB } : r.valB,
         change_pct: r.change,
@@ -267,14 +279,16 @@
   }
 
   function toCSV(): string {
-    const cols = ['Model', 'File', 'Backend', 'Type', `${versionA} ${metricLabel}`, `${versionB} ${metricLabel}`, 'Change %'];
+    const cols = ['Model', 'File', 'Type', 'Browser', 'Browser Version', 'Backend', `${versionA} ${metricLabel}`, `${versionB} ${metricLabel}`, 'Change %'];
     if (showUnsupportedOps) cols.push(`${versionA} Unsupported Ops`, `${versionB} Unsupported Ops`);
     const rows = sortedRows.map(r => {
       const row = [
         `"${r.model_id}"`,
         `"${r.file_path}"`,
-        getBackendLabel(r.backend),
         r.data_type,
+        `"${r.browser ?? ''}"`,
+        `"${r.browser_version ?? ''}"`,
+        getBackendLabel(r.backend),
         r.errorA ? 'Error' : fmt(r.valA),
         r.errorB ? 'Error' : fmt(r.valB),
         r.change != null ? r.change.toFixed(2) : '',
@@ -411,6 +425,8 @@
               <th class="th-model sortable" onclick={() => toggleSort('model')}>Model{sortCol === 'model' ? (sortAsc ? ' ↑' : ' ↓') : ''}</th>
               <th class="th-file sortable" onclick={() => toggleSort('file')}>File{sortCol === 'file' ? (sortAsc ? ' ↑' : ' ↓') : ''}</th>
               <th class="th-dtype sortable" onclick={() => toggleSort('type')}>Type{sortCol === 'type' ? (sortAsc ? ' ↑' : ' ↓') : ''}</th>
+              <th class="th-browser sortable" onclick={() => toggleSort('browser')}>Browser{sortCol === 'browser' ? (sortAsc ? ' ↑' : ' ↓') : ''}</th>
+              <th class="th-browser-ver sortable" onclick={() => toggleSort('browser_version')}>Browser Version{sortCol === 'browser_version' ? (sortAsc ? ' ↑' : ' ↓') : ''}</th>
               <th class="th-backend sortable" onclick={() => toggleSort('backend')}>Backend{sortCol === 'backend' ? (sortAsc ? ' ↑' : ' ↓') : ''}</th>
               <th class="th-metric sortable" onclick={() => toggleSort('valA')}>{versionA}{sortCol === 'valA' ? (sortAsc ? ' ↑' : ' ↓') : ''}<br><span class="th-metric-label">{metricLabel}</span></th>
               <th class="th-metric sortable" onclick={() => toggleSort('valB')}>{versionB}{sortCol === 'valB' ? (sortAsc ? ' ↑' : ' ↓') : ''}<br><span class="th-metric-label">{metricLabel}</span></th>
@@ -423,7 +439,7 @@
           </thead>
           <tbody>
             <tr class="geomean-row">
-              <td class="cell-geomean" colspan="4">Geomean ({validRows.length}/{compareRows.length} models)</td>
+              <td class="cell-geomean" colspan="6">Geomean ({validRows.length}/{compareRows.length} models)</td>
               <td class="cell-metric cell-geomean">{fmt(geomeanA)}</td>
               <td class="cell-metric cell-geomean">{fmt(geomeanB)}</td>
               <td class="cell-change cell-geomean" class:improved={geomeanChange != null && geomeanChange < 0} class:regressed={geomeanChange != null && geomeanChange > 0}>
@@ -439,6 +455,8 @@
                 <td class="cell-model cell-copy" title="Click to copy: {row.model_id}" onclick={() => { navigator.clipboard.writeText(row.model_id); cellCopiedMsg = 'Copied!'; setTimeout(() => cellCopiedMsg = '', 1500); }}>{row.model_id}</td>
                 <td class="cell-file cell-copy" title="Click to copy: {row.file_path}" onclick={() => { navigator.clipboard.writeText(row.file_path); cellCopiedMsg = 'Copied!'; setTimeout(() => cellCopiedMsg = '', 1500); }}>{row.file_path}</td>
                 <td><span>{row.data_type}</span></td>
+                <td><span>{row.browser ?? '—'}</span></td>
+                <td><span>{row.browser_version ?? '—'}</span></td>
                 <td><span>{getBackendLabel(row.backend)}</span></td>
                 <td class="cell-metric">
                   {#if row.errorA}
@@ -476,7 +494,7 @@
               </tr>
             {/each}
             <tr class="geomean-row">
-              <td class="cell-geomean" colspan="4">Geomean ({validRows.length}/{compareRows.length} models)</td>
+              <td class="cell-geomean" colspan="6">Geomean ({validRows.length}/{compareRows.length} models)</td>
               <td class="cell-metric cell-geomean">{fmt(geomeanA)}</td>
               <td class="cell-metric cell-geomean">{fmt(geomeanB)}</td>
               <td class="cell-change cell-geomean" class:improved={geomeanChange != null && geomeanChange < 0} class:regressed={geomeanChange != null && geomeanChange > 0}>

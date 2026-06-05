@@ -1,53 +1,15 @@
 <script lang="ts">
-  import { deleteRecipe, updateRecipe } from '$lib/recipes/crud';
-  import type { Recipe } from '$lib/recipes/crud';
+  import { goto } from '$app/navigation';
+  import { createClient } from '$lib/supabase/client';
+  import type { PageData } from './$types';
 
-  let { data } = $props();
+  let { data }: { data: PageData } = $props();
 
   // svelte-ignore state_referenced_locally
-  let recipes = $state<Recipe[]>(data.recipes);
-  $effect(() => { recipes = data.recipes; });
+  let recipes = $state<any[]>(data.recipes ?? []);
+  $effect(() => { recipes = data.recipes ?? []; });
 
-  function runRecipe(recipe: Recipe) {
-    try {
-      sessionStorage.setItem('hf_ext_models', JSON.stringify(
-        recipe.models.map((m) => ({
-          hf_model_id: m.hf_model_id,
-          file_path: m.file_path,
-          data_type: m.data_type,
-          runtime: (m.file_path.endsWith('.tflite') || m.file_path.endsWith('.litertlm')) ? 'litert' : 'onnx',
-        }))
-      ));
-    } catch {}
-    window.location.href = '/run';
-  }
-
-  async function handleDelete(recipe: Recipe) {
-    if (!confirm(`Delete "${recipe.name}"?`)) return;
-    await deleteRecipe(recipe.id);
-    recipes = recipes.filter((r) => r.id !== recipe.id);
-  }
-
-  async function toggleVisibility(recipe: Recipe) {
-    const next = recipe.visibility === 'public' ? 'personal' : 'public';
-    await updateRecipe(recipe.id, { visibility: next });
-    recipes = recipes.map((r) =>
-      r.id === recipe.id ? { ...r, visibility: next } : r
-    );
-  }
-
-  function formatDate(iso: string): string {
-    return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  }
-
-  let copyFeedback = $state<string | null>(null);
-
-  async function copyShareLink(recipe: Recipe) {
-    const url = `${window.location.origin}/recipe/${recipe.slug}`;
-    await navigator.clipboard.writeText(url);
-    copyFeedback = recipe.id;
-    setTimeout(() => { copyFeedback = null; }, 2000);
-  }
+  const supabase = createClient();
 
   const TABS = ['featured', 'community', 'mine'] as const;
   type Tab = typeof TABS[number];
@@ -65,6 +27,37 @@
     activeTab = tab;
     searchQuery = '';
     history.replaceState(null, '', `#${tab}`);
+  }
+
+  function formatDate(iso: string): string {
+    return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+
+  let copyFeedback = $state<string | null>(null);
+  async function copyShareLink(recipe: any) {
+    await navigator.clipboard.writeText(`${window.location.origin}/recipe-llm/${recipe.slug}`);
+    copyFeedback = recipe.id;
+    setTimeout(() => { copyFeedback = null; }, 2000);
+  }
+
+  function runRecipe(recipe: any) {
+    sessionStorage.setItem('llm_recipe_models', JSON.stringify(recipe.models ?? []));
+    sessionStorage.setItem('llm_recipe_id', recipe.id);
+    goto('/run-llm');
+  }
+
+  async function handleDelete(recipe: any) {
+    if (!confirm(`Delete "${recipe.name}"?`)) return;
+    await (supabase.from('recipes') as any).delete().eq('id', recipe.id);
+    recipes = recipes.filter((r: any) => r.id !== recipe.id);
+  }
+
+  async function toggleVisibility(recipe: any) {
+    const next = recipe.visibility === 'public' ? 'personal' : 'public';
+    await (supabase.from('recipes') as any).update({ visibility: next }).eq('id', recipe.id);
+    recipes = recipes.map((r: any) =>
+      r.id === recipe.id ? { ...r, visibility: next } : r
+    );
   }
 
   const featuredRecipes = $derived(
@@ -93,91 +86,26 @@
   function filterBySearch(recipes: any[]): any[] {
     if (!searchQuery.trim()) return recipes;
     const q = searchQuery.toLowerCase();
-    return recipes.filter(r => r.name.toLowerCase().includes(q));
+    return recipes.filter(r =>
+      r.name.toLowerCase().includes(q) ||
+      (r.models ?? []).some((m: any) => m.hf_model_id?.toLowerCase().includes(q) || m.data_type?.toLowerCase().includes(q))
+    );
   }
 
-  const filteredFeatured = $derived(filterBySearch(featuredRecipes));
-  const filteredCommunity = $derived(filterBySearch(communityRecipes));
-  const filteredMine = $derived(filterBySearch(mineRecipes));
+  const filteredFeatured   = $derived(filterBySearch(featuredRecipes));
+  const filteredCommunity  = $derived(filterBySearch(communityRecipes));
+  const filteredMine       = $derived(filterBySearch(mineRecipes));
 </script>
-
-{#snippet recipeCard(recipe: any, visLabel: string, showOwner = false, showOwnerActions = false)}
-  <div class="recipe-card">
-    <div class="card-top">
-      <a href="/recipe/{recipe.slug}" class="card-name" title={recipe.name}>
-        <span class="card-name-text">{recipe.name}</span>
-        <span class="card-count">{(recipe.models ?? []).length}</span>
-      </a>
-      <span class="card-date">{formatDate(recipe.updated_at)}</span>
-    </div>
-    {#if showOwner}
-      {@const formats = [...new Set(recipe.models.map((m: any) => m.file_path.endsWith('.tflite') ? 'tflite' : m.file_path.endsWith('.litertlm') ? 'litertlm' : m.file_path.endsWith('.task') ? 'task' : 'onnx'))]}
-      <div class="card-owner">
-        <div class="card-owner-left">
-          {#if recipe.owner_avatar_url}
-            <img src={recipe.owner_avatar_url} alt="" class="owner-avatar" crossorigin="anonymous" />
-          {:else}
-            <span class="owner-avatar owner-avatar-placeholder">{(recipe.owner_display_name ?? '?')[0].toUpperCase()}</span>
-          {/if}
-          <span class="owner-name">{recipe.owner_display_name ?? 'Unknown'}</span>
-        </div>
-        <div class="card-formats">
-          {#each formats as fmt}
-            {#if fmt === 'onnx'}
-              <img src="/icons/onnx-icon.svg" width="14" height="14" alt="onnx" title="ONNX" class="fmt-badge" />
-            {:else if fmt === 'tflite'}
-              <img src="/icons/litert-icon.svg" width="14" height="14" alt="tflite" title="TFLite / LiteRT" class="fmt-badge" />
-            {:else if fmt === 'litertlm'}
-              <img src="/icons/litertlm-icon.svg" width="14" height="14" alt="litertlm" title="LiteRT LM" class="fmt-badge" />
-            {/if}
-          {/each}
-        </div>
-      </div>
-    {/if}
-    <div class="card-models">
-      {#each recipe.models as m}
-        <div class="card-model-row">
-          <div class="card-model-info">
-            <span class="card-model-id">{m.hf_model_id}</span>
-            <span class="card-model-file">{m.file_path}</span>
-          </div>
-          <span class="dtype-chip" data-dtype={m.data_type}>{m.data_type}</span>
-        </div>
-      {/each}
-    </div>
-    <div class="card-actions">
-      <button class="action-btn action-run" onclick={() => runRecipe(recipe)}>Run</button>
-      <button class="action-btn action-share" onclick={() => copyShareLink(recipe)}>
-        {copyFeedback === recipe.id ? '✓' : 'Link'}
-      </button>
-      {#if showOwnerActions && data.userId === recipe.owner_id}
-        <button class="action-btn action-vis" onclick={() => toggleVisibility(recipe)}>{recipe.visibility === 'public' ? '→ Personal' : '→ Public'}</button>
-        <a href="/recipe/{recipe.slug}/edit" class="action-btn action-edit">Edit</a>
-        <button class="action-btn action-delete" onclick={() => handleDelete(recipe)}>Delete</button>
-      {/if}
-    </div>
-  </div>
-{/snippet}
-
-{#snippet recipeGrid(col: any[], visLabel: string, showOwner = false, showOwnerActions = false)}
-  {#if col.length > 0}
-    <div class="recipe-grid">
-      {#each col as recipe (recipe.id)}
-        {@render recipeCard(recipe, visLabel, showOwner, showOwnerActions)}
-      {/each}
-    </div>
-  {/if}
-{/snippet}
 
 <div class="recipe-page">
   <header class="page-header">
     <div class="page-header-text">
-      <h1>Recipes</h1>
-      <p>Saved model combinations for quick re-runs.</p>
+      <h1>LLM Recipes</h1>
+      <p>Saved language model combinations for quick re-runs.</p>
     </div>
     <div class="page-header-actions">
-      <a href="/recipe/import" class="btn-import-recipe">Import</a>
-      <a href="/recipe/new" class="btn-new-recipe">New Recipe</a>
+      <a href="/recipe-llm/import" class="btn-import-recipe">Import</a>
+      <a href="/recipe-llm/new" class="btn-new-recipe">New Recipe</a>
     </div>
   </header>
 
@@ -198,48 +126,102 @@
       class="search-input"
       placeholder="Search recipes…"
       bind:value={searchQuery}
-      aria-label="Search recipes"
+      aria-label="Search LLM recipes"
     />
   </div>
 
   {#if data.error}
-    <div class="error-banner">
-      <p>Failed to load recipes: {data.error}</p>
-    </div>
+    <div class="error-banner"><p>Failed to load recipes: {data.error}</p></div>
   {:else}
     <section class="tab-content">
+
       {#if activeTab === 'featured'}
         {#if filteredFeatured.length === 0}
-          <div class="empty"><p>{featuredRecipes.length === 0 ? 'No featured recipes yet.' : 'No recipes match your search.'}</p></div>
+          <div class="empty"><p>{featuredRecipes.length === 0 ? 'No featured LLM recipes yet.' : 'No recipes match your search.'}</p></div>
         {:else}
-          {@render recipeGrid(filteredFeatured, '→ Personal', true, false)}
+          <div class="recipe-grid">
+            {#each filteredFeatured as recipe (recipe.id)}
+              {@render recipeCard(recipe, true, false)}
+            {/each}
+          </div>
         {/if}
 
       {:else if activeTab === 'community'}
         {#if filteredCommunity.length === 0}
-          <div class="empty"><p>{communityRecipes.length === 0 ? 'No community recipes yet.' : 'No recipes match your search.'}</p></div>
+          <div class="empty"><p>{communityRecipes.length === 0 ? 'No community LLM recipes yet.' : 'No recipes match your search.'}</p></div>
         {:else}
-          {@render recipeGrid(filteredCommunity, '→ Personal', true, false)}
+          <div class="recipe-grid">
+            {#each filteredCommunity as recipe (recipe.id)}
+              {@render recipeCard(recipe, true, false)}
+            {/each}
+          </div>
         {/if}
 
       {:else if activeTab === 'mine'}
         {#if filteredMine.length === 0}
-          <div class="empty">
-            <p>{mineRecipes.length === 0 ? 'No recipes yet. Browse models and save them as a recipe from the Cart panel.' : 'No recipes match your search.'}</p>
-          </div>
+          <div class="empty"><p>{mineRecipes.length === 0 ? 'No recipes yet. Create one to get started.' : 'No recipes match your search.'}</p></div>
         {:else}
-          {@render recipeGrid(filteredMine, '→ Public', false, true)}
+          <div class="recipe-grid">
+            {#each filteredMine as recipe (recipe.id)}
+              {@render recipeCard(recipe, false, true)}
+            {/each}
+          </div>
         {/if}
       {/if}
+
     </section>
   {/if}
 </div>
 
+{#snippet recipeCard(recipe: any, showOwner: boolean, showOwnerActions: boolean)}
+  <div class="recipe-card">
+    <div class="card-top">
+      <a href="/recipe-llm/{recipe.slug}" class="card-name" title={recipe.name}>
+        <span class="card-name-text">{recipe.name}</span>
+        <span class="card-count">{(recipe.models ?? []).length}</span>
+      </a>
+      <span class="card-date">{formatDate(recipe.updated_at)}</span>
+    </div>
+    {#if showOwner && recipe.owner_display_name}
+      <div class="card-owner">
+        <div class="card-owner-left">
+          {#if recipe.owner_avatar_url}
+            <img src={recipe.owner_avatar_url} alt="" class="owner-avatar" crossorigin="anonymous" />
+          {:else}
+            <span class="owner-avatar owner-avatar-placeholder">{(recipe.owner_display_name ?? '?')[0].toUpperCase()}</span>
+          {/if}
+          <span class="owner-name">{recipe.owner_display_name}</span>
+        </div>
+      </div>
+    {/if}
+    <div class="card-models">
+      {#each (recipe.models ?? []) as m}
+        <div class="card-model-row">
+          <div class="card-model-info">
+            <span class="card-model-id">{m.hf_model_id}</span>
+          </div>
+          <span class="dtype-chip" data-dtype={m.data_type}>{m.data_type}</span>
+        </div>
+      {/each}
+    </div>
+    <div class="card-actions">
+      <button class="action-btn action-run" onclick={() => runRecipe(recipe)}>Run</button>
+      <button class="action-btn action-share" onclick={() => copyShareLink(recipe)}>
+        {copyFeedback === recipe.id ? '✓' : 'Link'}
+      </button>
+      {#if showOwnerActions && data.userId === recipe.owner_id}
+        <button class="action-btn action-vis" onclick={() => toggleVisibility(recipe)}>
+          {recipe.visibility === 'public' ? '→ Personal' : '→ Public'}
+        </button>
+        <a href="/recipe-llm/{recipe.slug}/edit" class="action-btn action-edit">Edit</a>
+        <button class="action-btn action-delete" onclick={() => handleDelete(recipe)}>Delete</button>
+      {/if}
+    </div>
+  </div>
+{/snippet}
 
 <style>
-  .recipe-page {
-    max-width: 100%;
-  }
+  .recipe-page { max-width: 100%; }
 
   .page-header {
     display: flex;
@@ -284,9 +266,7 @@
     transition: background var(--transition-base);
   }
 
-  .btn-new-recipe:hover {
-    background: var(--color-accent-light);
-  }
+  .btn-new-recipe:hover { background: var(--color-accent-light); }
 
   .btn-import-recipe {
     font-family: var(--font-ui);
@@ -303,20 +283,9 @@
     transition: background var(--transition-base), border-color var(--transition-base), color var(--transition-base);
   }
 
-  .btn-import-recipe:hover {
-    border-color: var(--color-primary);
-    color: var(--color-primary);
-  }
+  .btn-import-recipe:hover { border-color: var(--color-primary); color: var(--color-primary); }
 
-  .error-banner {
-    padding: var(--space-2);
-    border-radius: var(--radius-base);
-  }
-
-  .empty p {
-    font-size: var(--text-sm);
-    color: var(--color-text-muted);
-  }
+  .error-banner { padding: var(--space-2); border-radius: var(--radius-base); }
 
   /* ── Tabs row ─────────────────────────────────────────── */
 
@@ -335,15 +304,9 @@
     margin-bottom: 6px;
   }
 
-  .search-input:focus-visible {
-    border-color: var(--color-focus-ring);
-    outline: none;
-  }
+  .search-input:focus-visible { border-color: var(--color-focus-ring); outline: none; }
 
-  .tabs {
-    display: flex;
-    gap: 0;
-  }
+  .tabs { display: flex; gap: 0; }
 
   .tab {
     font-family: var(--font-ui);
@@ -361,9 +324,7 @@
     gap: 6px;
   }
 
-  .tab:hover {
-    color: var(--color-text-primary);
-  }
+  .tab:hover { color: var(--color-text-primary); }
 
   .tab.active {
     color: var(--color-text-primary);
@@ -384,9 +345,7 @@
     color: var(--color-text-on-primary);
   }
 
-  .tab-content {
-    min-height: 200px;
-  }
+  .tab-content { min-height: 200px; }
 
   /* ── Recipe grid ──────────────────────────────────────── */
 
@@ -396,11 +355,8 @@
     gap: var(--space-2);
   }
 
-  @media (max-width: 1100px) {
-    .recipe-grid {
-      grid-template-columns: repeat(2, 1fr);
-    }
-  }
+  @media (max-width: 1100px) { .recipe-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 768px)  { .recipe-grid { grid-template-columns: 1fr; } }
 
   .recipe-card {
     border: 1px solid var(--color-border);
@@ -414,9 +370,7 @@
     transition: border-color var(--transition-base);
   }
 
-  .recipe-card:hover {
-    border-color: var(--color-border-strong);
-  }
+  .recipe-card:hover { border-color: var(--color-border-strong); }
 
   .card-top {
     display: flex;
@@ -447,9 +401,7 @@
     min-width: 0;
   }
 
-  .card-name:hover {
-    color: var(--color-primary);
-  }
+  .card-name:hover { color: var(--color-primary); }
 
   .card-count {
     display: inline-flex;
@@ -477,7 +429,6 @@
   .card-owner {
     display: flex;
     align-items: center;
-    justify-content: space-between;
     gap: 5px;
   }
 
@@ -487,18 +438,6 @@
     gap: 5px;
     min-width: 0;
     overflow: hidden;
-  }
-
-  .card-formats {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    flex-shrink: 0;
-  }
-
-  .fmt-badge {
-    display: block;
-    opacity: 0.75;
   }
 
   .owner-avatar {
@@ -532,37 +471,16 @@
     display: flex;
     flex-direction: column;
     gap: 3px;
-    /* ~3 rows: each row is roughly 20px line-height + 3px gap */
     max-height: calc(3 * 20px + 2 * 3px);
     padding-right: 5px;
     overflow-y: auto;
     scroll-behavior: smooth;
   }
 
-  .card-models::-webkit-scrollbar {
-    width: 1px;
-    height: 3px;
-  }
-
-  .card-models::-webkit-scrollbar-button {
-    width: 0;
-    height: 0;
-    display: none;
-  }
-
-  .card-models::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
-  .card-models::-webkit-scrollbar-thumb {
-    background-color: var(--color-border-strong);
-    border-radius: 3px;
-  }
-
-  .recipe-card:hover .card-models::-webkit-scrollbar-thumb {
-    background-color: var(--color-primary);
-  }
- 
+  .card-models::-webkit-scrollbar { width: 1px; }
+  .card-models::-webkit-scrollbar-track { background: transparent; }
+  .card-models::-webkit-scrollbar-thumb { background-color: var(--color-border-strong); border-radius: 3px; }
+  .recipe-card:hover .card-models::-webkit-scrollbar-thumb { background-color: var(--color-primary); }
 
   .card-model-row {
     display: flex;
@@ -574,7 +492,6 @@
   .card-model-info {
     flex: 1;
     display: flex;
-    flex-direction: row;
     align-items: center;
     gap: var(--space-1);
     min-width: 0;
@@ -590,18 +507,6 @@
     white-space: nowrap;
     min-width: 0;
   }
-
-  .card-model-file {
-    font-family: var(--font-mono);
-    font-size: 10px;
-    color: var(--color-text-muted);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    min-width: 0;
-  }
-
-  /* dtype-chip uses global styles from app.css */
 
   .card-actions {
     display: flex;
@@ -631,67 +536,19 @@
     transition: color var(--transition-base), border-color var(--transition-base), background var(--transition-base);
   }
 
-  .action-run    { border-color: var(--color-primary); background: var(--color-primary); color: var(--color-text-on-primary); }
-  .action-share  {}
-  .action-vis    {}
-  .action-edit   {}
-  .action-delete {}
+  .action-run { border-color: var(--color-primary); background: var(--color-primary); color: var(--color-text-on-primary); }
+  .action-run:hover { background: var(--color-primary-hover); border-color: var(--color-primary-hover); color: var(--color-text-on-primary); }
+  .action-share:hover, .action-edit:hover, .action-vis:hover { border-color: var(--color-primary); color: var(--color-primary); }
+  .action-delete:hover { border-color: var(--color-error); color: var(--color-error); }
 
-  .action-run:hover {
-    background: var(--color-primary-hover);
-    border-color: var(--color-primary-hover);
-    color: var(--color-text-on-primary);
-  }
-
-  .action-share:hover,
-  .action-edit:hover,
-  .action-vis:hover {
-    border-color: var(--color-primary);
-    color: var(--color-primary);
-  }
-
-  .action-delete:hover {
-    border-color: var(--color-error);
-    color: var(--color-error);
-  }
-
-  /* ── Mobile ───────────────────────────────────────────── */
+  .empty p { font-size: var(--text-sm); color: var(--color-text-muted); }
 
   @media (max-width: 768px) {
-    .page-header {
-      flex-direction: column;
-      align-items: flex-start;
-    }
-
-    .page-header-actions {
-      width: 100%;
-      flex-direction: column;
-    }
-
-    .btn-import-recipe,
-    .btn-new-recipe {
-      width: 100%;
-      text-align: center;
-    }
-
-    .tabs-row {
-      flex-direction: column;
-      align-items: stretch;
-      border-bottom: none;
-    }
-
-    .tabs {
-      border-bottom: 1px solid var(--color-border);
-    }
-
-    .search-input {
-      width: 100%;
-      margin-bottom: 0;
-      margin-top: var(--space-1);
-    }
-
-    .recipe-grid {
-      grid-template-columns: 1fr;
-    }
+    .page-header { flex-direction: column; align-items: flex-start; }
+    .page-header-actions { width: 100%; flex-direction: column; }
+    .btn-import-recipe, .btn-new-recipe { width: 100%; text-align: center; }
+    .tabs-row { flex-direction: column; align-items: stretch; border-bottom: none; }
+    .tabs { border-bottom: 1px solid var(--color-border); }
+    .search-input { width: 100%; margin-bottom: 0; margin-top: var(--space-1); }
   }
 </style>

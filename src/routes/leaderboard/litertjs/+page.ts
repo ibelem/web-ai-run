@@ -15,6 +15,8 @@ export interface LitertRow {
   data_type: string;
   litert_version: string;
   webnn_ep: string;
+  browser: string | null;
+  browser_version: string | null;
   status: string;
   error_message: string | null;
   compilation_ms: number | null;
@@ -62,7 +64,7 @@ export const load: PageLoad = async () => {
   // Fetch result data
   const { data, error } = await (supabase
     .from('results') as any)
-    .select('model_id, file_path, backend, data_type, litert_version, webnn_ep, status, error_message, compilation_ms, load_and_compile_ms, first_inference_ms, average_ms, median_ms, best_ms, p90_ms, throughput_fps, webnn_capability, started_at')
+    .select('model_id, file_path, backend, data_type, litert_version, webnn_ep, browser, browser_version, status, error_message, compilation_ms, load_and_compile_ms, first_inference_ms, average_ms, median_ms, best_ms, p90_ms, throughput_fps, webnn_capability, started_at')
     .in('status', ['completed', 'error'])
     .neq('litert_version', '')
     .order('started_at', { ascending: false })

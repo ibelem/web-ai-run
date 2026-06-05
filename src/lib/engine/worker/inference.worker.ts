@@ -1,4 +1,276 @@
-import type { Backend, TestResult, DownloadProgress, BenchmarkMetrics, WebNNCapability } from '../types';
+// inference.worker.ts must stay type:'classic' because LiteRT's Emscripten
+// WASM loader calls importScripts() internally, which is unavailable in module
+// workers. All helpers are inlined here rather than imported from shared/.
+// llm.worker.ts uses type:'module' and imports from shared/ safely.
+
+// ── Inlined types (no import — classic worker) ────────────────────────────
+
+type Backend = 'wasm_1' | 'wasm_n' | 'webgpu' | 'webnn_cpu' | 'webnn_gpu' | 'webnn_npu';
+
+interface DownloadProgress {
+  model_id: string;
+  file_path: string;
+  loaded_bytes: number;
+  total_bytes: number;
+  percent: number;
+}
+
+interface BenchmarkMetrics {
+  compilation_ms: number | null;
+  load_and_compile_ms: number | null;
+  first_inference_ms: number;
+  time_to_first_ms: number;
+  average_ms: number;
+  median_ms: number;
+  best_ms: number;
+  p90_ms: number;
+  throughput_fps: number;
+}
+
+interface WebNNCapability {
+  partitions?: number;
+  total_nodes: number;
+  supported_nodes: number;
+  unsupported_ops: string[];
+}
+
+interface TestItem {
+  id: string;
+  hf_model_id: string;
+  file_path: string;
+  data_type: string;
+  runtime: 'onnx' | 'litert';
+  backend: Backend;
+  status: string;
+  progress: number;
+  error?: string;
+}
+
+interface TestResult {
+  id: string;
+  test_item: TestItem;
+  metrics: BenchmarkMetrics | null;
+  inference_times: number[];
+  warmup_ms: number;
+  iterations: number;
+  iterations_completed: number;
+  started_at: string;
+  completed_at: string | null;
+  error_message: string | null;
+  logs?: string[];
+  webnn_capability?: WebNNCapability | null;
+}
+
+// ── Inlined: computeMetrics ───────────────────────────────────────────────
+
+function computeMetrics(times: number[], compilationMs: number | null, loadAndCompileMs: number | null, firstInferenceMs: number): BenchmarkMetrics {
+  const sorted = [...times].sort((a, b) => a - b);
+  const sum = sorted.reduce((a, b) => a + b, 0);
+  const avg = sum / sorted.length;
+  const median = sorted.length % 2 === 0
+    ? (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2
+    : sorted[Math.floor(sorted.length / 2)];
+  const p90Index = Math.ceil(sorted.length * 0.9) - 1;
+  return {
+    compilation_ms: compilationMs,
+    load_and_compile_ms: loadAndCompileMs,
+    first_inference_ms: firstInferenceMs,
+    time_to_first_ms: (compilationMs ?? loadAndCompileMs ?? 0) + firstInferenceMs,
+    average_ms: avg,
+    median_ms: median,
+    best_ms: sorted[0],
+    p90_ms: sorted[p90Index],
+    throughput_fps: 1000 / avg,
+  };
+}
+
+// ── Inlined: WebNN console tap ────────────────────────────────────────────
+
+interface CaptureState {
+  partitions: number | undefined;
+  total_nodes: number;
+  supported_nodes: number;
+  unsupported_ops: Set<string>;
+}
+
+const TAP_DEBUG = true;
+let activeCapture: CaptureState | null = null;
+
+function tapMessage(msg: string) {
+  if (!activeCapture) return;
+  const state = activeCapture;
+  if (TAP_DEBUG && (msg.includes('WebNN') || msg.includes('not delegatable') || msg.includes('Unsupported'))) {
+    (globalThis as any).__webnnTapDebug?.(`[TAP] ${msg.slice(0, 300)}`);
+  }
+  const ortM = msg.match(/number of partitions supported by WebNN:\s*(\d+)[\s\S]*?number of nodes in the graph:\s*(\d+)[\s\S]*?number of nodes supported by WebNN:\s*(\d+)/i);
+  if (ortM) {
+    state.partitions = +ortM[1]; state.total_nodes = +ortM[2]; state.supported_nodes = +ortM[3];
+    if (TAP_DEBUG) (globalThis as any).__webnnTapDebug?.(`[TAP-MATCH-ORT-CAP] partitions=${ortM[1]} total=${ortM[2]} supported=${ortM[3]}`);
+    return;
+  }
+  const ortOp = msg.match(/Unsupported (?:operator|op(?:\s+type)?)\s*:?\s*(\w+)/i);
+  if (ortOp) { state.unsupported_ops.add(ortOp[1]); if (TAP_DEBUG) (globalThis as any).__webnnTapDebug?.(`[TAP-MATCH-ORT-OP] op=${ortOp[1]}`); return; }
+  const litertM = msg.match(/number of nodes in the graph[:\s]+(\d+)[\s,]+number of nodes supported by WebNN[:\s]+(\d+)/i);
+  if (litertM) { state.total_nodes = +litertM[1]; state.supported_nodes = +litertM[2]; return; }
+  const litertOp = msg.match(/\b([A-Z][A-Z0-9_]+)\s+not delegatable:[\s\S]*?Unsupported op/);
+  if (litertOp) { state.unsupported_ops.add(litertOp[1]); }
+}
+
+function stringifyArgs(args: any[]): string {
+  return args.map(a => { if (typeof a === 'string') return a; try { return JSON.stringify(a); } catch { return String(a); } }).join(' ');
+}
+
+{
+  const orig = {
+    log: console.log.bind(console), info: console.info.bind(console),
+    warn: console.warn.bind(console), error: console.error.bind(console),
+    debug: console.debug.bind(console), trace: console.trace.bind(console),
+  };
+  (globalThis as any).__webnnTapDebug = (msg: string) => orig.log(msg);
+  const wrap = (fn: (...a: any[]) => void) => (...args: any[]) => {
+    if (activeCapture) { try { tapMessage(stringifyArgs(args)); } catch {} }
+    fn(...args);
+  };
+  console.log = wrap(orig.log); console.info = wrap(orig.info);
+  console.warn = wrap(orig.warn); console.error = wrap(orig.error);
+  console.debug = wrap(orig.debug); console.trace = wrap(orig.trace);
+}
+
+function startWebNNCapture(): { state: CaptureState; restore: () => void } {
+  const state: CaptureState = { partitions: undefined, total_nodes: 0, supported_nodes: 0, unsupported_ops: new Set() };
+  activeCapture = state;
+  return { state, restore: () => { if (activeCapture === state) activeCapture = null; } };
+}
+
+function finalizeCapture(state: CaptureState, backend: Backend): WebNNCapability | null {
+  if (TAP_DEBUG) (globalThis as any).__webnnTapDebug?.(`[TAP-FINALIZE] backend=${backend} total=${state.total_nodes} supported=${state.supported_nodes} ops=${[...state.unsupported_ops].join(',')} partitions=${state.partitions}`);
+  if (!backend.startsWith('webnn_')) return null;
+  if (state.total_nodes === 0 && state.supported_nodes === 0 && state.unsupported_ops.size === 0 && state.partitions === undefined) return null;
+  const out: WebNNCapability = { total_nodes: state.total_nodes, supported_nodes: state.supported_nodes, unsupported_ops: [...state.unsupported_ops].sort() };
+  if (state.partitions !== undefined) out.partitions = state.partitions;
+  return out;
+}
+
+// ── Inlined: HF base / OPFS / download ───────────────────────────────────
+
+const HF_MAIN = 'https://huggingface.co';
+const HF_MIRROR = 'https://hf-mirror.com';
+const HF_TEST_PATH = '/webml/models-moved/resolve/main/01.onnx';
+const HF_BASE_TTL_MS = 10 * 60 * 1000;
+let cachedHfBase: string | null = null;
+let cachedHfBaseAt = 0;
+
+async function getHfBase(): Promise<string> {
+  if (cachedHfBase && Date.now() - cachedHfBaseAt < HF_BASE_TTL_MS) return cachedHfBase;
+  const check = async (base: string): Promise<boolean> => {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 3000);
+    try { const r = await fetch(`${base}${HF_TEST_PATH}`, { method: 'HEAD', signal: ctrl.signal, cache: 'no-store' }); clearTimeout(t); return r.ok; }
+    catch { clearTimeout(t); return false; }
+  };
+  if (await check(HF_MAIN)) { cachedHfBase = HF_MAIN; cachedHfBaseAt = Date.now(); return HF_MAIN; }
+  if (await check(HF_MIRROR)) { cachedHfBase = HF_MIRROR; cachedHfBaseAt = Date.now(); return HF_MIRROR; }
+  cachedHfBase = HF_MAIN; cachedHfBaseAt = Date.now(); return HF_MAIN;
+}
+
+function sanitizeFileName(s: string): string { return s.replace(/[^a-zA-Z0-9._-]/g, '--'); }
+
+async function getFromOPFS(fileName: string): Promise<ArrayBuffer | null> {
+  try {
+    const root = await navigator.storage.getDirectory();
+    const dir = await root.getDirectoryHandle('models', { create: true });
+    const fh = await dir.getFileHandle(fileName);
+    return (await fh.getFile()).arrayBuffer();
+  } catch { return null; }
+}
+
+async function saveToOPFS(fileName: string, data: ArrayBuffer): Promise<void> {
+  try {
+    const root = await navigator.storage.getDirectory();
+    const dir = await root.getDirectoryHandle('models', { create: true });
+    const fh = await dir.getFileHandle(fileName, { create: true });
+    const w = await fh.createWritable();
+    await w.write(data); await w.close();
+  } catch {}
+}
+
+interface DownloadedBundle { modelBuffer: ArrayBuffer; externalData: { path: string; data: ArrayBuffer }[]; }
+
+async function downloadFromHostInline(base: string, hfModelId: string, filePath: string, onProgress: (l: number, t: number, fp: string) => void, agg?: { total: number; prior: number }): Promise<{ arrayBuffer: ArrayBuffer; cacheKey: string; useCache: boolean }> {
+  const url = `${base}/${hfModelId}/resolve/main/${filePath}`;
+  let etag = '', headOk = false, expectedSize = 0;
+  try { const h = await fetch(url, { method: 'HEAD' }); if (h.ok) { headOk = true; etag = (h.headers.get('etag') ?? '').replace(/"/g, ''); expectedSize = Number(h.headers.get('content-length') ?? 0); } } catch {}
+  const useCache = headOk && etag !== '';
+  const cacheKey = useCache ? sanitizeFileName(`${hfModelId}--${filePath}--${etag}`) : '';
+  if (useCache) {
+    const cached = await getFromOPFS(cacheKey);
+    if (cached && !(expectedSize > 0 && cached.byteLength !== expectedSize)) return { arrayBuffer: cached, cacheKey, useCache };
+  }
+  const res = await fetch(url); if (!res.ok) throw new Error(`Download failed: ${res.status}`);
+  const contentLength = Number(res.headers.get('content-length') ?? 0);
+  const reader = res.body!.getReader(); const chunks: Uint8Array[] = []; let loaded = 0;
+  while (true) {
+    const { done, value } = await reader.read(); if (done) break;
+    chunks.push(value); loaded += value.byteLength;
+    const al = agg ? agg.prior + loaded : loaded, at = agg ? agg.total : contentLength;
+    onProgress(al, at, filePath);
+  }
+  if (contentLength > 0 && loaded !== contentLength) throw new Error(`Truncated: ${loaded}/${contentLength}`);
+  const buf = new Uint8Array(loaded); let off = 0;
+  for (const c of chunks) { buf.set(c, off); off += c.byteLength; }
+  return { arrayBuffer: buf.buffer, cacheKey, useCache };
+}
+
+async function probeSidecars(base: string, hfModelId: string, mainFilePath: string): Promise<string[]> {
+  const fileBase = mainFilePath.replace(/\.onnx$/, '');
+  const probe = async (p: string) => { try { return (await fetch(`${base}/${hfModelId}/resolve/main/${p}`, { method: 'HEAD' })).ok; } catch { return false; } };
+  const sidecars: string[] = [];
+  if (await probe(`${fileBase}.onnx_data`)) {
+    sidecars.push(`${fileBase}.onnx_data`);
+    for (let i = 1; i <= 99; i++) { const np = `${fileBase}.onnx_data_${i}`; if (await probe(np)) sidecars.push(np); else break; }
+  }
+  return sidecars;
+}
+
+async function downloadModel(hfModelId: string, filePath: string, id: string): Promise<DownloadedBundle> {
+  const primary = await getHfBase();
+  const fallback = primary === HF_MAIN ? HF_MIRROR : HF_MAIN;
+  const sidecarPaths = filePath.endsWith('.onnx') ? await probeSidecars(primary, hfModelId, filePath) : [];
+  if (sidecarPaths.length > 0) log(id, `Found ${sidecarPaths.length} sidecar(s): ${sidecarPaths.join(', ')}`);
+
+  let totalBytes = 0;
+  for (const p of [filePath, ...sidecarPaths]) {
+    try { totalBytes += Number((await fetch(`${primary}/${hfModelId}/resolve/main/${p}`, { method: 'HEAD' })).headers.get('content-length') ?? 0); } catch {}
+  }
+
+  const tryDownload = async (base: string, fp: string, priorBytes: number) => {
+    try { return await downloadFromHostInline(base, hfModelId, fp, (l, t, fp2) => post({ type: 'progress', id, progress: { model_id: hfModelId, file_path: fp2, loaded_bytes: l, total_bytes: t, percent: t > 0 ? (l / t) * 100 : 0 } }), totalBytes > 0 ? { total: totalBytes, prior: priorBytes } : undefined); }
+    catch (e1: any) {
+      log(id, `Primary ${base} failed: ${e1?.message}; retrying ${fallback}`);
+      cachedHfBase = null; cachedHfBaseAt = 0;
+      try { const r = await downloadFromHostInline(fallback, hfModelId, fp, (l, t, fp2) => post({ type: 'progress', id, progress: { model_id: hfModelId, file_path: fp2, loaded_bytes: l, total_bytes: t, percent: t > 0 ? (l / t) * 100 : 0 } }), totalBytes > 0 ? { total: totalBytes, prior: priorBytes } : undefined); cachedHfBase = fallback; cachedHfBaseAt = Date.now(); return r; }
+      catch (e2: any) { throw new Error(`Both hosts failed: ${e1?.message} / ${e2?.message}`); }
+    }
+  };
+
+  let priorBytes = 0;
+  const mainResult = await tryDownload(primary, filePath, priorBytes);
+  if (mainResult.useCache) { await saveToOPFS(mainResult.cacheKey, mainResult.arrayBuffer); log(id, `Saved ${filePath} to OPFS cache`); }
+  else log(id, `HEAD unavailable — bypassing OPFS cache for ${filePath}`);
+  priorBytes += mainResult.arrayBuffer.byteLength;
+
+  const externalData: { path: string; data: ArrayBuffer }[] = [];
+  for (const sp of sidecarPaths) {
+    const r = await tryDownload(primary, sp, priorBytes);
+    if (r.useCache) { await saveToOPFS(r.cacheKey, r.arrayBuffer); log(id, `Saved ${sp} to OPFS cache`); }
+    const name = sp.includes('/') ? sp.slice(sp.lastIndexOf('/') + 1) : sp;
+    externalData.push({ path: name, data: r.arrayBuffer });
+    priorBytes += r.arrayBuffer.byteLength;
+  }
+  return { modelBuffer: mainResult.arrayBuffer, externalData };
+}
+
+// ── Worker types ──────────────────────────────────────────────────────────
 
 export interface WorkerRequest {
   type: 'run';
@@ -24,178 +296,9 @@ let litertLoaded = false;
 let litertMode: string | null = null;
 let litertLoadedVersion: string | null = null;
 
-interface CaptureState {
-  partitions: number | undefined;
-  total_nodes: number;
-  supported_nodes: number;
-  unsupported_ops: Set<string>;
-}
-
-// Global active capture pointer — toggled per-run. Console wrappers are installed
-// ONCE at module load (below) so emscripten/ORT WASM modules see them, since they
-// bind console.log refs at WASM init.
-let activeCapture: CaptureState | null = null;
-
-// Temporary debug: set to true to see all messages reaching the tap
-const TAP_DEBUG = true;
-
-function tapMessage(msg: string) {
-  if (!activeCapture) return;
-  const state = activeCapture;
-
-  if (TAP_DEBUG && (msg.includes('WebNN') || msg.includes('not delegatable') || msg.includes('Unsupported'))) {
-    // Use the original log (wrapped one would recurse) — but we lost that ref here.
-    // Stash on globalThis to bypass; this is just for debugging.
-    (globalThis as any).__webnnTapDebug?.(`[TAP] ${msg.slice(0, 300)}`);
-  }
-
-  // ONNX Runtime Web: "...number of partitions supported by WebNN: 1 number of nodes in the graph: 102 number of nodes supported by WebNN: 102"
-  const ortM = msg.match(/number of partitions supported by WebNN:\s*(\d+)[\s\S]*?number of nodes in the graph:\s*(\d+)[\s\S]*?number of nodes supported by WebNN:\s*(\d+)/i);
-  if (ortM) {
-    state.partitions = +ortM[1];
-    state.total_nodes = +ortM[2];
-    state.supported_nodes = +ortM[3];
-    if (TAP_DEBUG) (globalThis as any).__webnnTapDebug?.(`[TAP-MATCH-ORT-CAP] partitions=${ortM[1]} total=${ortM[2]} supported=${ortM[3]}`);
-    return;
-  }
-  // ONNX unsupported operator (base_op_builder.cc): "Unsupported operator: Foo" / "Unsupported op type: Foo" / "Unsupported op Foo"
-  const ortOp = msg.match(/Unsupported (?:operator|op(?:\s+type)?)\s*:?\s*(\w+)/i);
-  if (ortOp) {
-    state.unsupported_ops.add(ortOp[1]);
-    if (TAP_DEBUG) (globalThis as any).__webnnTapDebug?.(`[TAP-MATCH-ORT-OP] op=${ortOp[1]}`);
-    return;
-  }
-
-  // LiteRT.js TFLite WebNN delegate: "...number of nodes in the graph: 70, number of nodes supported by WebNN: 70..."
-  // Trailing comma may be absent depending on locale/version.
-  const litertM = msg.match(/number of nodes in the graph[:\s]+(\d+)[\s,]+number of nodes supported by WebNN[:\s]+(\d+)/i);
-  if (litertM) {
-    state.total_nodes = +litertM[1];
-    state.supported_nodes = +litertM[2];
-    if (TAP_DEBUG) (globalThis as any).__webnnTapDebug?.(`[TAP-MATCH-LITERT] total=${litertM[1]} supported=${litertM[2]}`);
-    return;
-  }
-  // LiteRT: "I0530 ... graph_builder.cc:1399] SQUARE not delegatable: INVALID_ARGUMENT: Unsupported op."
-  const litertOp = msg.match(/\b([A-Z][A-Z0-9_]+)\s+not delegatable:[\s\S]*?Unsupported op/);
-  if (litertOp) {
-    state.unsupported_ops.add(litertOp[1]);
-    return;
-  }
-}
-
-function stringifyArgs(args: any[]): string {
-  return args.map(a => {
-    if (typeof a === 'string') return a;
-    try { return JSON.stringify(a); } catch { return String(a); }
-  }).join(' ');
-}
-
-// Install global console wrappers ONCE at module load. Emscripten and ORT WASM
-// resolve `console.log`/`console.error` references during WASM module init, so
-// any swap done later (e.g. inside runOrt/runLiteRt) wouldn't be seen by them.
-{
-  const orig = {
-    log: console.log.bind(console),
-    info: console.info.bind(console),
-    warn: console.warn.bind(console),
-    error: console.error.bind(console),
-    debug: console.debug.bind(console),
-    trace: console.trace.bind(console),
-  };
-  (globalThis as any).__webnnTapDebug = (msg: string) => orig.log(msg);
-  const wrap = (fn: (...a: any[]) => void) => (...args: any[]) => {
-    if (activeCapture) {
-      try { tapMessage(stringifyArgs(args)); } catch {}
-    }
-    fn(...args);
-  };
-  console.log = wrap(orig.log);
-  console.info = wrap(orig.info);
-  console.warn = wrap(orig.warn);
-  console.error = wrap(orig.error);
-  console.debug = wrap(orig.debug);
-  console.trace = wrap(orig.trace);
-}
-
-function startWebNNCapture(): { state: CaptureState; restore: () => void } {
-  const state: CaptureState = {
-    partitions: undefined,
-    total_nodes: 0,
-    supported_nodes: 0,
-    unsupported_ops: new Set<string>(),
-  };
-  activeCapture = state;
-  return {
-    state,
-    restore: () => { if (activeCapture === state) activeCapture = null; },
-  };
-}
-
-function finalizeCapture(state: CaptureState, backend: Backend): WebNNCapability | null {
-  if (TAP_DEBUG) (globalThis as any).__webnnTapDebug?.(`[TAP-FINALIZE] backend=${backend} total=${state.total_nodes} supported=${state.supported_nodes} ops=${[...state.unsupported_ops].join(',')} partitions=${state.partitions}`);
-  if (!backend.startsWith('webnn_')) return null;
-  if (state.total_nodes === 0 && state.supported_nodes === 0 && state.unsupported_ops.size === 0 && state.partitions === undefined) {
-    return null;
-  }
-  const out: WebNNCapability = {
-    total_nodes: state.total_nodes,
-    supported_nodes: state.supported_nodes,
-    unsupported_ops: [...state.unsupported_ops].sort(),
-  };
-  if (state.partitions !== undefined) out.partitions = state.partitions;
-  return out;
-}
-
-const HF_MAIN = 'https://huggingface.co';
-const HF_MIRROR = 'https://hf-mirror.com';
-const HF_TEST_PATH = '/webml/models-moved/resolve/main/01.onnx';
-const HF_BASE_TTL_MS = 10 * 60 * 1000; // 10 minutes — re-probe periodically so long sessions adapt to network changes
-let cachedHfBase: string | null = null;
-let cachedHfBaseAt = 0;
-
-async function getHfBase(): Promise<string> {
-  if (cachedHfBase && Date.now() - cachedHfBaseAt < HF_BASE_TTL_MS) {
-    return cachedHfBase;
-  }
-
-  const checkDomain = async (base: string): Promise<boolean> => {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 3000);
-    try {
-      const res = await fetch(`${base}${HF_TEST_PATH}`, {
-        method: 'HEAD',
-        signal: controller.signal,
-        cache: 'no-store',
-      });
-      clearTimeout(timeoutId);
-      return res.ok;
-    } catch {
-      clearTimeout(timeoutId);
-      return false;
-    }
-  };
-
-  if (await checkDomain(HF_MAIN)) {
-    cachedHfBase = HF_MAIN;
-    cachedHfBaseAt = Date.now();
-    return HF_MAIN;
-  }
-
-  if (await checkDomain(HF_MIRROR)) {
-    cachedHfBase = HF_MIRROR;
-    cachedHfBaseAt = Date.now();
-    return HF_MIRROR;
-  }
-
-  cachedHfBase = HF_MAIN;
-  cachedHfBaseAt = Date.now();
-  return HF_MAIN;
-}
-
 function getOrtCdnUrl(version: string): string {
   return `https://cdn.jsdelivr.net/npm/onnxruntime-web@${version}/dist/ort.jspi.min.mjs`;
 }
-
 
 function getLiteRtCdnUrl(version: string): string {
   return `https://esm.sh/@litertjs/core@${version}`;
@@ -210,28 +313,6 @@ function getOrtExecutionProvider(backend: Backend): any {
     case 'webnn_gpu': return { name: 'webnn', deviceType: 'gpu' };
     case 'webnn_npu': return { name: 'webnn', deviceType: 'npu' };
   }
-}
-
-function computeMetrics(times: number[], compilationMs: number | null, loadAndCompileMs: number | null, firstInferenceMs: number): BenchmarkMetrics {
-  const sorted = [...times].sort((a, b) => a - b);
-  const sum = sorted.reduce((a, b) => a + b, 0);
-  const avg = sum / sorted.length;
-  const median = sorted.length % 2 === 0
-    ? (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2
-    : sorted[Math.floor(sorted.length / 2)];
-  const p90Index = Math.ceil(sorted.length * 0.9) - 1;
-
-  return {
-    compilation_ms: compilationMs,
-    load_and_compile_ms: loadAndCompileMs,
-    first_inference_ms: firstInferenceMs,
-    time_to_first_ms: (compilationMs ?? loadAndCompileMs ?? 0) + firstInferenceMs,
-    average_ms: avg,
-    median_ms: median,
-    best_ms: sorted[0],
-    p90_ms: sorted[p90Index],
-    throughput_fps: 1000 / avg,
-  };
 }
 
 function post(msg: WorkerResponse) {
@@ -259,230 +340,6 @@ function flushLogs(id: string) {
   if (logBuffer.length === 0) return;
   post({ type: 'logs', id, logs: logBuffer });
   logBuffer = [];
-}
-
-function sanitizeFileName(s: string): string {
-  return s.replace(/[^a-zA-Z0-9._-]/g, '--');
-}
-
-async function getFromOPFS(fileName: string): Promise<ArrayBuffer | null> {
-  try {
-    const root = await navigator.storage.getDirectory();
-    const modelsDir = await root.getDirectoryHandle('models', { create: true });
-    const fileHandle = await modelsDir.getFileHandle(fileName);
-    const file = await fileHandle.getFile();
-    return file.arrayBuffer();
-  } catch {
-    return null;
-  }
-}
-
-async function saveToOPFS(fileName: string, data: ArrayBuffer): Promise<void> {
-  try {
-    const root = await navigator.storage.getDirectory();
-    const modelsDir = await root.getDirectoryHandle('models', { create: true });
-    const fileHandle = await modelsDir.getFileHandle(fileName, { create: true });
-    const writable = await fileHandle.createWritable();
-    await writable.write(data);
-    await writable.close();
-  } catch {}
-}
-
-// Try a single HF host. Throws on any failure so the caller can fall back.
-async function downloadFromHost(
-  base: string,
-  hfModelId: string,
-  filePath: string,
-  id: string,
-  agg?: { total: number; prior: number },
-): Promise<{ arrayBuffer: ArrayBuffer; cacheKey: string; useCache: boolean }> {
-  const url = `${base}/${hfModelId}/resolve/main/${filePath}`;
-
-  // HEAD request to get ETag for cache validation. We use ETag in the cache key
-  // so a model file changing upstream invalidates the cache automatically.
-  let etag = '';
-  let headOk = false;
-  let expectedSize = 0;
-  try {
-    const head = await fetch(url, { method: 'HEAD' });
-    if (head.ok) {
-      headOk = true;
-      etag = (head.headers.get('etag') ?? '').replace(/"/g, '');
-      expectedSize = Number(head.headers.get('content-length') ?? 0);
-    }
-  } catch {}
-
-  const useCache = headOk && etag !== '';
-  const cacheKey = useCache
-    ? sanitizeFileName(`${hfModelId}--${filePath}--${etag}`)
-    : '';
-
-  if (useCache) {
-    const cached = await getFromOPFS(cacheKey);
-    if (cached) {
-      if (expectedSize > 0 && cached.byteLength !== expectedSize) {
-        log(id, `Cache size mismatch (${cached.byteLength} vs ${expectedSize}), refetching`);
-      } else {
-        log(id, `Loaded from OPFS cache (${(cached.byteLength / 1_048_576).toFixed(1)} MB)`);
-        return { arrayBuffer: cached, cacheKey, useCache };
-      }
-    }
-  }
-
-  log(id, `Fetching model from ${url}`);
-  const response = await fetch(url);
-  if (!response.ok) throw new Error(`Download failed: ${response.status}`);
-
-  const contentLength = Number(response.headers.get('content-length') ?? 0);
-  const reader = response.body!.getReader();
-  const chunks: Uint8Array[] = [];
-  let loaded = 0;
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    chunks.push(value);
-    loaded += value.byteLength;
-    const aggLoaded = agg ? agg.prior + loaded : loaded;
-    const aggTotal = agg ? agg.total : contentLength;
-    post({
-      type: 'progress',
-      id,
-      progress: {
-        model_id: hfModelId,
-        file_path: filePath,
-        loaded_bytes: aggLoaded,
-        total_bytes: aggTotal,
-        percent: aggTotal > 0 ? (aggLoaded / aggTotal) * 100 : 0,
-      },
-    });
-  }
-
-  if (contentLength > 0 && loaded !== contentLength) {
-    throw new Error(`Truncated download: received ${loaded} of ${contentLength} bytes`);
-  }
-
-  const buffer = new Uint8Array(loaded);
-  let offset = 0;
-  for (const chunk of chunks) {
-    buffer.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-  return { arrayBuffer: buffer.buffer, cacheKey, useCache };
-}
-
-async function downloadSingleFile(
-  base: string,
-  fallback: string,
-  hfModelId: string,
-  filePath: string,
-  id: string,
-  agg?: { total: number; prior: number },
-): Promise<{ arrayBuffer: ArrayBuffer; cacheKey: string; useCache: boolean }> {
-  try {
-    return await downloadFromHost(base, hfModelId, filePath, id, agg);
-  } catch (primaryErr: any) {
-    log(id, `Primary ${base} failed (${primaryErr?.message ?? primaryErr}); retrying via ${fallback}`);
-    cachedHfBase = null;
-    cachedHfBaseAt = 0;
-    try {
-      const result = await downloadFromHost(fallback, hfModelId, filePath, id, agg);
-      cachedHfBase = fallback;
-      cachedHfBaseAt = Date.now();
-      return result;
-    } catch (fallbackErr: any) {
-      throw new Error(`Both ${base} and ${fallback} failed: ${primaryErr?.message ?? primaryErr} / ${fallbackErr?.message ?? fallbackErr}`);
-    }
-  }
-}
-
-// Probe for .onnx_data sidecar files. Returns paths that exist (HTTP 200/206 HEAD).
-// ORT Web names them: <basename>.onnx_data, <basename>.onnx_data_1, ..., <basename>.onnx_data_N.
-async function probeSidecars(base: string, hfModelId: string, mainFilePath: string): Promise<string[]> {
-  const dir = mainFilePath.includes('/') ? mainFilePath.slice(0, mainFilePath.lastIndexOf('/') + 1) : '';
-  const fileBase = mainFilePath.replace(/\.onnx$/, '');
-  const sidecars: string[] = [];
-
-  const probe = async (path: string): Promise<boolean> => {
-    try {
-      const res = await fetch(`${base}/${hfModelId}/resolve/main/${path}`, { method: 'HEAD' });
-      return res.ok;
-    } catch {
-      return false;
-    }
-  };
-
-  // Check base sidecar
-  const basePath = `${fileBase}.onnx_data`;
-  if (await probe(basePath)) {
-    sidecars.push(basePath);
-    // Check numbered sidecars until one is missing
-    for (let i = 1; i <= 99; i++) {
-      const numberedPath = `${fileBase}.onnx_data_${i}`;
-      if (await probe(numberedPath)) {
-        sidecars.push(numberedPath);
-      } else {
-        break;
-      }
-    }
-  }
-  return sidecars;
-}
-
-interface DownloadedBundle {
-  modelBuffer: ArrayBuffer;
-  externalData: { path: string; data: ArrayBuffer }[];
-}
-
-async function downloadModel(hfModelId: string, filePath: string, id: string): Promise<DownloadedBundle> {
-  const primary = await getHfBase();
-  const fallback = primary === HF_MAIN ? HF_MIRROR : HF_MAIN;
-
-  // Probe for external data sidecars before downloading
-  const sidecarPaths = filePath.endsWith('.onnx') ? await probeSidecars(primary, hfModelId, filePath) : [];
-  if (sidecarPaths.length > 0) {
-    log(id, `Found ${sidecarPaths.length} external data sidecar(s): ${sidecarPaths.join(', ')}`);
-  }
-
-  // Collect total sizes for aggregate progress bar via HEAD requests
-  let totalBytes = 0;
-  const allPaths = [filePath, ...sidecarPaths];
-  for (const p of allPaths) {
-    try {
-      const res = await fetch(`${primary}/${hfModelId}/resolve/main/${p}`, { method: 'HEAD' });
-      totalBytes += Number(res.headers.get('content-length') ?? 0);
-    } catch {}
-  }
-
-  // Download main model
-  let priorBytes = 0;
-  const mainResult = await downloadSingleFile(primary, fallback, hfModelId, filePath, id,
-    totalBytes > 0 ? { total: totalBytes, prior: priorBytes } : undefined);
-  if (mainResult.useCache) {
-    await saveToOPFS(mainResult.cacheKey, mainResult.arrayBuffer);
-    log(id, `Saved ${filePath} to OPFS cache`);
-  } else {
-    log(id, `HEAD unavailable — bypassing OPFS cache for ${filePath}`);
-  }
-  priorBytes += mainResult.arrayBuffer.byteLength;
-
-  // Download sidecars
-  const externalData: { path: string; data: ArrayBuffer }[] = [];
-  for (const sidecarPath of sidecarPaths) {
-    const sidecarResult = await downloadSingleFile(primary, fallback, hfModelId, sidecarPath, id,
-      totalBytes > 0 ? { total: totalBytes, prior: priorBytes } : undefined);
-    if (sidecarResult.useCache) {
-      await saveToOPFS(sidecarResult.cacheKey, sidecarResult.arrayBuffer);
-      log(id, `Saved ${sidecarPath} to OPFS cache`);
-    }
-    // ORT Web expects the path key to match what's encoded inside the .onnx file —
-    // typically just the filename without directory prefix.
-    const sidecarName = sidecarPath.includes('/') ? sidecarPath.slice(sidecarPath.lastIndexOf('/') + 1) : sidecarPath;
-    externalData.push({ path: sidecarName, data: sidecarResult.arrayBuffer });
-    priorBytes += sidecarResult.arrayBuffer.byteLength;
-  }
-
-  return { modelBuffer: mainResult.arrayBuffer, externalData };
 }
 
 async function runOrt(req: WorkerRequest, bundle: DownloadedBundle): Promise<TestResult> {
