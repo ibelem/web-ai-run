@@ -120,14 +120,10 @@
   let showAdminMenu = $state(false);
   let showLeaderboardMenu = $state(false);
   let showMobileAdmin = $state(false);
-  let showRecipeMenu = $state(false);
-  let showResultsMenu = $state(false);
 
   function closeMobileMenu() {
     showMobileMenu = false;
     showMobileAdmin = false;
-    showRecipeMenu = false;
-    showResultsMenu = false;
   }
 
   const navItems = $derived([

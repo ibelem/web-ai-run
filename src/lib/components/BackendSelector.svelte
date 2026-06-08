@@ -4,6 +4,14 @@
 
   let { selected = $bindable([]), available = [], backends: backendList = BACKENDS }: { selected: Backend[]; available: Backend[]; backends?: typeof BACKENDS } = $props();
 
+  const ROW_1: Backend[] = ['wasm_1', 'wasm_n', 'webnn_cpu'];
+  const ROW_2: Backend[] = ['webgpu', 'webnn_gpu', 'webnn_npu'];
+
+  const rows = $derived([
+    ROW_1.map((id) => backendList.find((b) => b.id === id)).filter((b): b is typeof BACKENDS[number] => !!b),
+    ROW_2.map((id) => backendList.find((b) => b.id === id)).filter((b): b is typeof BACKENDS[number] => !!b),
+  ]);
+
   function toggle(id: Backend) {
     if (selected.includes(id)) {
       selected = selected.filter((b) => b !== id);
@@ -22,21 +30,27 @@
 
 <div class="backend-selector">
   <span class="config-label">Backends</span>
-  <div class="segment-group">
-    {#each backendList as backend}
-      {@const avail = available.includes(backend.id)}
-      <button
-        class="segment-btn"
-        class:active={selected.includes(backend.id)}
-        class:unavailable={!avail}
-        disabled={!avail}
-        onclick={() => toggle(backend.id)}
-        title={avail ? backend.description : `${unavailableReason(backend)} ${backend.description}`}
-        aria-label="{backend.label} ({avail ? 'available' : 'unavailable'})"
-      >
-        {backend.label}
-        {#if !avail}<span class="na-tag" aria-hidden="true">N/A</span>{/if}
-      </button>
+  <div class="backend-rows">
+    {#each rows as row}
+      {#if row.length > 0}
+        <div class="segment-group">
+          {#each row as backend}
+            {@const avail = available.includes(backend.id)}
+            <button
+              class="segment-btn"
+              class:active={selected.includes(backend.id)}
+              class:unavailable={!avail}
+              disabled={!avail}
+              onclick={() => toggle(backend.id)}
+              title={avail ? backend.description : `${unavailableReason(backend)} ${backend.description}`}
+              aria-label="{backend.label} ({avail ? 'available' : 'unavailable'})"
+            >
+              {backend.label}
+              {#if !avail}<span class="na-tag" aria-hidden="true">N/A</span>{/if}
+            </button>
+          {/each}
+        </div>
+      {/if}
     {/each}
   </div>
 </div>
@@ -56,12 +70,25 @@
     color: var(--color-text-muted);
   }
 
+  .backend-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
   .segment-group {
     display: flex;
     align-items: stretch;
     width: 100%;
     border-radius: var(--radius-base);
     overflow: hidden;
+  }
+
+  /* When rows are flush (gap: 0), the bottom border of row N and the
+     top border of row N+1 stack to 2px. Drop the top border on every
+     row after the first so a single 1px line sits between rows. */
+  .backend-rows .segment-group + .segment-group .segment-btn {
+    border-top: none;
   }
 
   .segment-btn {

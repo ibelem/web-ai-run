@@ -23,6 +23,7 @@
 
   // ── Hash-based URL state (shareable links) ───────────────────────────────
   const TOKEN_OPTIONS = [32, 64, 128, 256, 512, 1024, 2048];
+  const RUN_OPTIONS = [1, 3, 5, 10];
 
   interface ParsedHash {
     models: LLMRecipeModel[];
@@ -54,7 +55,8 @@
     const rawBackend = h.get('backend') ?? '';
     const validBackends: LLMBackend[] = ['wasm', 'webgpu', 'webnn_cpu', 'webnn_gpu', 'webnn_npu'];
     const parsedBackend = validBackends.includes(rawBackend as LLMBackend) ? rawBackend as LLMBackend : 'webgpu';
-    const parsedRuns = Math.max(1, Math.min(10, parseInt(h.get('runs') ?? '3', 10) || 3));
+    const rawRuns = parseInt(h.get('runs') ?? '', 10);
+    const parsedRuns = RUN_OPTIONS.includes(rawRuns) ? rawRuns : 3;
     const parseTokenOpt = (s: string | null, fallback: number, allowZero = false) => {
       const n = parseInt(s ?? '', 10);
       if (allowZero && n === 0) return 0;
@@ -217,7 +219,7 @@
   const warnings = $derived<WarnKind[]>([
     ...(saveResults && !$isAuthenticated ? ['login_save' as const] : []),
     ...(saveResults && $isAuthenticated && (!cpuModel.trim() || !osModel.trim()) ? ['cpu_os' as const] : []),
-    ...(saveResults && $isAuthenticated && isAtLeast($auth.role ?? 'anonymous', 'intel') && (!gpuDriverVersion.trim() || !npuDriverVersion.trim()) ? ['drivers' as const] : []),
+    ...(saveResults && $isAuthenticated && isAtLeast($auth.role ?? 'anonymous', 'intel') && (!gpuDriverVersion.trim() || (backend === 'webnn_npu' && !npuDriverVersion.trim())) ? ['drivers' as const] : []),
     ...(webnnEpRequired ? ['webnn_ep' as const] : []),
     ...(models.length === 0 ? ['no_models' as const] : []),
   ]);
@@ -642,8 +644,8 @@
     </section>
   {/if}
 
-  {#if results.some(r => r.result || r.error)}
-    <section class="results-section" class:results-section-running={isRunning}>
+  {#if isRunning && results.some(r => r.result || r.error)}
+    <section class="results-section results-section-running">
       <div class="results-export-row">
         <div class="export-group">
           <span class="export-group-icon" title="Copy results">
@@ -727,165 +729,29 @@
     </div>
   {/if}
 
-  {#if runLogs.length > 0 && !isRunning}
-    <section class="logs-section">
-      <div class="logs-header">
-        <h3 class="logs-title">Logs ({runLogs.length})</h3>
-        <div class="export-group">
-          <span class="export-group-icon">
-            {#if logsCopied}
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-            {:else}
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-            {/if}
-          </span>
-          <button class="export-group-btn" class:active={logsCopied} onclick={async () => {
-            await navigator.clipboard.writeText(runLogs.join('\n'));
-            logsCopied = true;
-            setTimeout(() => { logsCopied = false; }, 2000);
-          }}>
-            {logsCopied ? 'Copied!' : 'Copy'}
-          </button>
-        </div>
-      </div>
-      <div class="logs-container" bind:this={logsEl}>
-        {#each runLogs as logLine}
-          <div class="log-line">{logLine}</div>
-        {/each}
-      </div>
-    </section>
-  {/if}
-
   {#if !isRunning}
-    <section class="config-section">
-      {#if models.length === 0}
-        <div class="empty-models">
-          {#if data.recipes && data.recipes.length > 0}
-            <p class="empty-hint">Select a recipe to run:</p>
-            <ul class="recipe-pick-list">
-              {#each data.recipes as r (r.id)}
-                <li>
-                  <button class="recipe-pick-btn" onclick={() => {
-                    models = (r.models ?? []).map((m: any) => ({ hf_model_id: m.hf_model_id, data_type: m.data_type, size_bytes: m.size_bytes }));
-                  }}>
-                    <span class="recipe-pick-name">{r.name}</span>
-                    <span class="recipe-pick-count">{(r.models ?? []).length} model{(r.models ?? []).length !== 1 ? 's' : ''}</span>
-                  </button>
-                </li>
-              {/each}
-            </ul>
-            <p class="empty-or">or <a href="/recipe-llm/new">create a recipe</a> · <a href="/recipe-llm">browse all</a></p>
-          {:else}
-            <p>No LLM recipes yet. <a href="/recipe-llm/new">Create a recipe</a> or use <code>/run-llm#llm=org/repo|dtype</code></p>
-          {/if}
-        </div>
-      {:else}
-        <div class="zone">
-          <div class="zone-label">
-            LLMs
-            <span class="count-badge">{models.length}</span>
+    <section class="config-section run-layout">
+      <aside class="run-sidebar">
+        {#if environment}
+          <div class="detected-strip">
+            <span class="detected-chip" title={environment.gpu}>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><line x1="6" y1="22" x2="18" y2="22"/><line x1="12" y1="18" x2="12" y2="22"/></svg>
+              <strong>{environment.gpu}</strong>
+            </span>
+            <span class="detected-chip" title="{environment.browser} {environment.browser_version}">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/><line x1="21.17" y1="8" x2="12" y2="8"/><line x1="3.95" y1="6.06" x2="8.54" y2="14"/><line x1="10.88" y1="21.94" x2="15.46" y2="14"/></svg>
+              <strong>{environment.browser.replace(/^(Google|Microsoft|Apple|Mozilla)\s+/, '')} {environment.browser_version}</strong>
+            </span>
           </div>
-          <ul class="model-list">
-            {#each models as m, i}
-              <li class="model-item">
-                <div class="model-item-left">
-                  <span class="model-item-repo">{m.hf_model_id}</span>
-                </div>
-                <span class="dtype-chip" data-dtype={m.data_type}>{m.data_type}</span>
-                <button class="remove-btn" onclick={() => { models = models.filter((_, idx) => idx !== i); }} aria-label="Remove">
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round">
-                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-                  </svg>
-                </button>
-              </li>
-            {/each}
-          </ul>
-        </div>
-      {/if}
-
-      <div class="config-row">
-        <div class="config-item config-item-backend">
-          <BackendSelector
-            bind:selected={selectedBackends}
-            available={availableBackends.filter(b => b !== 'wasm_n')}
-            backends={BACKENDS.filter(b => b.id !== 'wasm_n')}
-          />
-        </div>
-
-        <div class="config-item">
-          <span class="env-label">Transformers.js</span>
-          <select class="version-select" bind:value={transformersVersion}>
-            {#each transformersVersions as v}<option value={v}>{v}</option>{/each}
-            {#if !transformersVersions.includes(transformersVersion)}
-              <option value={transformersVersion}>{transformersVersion}</option>
-            {/if}
-          </select>
-        </div>
-
-        <div class="config-item">
-          <span class="env-label" title="Synthesize a prompt of exactly this many tokens (like onnxruntime-genai -l). Larger = more prefill work, longer TTFT. Set to 'Custom' to use your typed prompt verbatim (not reproducible across users).">Prompt tokens</span>
-          <select class="version-select" bind:value={promptTokens}>
-            <option value={0}>Custom</option>
-            {#each TOKEN_OPTIONS as t}<option value={t}>{t}</option>{/each}
-          </select>
-        </div>
-
-        <div class="config-item">
-          <span class="env-label" title="max_new_tokens passed to model.generate(). Larger = longer decode phase, more stable TPS measurement.">Output tokens</span>
-          <select class="version-select" bind:value={maxNewTokens}>
-            {#each TOKEN_OPTIONS as t}<option value={t}>{t}</option>{/each}
-          </select>
-        </div>
-
-        <div class="config-item">
-          <span class="env-label">Runs</span>
-          <input class="version-select num-input" type="number" min="1" max="10" bind:value={runs} />
-        </div>
-      </div>
-
-      <div class="env-row env-row-prompt">
-        <span class="env-label" title={promptTokens > 0 ? 'Preview of the synthetic prompt — the worker re-truncates to exactly the chosen count using the model\'s actual tokenizer, so reproducibility is exact across users.' : 'Used as-is when Prompt tokens is "Custom".'}>Prompt{#if promptTokens > 0}<span class="prompt-disabled-badge">benchmark · ~{promptTokens} tok</span>{/if}</span>
-        {#if promptTokens > 0}
-          <div class="prompt-readonly-wrap">
-            <textarea
-              class="prompt-input"
-              rows="3"
-              value={promptPreview}
-              readonly
-              title={`Synthetic ${promptTokens}-token prompt — preview only. The worker re-tokenizes with the model's actual tokenizer to get exactly ${promptTokens} tokens.`}
-            ></textarea>
-            <button
-              type="button"
-              class="prompt-switch-btn"
-              onclick={() => { promptTokens = 0; }}
-              title="Switch Prompt tokens to Custom and edit your own prompt"
-            >Switch to Custom to ask a real question →</button>
-          </div>
-        {:else}
-          <textarea
-            class="prompt-input"
-            rows="3"
-            bind:value={prompt}
-          ></textarea>
         {/if}
-      </div>
-      {#if promptTokens > 0}
-        <p class="prompt-hint">
-          Preview shows the synthetic stub repeated to ~{promptTokens} tokens; the worker re-truncates to exactly {promptTokens} using the model's tokenizer. Output text is meaningless by design — only TTFT, TPS, and decode time are the measurements that matter.
-        </p>
-      {:else}
-        <p class="prompt-hint">
-          Custom mode: your prompt is used verbatim. Output tokens is an <strong>upper bound</strong> — the model may stop earlier if it emits an end-of-sequence token, so TPS / decode time can be noisy at small token counts. Not directly comparable to other users' runs.
-        </p>
-      {/if}
 
-      {#if saveResults || environment}
-        <div class="env-rows env-rows-save">
-          {#if saveResults}
-            <div class="env-row">
-              <span class="env-label">CPU<span class="req-badge" class:req-done={cpuModel.trim()}>req</span></span>
+        {#if saveResults}
+          <div class="sb-section">
+            <div class="sb-section-head"><span class="sb-section-title">Hardware</span></div>
+            <div class="sb-row">
+              <span class="sb-label">CPU<span class="req-badge" class:req-done={cpuModel.trim()}>req</span></span>
               <input
-                class="cpu-input"
+                class="sb-input"
                 class:input-warn={!cpuModel.trim()}
                 type="text"
                 list="cpu-model-list"
@@ -896,38 +762,10 @@
                 {#each CPU_MODELS as m}<option value={m}></option>{/each}
               </datalist>
             </div>
-          {/if}
-          {#if environment}
-            <div class="env-row">
-              <span class="env-label">GPU</span>
-              <span class="env-value">{environment.gpu}</span>
-            </div>
-          {/if}
-          {#if saveResults}
-            <div class="env-row">
-              <span class="env-label">GPU Driver{#if isAtLeast($auth.role ?? 'anonymous', 'intel')}<span class="req-badge" class:req-done={gpuDriverVersion.trim()}>req</span>{/if}</span>
+            <div class="sb-row">
+              <span class="sb-label">OS<span class="req-badge" class:req-done={osModel.trim()}>req</span></span>
               <input
-                class="cpu-input"
-                class:input-warn={isAtLeast($auth.role ?? 'anonymous', 'intel') && !gpuDriverVersion.trim()}
-                type="text"
-                placeholder="e.g. 32.0.101.8824"
-                bind:value={gpuDriverVersion}
-              />
-            </div>
-            <div class="env-row">
-              <span class="env-label">NPU Driver{#if isAtLeast($auth.role ?? 'anonymous', 'intel')}<span class="req-badge" class:req-done={npuDriverVersion.trim()}>req</span>{/if}</span>
-              <input
-                class="cpu-input"
-                class:input-warn={isAtLeast($auth.role ?? 'anonymous', 'intel') && !npuDriverVersion.trim()}
-                type="text"
-                placeholder="e.g. 32.0.100.4778"
-                bind:value={npuDriverVersion}
-              />
-            </div>
-            <div class="env-row">
-              <span class="env-label">OS<span class="req-badge" class:req-done={osModel.trim()}>req</span></span>
-              <input
-                class="cpu-input"
+                class="sb-input"
                 class:input-warn={!osModel.trim()}
                 type="text"
                 list="os-model-list"
@@ -938,20 +776,49 @@
                 {#each OS_MODELS as o}<option value={o}></option>{/each}
               </datalist>
             </div>
-          {/if}
-          {#if environment}
-            <div class="env-row">
-              <span class="env-label">Browser</span>
-              <span class="env-value">{environment.browser} {environment.browser_version}</span>
+            <div class="sb-row">
+              <span class="sb-label">GPU drv{#if isAtLeast($auth.role ?? 'anonymous', 'intel')}<span class="req-badge" class:req-done={gpuDriverVersion.trim()}>req</span>{/if}</span>
+              <input
+                class="sb-input"
+                class:input-warn={isAtLeast($auth.role ?? 'anonymous', 'intel') && !gpuDriverVersion.trim()}
+                type="text"
+                placeholder="e.g. 32.0.101.8824"
+                bind:value={gpuDriverVersion}
+              />
             </div>
-          {/if}
+            {#if backend === 'webnn_npu'}
+              <div class="sb-row">
+                <span class="sb-label">NPU drv{#if isAtLeast($auth.role ?? 'anonymous', 'intel')}<span class="req-badge" class:req-done={npuDriverVersion.trim()}>req</span>{/if}</span>
+                <input
+                  class="sb-input"
+                  class:input-warn={isAtLeast($auth.role ?? 'anonymous', 'intel') && !npuDriverVersion.trim()}
+                  type="text"
+                  placeholder="e.g. 32.0.100.4778"
+                  bind:value={npuDriverVersion}
+                />
+              </div>
+            {/if}
+          </div>
+        {/if}
+
+        <div class="sb-section">
+          <div class="sb-section-head"><span class="sb-section-title">Runtime</span></div>
+          <div class="sb-row">
+            <span class="sb-label">Transformers.js</span>
+            <select class="sb-input" bind:value={transformersVersion}>
+              {#each transformersVersions as v}<option value={v}>{v}</option>{/each}
+              {#if !transformersVersions.includes(transformersVersion)}
+                <option value={transformersVersion}>{transformersVersion}</option>
+              {/if}
+            </select>
+          </div>
           {#if saveResults && backend.startsWith('webnn_')}
-            <div class="env-row">
-              <span class="env-label">WebNN EP{#if isAtLeast($auth.role ?? 'anonymous', 'intel')}<span class="req-badge" class:req-done={!!webnnEp}>req</span>{/if}<span
+            <div class="sb-row">
+              <span class="sb-label">WebNN EP{#if isAtLeast($auth.role ?? 'anonymous', 'intel')}<span class="req-badge" class:req-done={!!webnnEp}>req</span>{/if}<span
                 class="ep-help"
                 title={'Not sure which EP to pick?\nOpen chrome://webnn-internals/ in a new tab, run the model once, then check the "Active Contexts" tab — the Runtime Backend and selected Execution Provider are listed there.'}
                 tabindex="0">?</span></span>
-              <select class="version-select" class:input-warn={webnnEpRequired} bind:value={webnnEp}>
+              <select class="sb-input" class:input-warn={webnnEpRequired} bind:value={webnnEp}>
                 {#each WEBNN_EP_OPTIONS as opt}
                   <option value={opt.value}>{opt.label}</option>
                 {/each}
@@ -959,41 +826,260 @@
             </div>
           {/if}
         </div>
-      {/if}
 
-      <div class="actions">
-        <label class="save-toggle">
-          <input type="checkbox" bind:checked={saveResults} />
-          <span class="save-toggle-text">Upload results</span>
-        </label>
-        <div class="run-action-row">
-          <button
-            class="btn-primary"
-            onclick={runAll}
-            disabled={models.length === 0 || (saveResults && (!$isAuthenticated || !cpuModel.trim() || !osModel.trim() || webnnEpRequired || (isAtLeast($auth.role ?? 'anonymous', 'intel') && (!gpuDriverVersion.trim() || !npuDriverVersion.trim()))))}
-            title="Ctrl+Enter"
-          >
-            Run Benchmark <kbd class="kbd-hint">Ctrl+Enter</kbd>
-          </button>
+        <div class="sb-section">
+          <div class="sb-section-head"><span class="sb-section-title">Test</span></div>
+          <BackendSelector
+            bind:selected={selectedBackends}
+            available={availableBackends.filter(b => b !== 'wasm_n')}
+            backends={BACKENDS.filter(b => b.id !== 'wasm_n')}
+          />
+          <div class="sb-row">
+            <span class="sb-label" title="Synthesize a prompt of exactly this many tokens (like onnxruntime-genai -l). Larger = more prefill work, longer TTFT. Set to 'Custom' to use your typed prompt verbatim (not reproducible across users).">Prompt</span>
+            <select class="sb-input" bind:value={promptTokens}>
+              <option value={0}>Custom</option>
+              {#each TOKEN_OPTIONS as t}<option value={t}>{t}</option>{/each}
+            </select>
+          </div>
+          <div class="sb-row">
+            <span class="sb-label" title="max_new_tokens passed to model.generate(). Larger = longer decode phase, more stable TPS measurement.">Output</span>
+            <select class="sb-input" bind:value={maxNewTokens}>
+              {#each TOKEN_OPTIONS as t}<option value={t}>{t}</option>{/each}
+            </select>
+          </div>
+          <div class="sb-row sb-row-stack runs-row">
+            <span class="sb-label">Runs</span>
+            <div class="segment-group runs-segment">
+              {#each RUN_OPTIONS as opt}
+                <button
+                  class="segment-btn"
+                  class:active={runs === opt}
+                  onclick={() => (runs = opt)}
+                >{opt}</button>
+              {/each}
+            </div>
+          </div>
         </div>
-        {#if warnings.length > 0}
-          <ul class="action-hint-list">
-            {#each warnings as w}
-              <li class="action-hint" class:action-hint-warn={w !== 'no_models'}>
-                {#if w === 'login_save'}
-                  <a href="/login">Sign in</a> to save results — CPU, GPU, and hardware info make your performance data meaningful.
-                {:else if w === 'cpu_os'}
-                  Fill in your CPU and OS above to enable result upload.
-                {:else if w === 'drivers'}
-                  GPU Driver and NPU Driver versions are required for intel/admin roles.
-                {:else if w === 'webnn_ep'}
-                  Pick a WebNN Execution Provider above — required for intel/admin roles when running a WebNN backend.
-                {:else if w === 'no_models'}
-                  No LLMs selected. <a href="/recipe-llm">Choose a recipe</a>.
-                {/if}
-              </li>
-            {/each}
-          </ul>
+
+        <div class="actions">
+          <label class="save-toggle">
+            <input type="checkbox" bind:checked={saveResults} />
+            <span class="save-toggle-text">Upload results</span>
+          </label>
+          <div class="run-action-row">
+            <button
+              class="btn-primary"
+              onclick={runAll}
+              disabled={models.length === 0 || (saveResults && (!$isAuthenticated || !cpuModel.trim() || !osModel.trim() || webnnEpRequired || (isAtLeast($auth.role ?? 'anonymous', 'intel') && (!gpuDriverVersion.trim() || (backend === 'webnn_npu' && !npuDriverVersion.trim())))))}
+              title="Ctrl+Enter"
+            >
+              Run Benchmark <kbd class="kbd-hint">Ctrl+Enter</kbd>
+            </button>
+          </div>
+          {#if warnings.length > 0}
+            <ul class="action-hint-list">
+              {#each warnings as w}
+                <li class="action-hint" class:action-hint-warn={w !== 'no_models'}>
+                  {#if w === 'login_save'}
+                    <a href="/login">Sign in</a> to save results. The CPU, GPU and hardware details help put your performance scores in context.
+                  {:else if w === 'cpu_os'}
+                    Add hardware details. Providing CPU, GPU and system info helps make benchmark results more useful and comparable.
+                  {:else if w === 'drivers'}
+                    Provide GPU and NPU driver versions to continue. This is required for Intel accounts.
+                  {:else if w === 'webnn_ep'}
+                    Choose an Execution Provider from the sidebar to run the WebNN backend. Required for Intel accounts.
+                  {:else if w === 'no_models'}
+                    No LLMs selected. <a href="/recipe-llm">Choose a recipe</a> to load one or more language models before running a benchmark.
+                  {/if}
+                </li>
+              {/each}
+            </ul>
+          {/if}
+        </div>
+      </aside>
+
+      <div class="run-main">
+        {#if results.some(r => r.result || r.error)}
+          <div class="zone">
+            <div class="zone-label">
+              Results
+              <span class="count-badge">{results.filter(r => r.result || r.error).length}</span>
+            </div>
+            <div class="results-export-row">
+              <div class="export-group">
+                <span class="export-group-icon" title="Copy results">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                </span>
+                <button class="export-group-btn" class:active={copiedFlag === 'md'}   onclick={() => copy('md')}   title="Copy results as Markdown">{copiedFlag === 'md' ? 'Copied!' : 'MD'}</button>
+                <button class="export-group-btn" class:active={copiedFlag === 'json'} onclick={() => copy('json')} title="Copy results as JSON">{copiedFlag === 'json' ? 'Copied!' : 'JSON'}</button>
+                <button class="export-group-btn" class:active={copiedFlag === 'csv'}  onclick={() => copy('csv')}  title="Copy results as CSV">{copiedFlag === 'csv' ? 'Copied!' : 'CSV'}</button>
+              </div>
+              <div class="export-group">
+                <span class="export-group-icon" title="Download results">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                </span>
+                <button class="export-group-btn" onclick={() => download('md')}   title="Download results as Markdown">MD</button>
+                <button class="export-group-btn" onclick={() => download('json')} title="Download results as JSON">JSON</button>
+                <button class="export-group-btn" onclick={() => download('csv')}  title="Download results as CSV">CSV</button>
+              </div>
+            </div>
+            <div class="results-table-wrap">
+              <table class="results-table">
+                <thead>
+                  <tr>
+                    <th class="col-model">Model</th>
+                    <th>dtype</th>
+                    <th>Backend</th>
+                    <th class="col-num" title="Compilation time (ms)">Compilation</th>
+                    <th class="col-num" title="Time To First Token (ms)">TTFT</th>
+                    <th class="col-num" title="Tokens Per Second — decode-phase rate (tokens/s)">TPS</th>
+                    <th class="col-num" title="Throughput — end-to-end token rate (tokens/s)">Throughput</th>
+                    <th class="col-num" title="Time Per Output Token (ms)">TPOT</th>
+                    <th class="col-num" title="Decode time (ms)">Decode</th>
+                    <th class="col-num" title="End-to-end time (ms)">E2E</th>
+                    <th class="col-num" title="Output tokens generated per run.">Tokens</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {#each results as r}
+                    {#if r.result || r.error}
+                      <tr class:result-row-error={!!r.error}>
+                        <td class="col-model" title={r.model.hf_model_id}>{r.model.hf_model_id}</td>
+                        <td><span class="dtype-chip" data-dtype={r.model.data_type}>{r.model.data_type}</span></td>
+                        <td>{backend}</td>
+                        {#if r.result}
+                          <td class="col-num">{fmt(r.result.compilationMs, 0, ' ms')}</td>
+                          <td class="col-num">{fmtAvgStd(r.result.ttftMs, r.result.ttftStddevMs, 0, ' ms')}</td>
+                          <td class="col-num">{fmtAvgStd(r.result.tps, r.result.tpsStddev, 1, ' tok/s')}</td>
+                          <td class="col-num">{fmt(r.result.e2eTps, 1, ' tok/s')}</td>
+                          <td class="col-num">{fmt(r.result.tpotMs, 1, ' ms')}</td>
+                          <td class="col-num">{fmt(r.result.decodeMs, 0, ' ms')}</td>
+                          <td class="col-num">{fmtAvgStd(r.result.e2eMs, r.result.e2eStddevMs, 0, ' ms')}</td>
+                          <td class="col-num">{r.result.outputTokens}</td>
+                        {:else}
+                          <td class="col-error-msg" colspan="8">{r.error}</td>
+                        {/if}
+                      </tr>
+                    {/if}
+                  {/each}
+                </tbody>
+              </table>
+            </div>
+            <p class="results-footer">{runs} run{runs !== 1 ? 's' : ''} · TTFT/TPS/E2E shown as avg ± stddev</p>
+          </div>
+        {/if}
+
+        {#if runLogs.length > 0}
+          <div class="zone">
+            <div class="zone-label">
+              Logs
+              <span class="count-badge">{runLogs.length}</span>
+              <div class="zone-label-actions">
+                <div class="export-group">
+                  <span class="export-group-icon">
+                    {#if logsCopied}
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    {:else}
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                    {/if}
+                  </span>
+                  <button class="export-group-btn" class:active={logsCopied} onclick={async () => {
+                    await navigator.clipboard.writeText(runLogs.join('\n'));
+                    logsCopied = true;
+                    setTimeout(() => { logsCopied = false; }, 2000);
+                  }}>
+                    {logsCopied ? 'Copied!' : 'Copy'}
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div class="logs-container" bind:this={logsEl}>
+              {#each runLogs as logLine}
+                <div class="log-line">{logLine}</div>
+              {/each}
+            </div>
+          </div>
+        {/if}
+
+        {#if models.length === 0}
+          <div class="empty-models">
+            {#if data.recipes && data.recipes.length > 0}
+              <p class="empty-hint">Select a recipe to run:</p>
+              <ul class="recipe-pick-list">
+                {#each data.recipes as r (r.id)}
+                  <li>
+                    <button class="recipe-pick-btn" onclick={() => {
+                      models = (r.models ?? []).map((m: any) => ({ hf_model_id: m.hf_model_id, data_type: m.data_type, size_bytes: m.size_bytes }));
+                    }}>
+                      <span class="recipe-pick-name">{r.name}</span>
+                      <span class="recipe-pick-count">{(r.models ?? []).length} model{(r.models ?? []).length !== 1 ? 's' : ''}</span>
+                    </button>
+                  </li>
+                {/each}
+              </ul>
+              <p class="empty-or">or <a href="/recipe-llm/new">create a recipe</a> · <a href="/recipe-llm">browse all</a></p>
+            {:else}
+              <p>No LLM recipes yet. <a href="/recipe-llm/new">Create a recipe</a> or use <code>/run-llm#llm=org/repo|dtype</code></p>
+            {/if}
+          </div>
+        {:else}
+          <div class="zone">
+            <div class="zone-label">
+              LLMs
+              <span class="count-badge">{models.length}</span>
+            </div>
+            <ul class="model-list">
+              {#each models as m, i}
+                <li class="model-item">
+                  <div class="model-item-left">
+                    <span class="model-item-repo">{m.hf_model_id}</span>
+                  </div>
+                  <span class="dtype-chip" data-dtype={m.data_type}>{m.data_type}</span>
+                  <button class="remove-btn" onclick={() => { models = models.filter((_, idx) => idx !== i); }} aria-label="Remove">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round">
+                      <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                  </button>
+                </li>
+              {/each}
+            </ul>
+          </div>
+        {/if}
+
+        <div class="env-row env-row-prompt">
+          <span class="env-label" title={promptTokens > 0 ? 'Preview of the synthetic prompt — the worker re-truncates to exactly the chosen count using the model\'s actual tokenizer, so reproducibility is exact across users.' : 'Used as-is when Prompt tokens is "Custom".'}>Prompt{#if promptTokens > 0}<span class="prompt-disabled-badge">benchmark · ~{promptTokens} tok</span>{/if}</span>
+          {#if promptTokens > 0}
+            <div class="prompt-readonly-wrap">
+              <textarea
+                class="prompt-input"
+                rows="3"
+                value={promptPreview}
+                readonly
+                title={`Synthetic ${promptTokens}-token prompt — preview only. The worker re-tokenizes with the model's actual tokenizer to get exactly ${promptTokens} tokens.`}
+              ></textarea>
+              <button
+                type="button"
+                class="prompt-switch-btn"
+                onclick={() => { promptTokens = 0; }}
+                title="Switch Prompt tokens to Custom and edit your own prompt"
+              >Switch to Custom to ask a real question →</button>
+            </div>
+          {:else}
+            <textarea
+              class="prompt-input"
+              rows="3"
+              bind:value={prompt}
+            ></textarea>
+          {/if}
+        </div>
+        {#if promptTokens > 0}
+          <p class="prompt-hint">
+            Preview shows the synthetic stub repeated to ~{promptTokens} tokens; the worker re-truncates to exactly {promptTokens} using the model's tokenizer. Output text is meaningless by design — only TTFT, TPS, and decode time are the measurements that matter.
+          </p>
+        {:else}
+          <p class="prompt-hint">
+            Custom mode: your prompt is used verbatim. Output tokens is an <strong>upper bound</strong> — the model may stop earlier if it emits an end-of-sequence token, so TPS / decode time can be noisy at small token counts. Not directly comparable to other users' runs.
+          </p>
         {/if}
       </div>
     </section>
@@ -1105,7 +1191,9 @@
   }
 
   .progress-bar-slot { min-height: 20px; }
-  .progress-bar-hidden { visibility: hidden; height: 0; min-height: 0; overflow: hidden; }
+  /* Keep the slot's space reserved when hidden so the section doesn't jump
+     between "downloadTotal == 0" and the first progress event. */
+  .progress-bar-hidden { visibility: hidden; }
 
   .indeterminate-bar { height: 4px; border-radius: 2px; background: var(--color-surface-sunken); overflow: hidden; margin: 8px 0; }
   .indeterminate-inner { height: 100%; width: 40%; background: var(--color-primary); border-radius: 2px; animation: slide 1.4s ease-in-out infinite; }
@@ -1118,9 +1206,8 @@
   .token-stream {
     font-family: var(--font-mono);
     font-size: 11px;
-    line-height: 1.6;
-    color: var(--color-text-secondary);
-    height: 160px;
+    color: var(--color-text-muted);
+    height: 120px;
     overflow-y: auto;
     scroll-behavior: smooth;
     padding: var(--space-1);
@@ -1166,6 +1253,21 @@
     border: 1px solid var(--color-border);
     border-radius: var(--radius-base);
     background: var(--color-surface);
+  }
+
+  .results-table-wrap::-webkit-scrollbar {
+    width: 3px;
+    height: 1px;
+  }
+  .results-table-wrap::-webkit-scrollbar-button { width: 0; height: 0; display: none; }
+  .results-table-wrap::-webkit-scrollbar-track { background: transparent; }
+  .results-table-wrap::-webkit-scrollbar-thumb {
+    background-color: var(--color-border-strong);
+    border-radius: 3px;
+  }
+  .zone:hover .results-table-wrap::-webkit-scrollbar-thumb,
+  .results-section:hover .results-table-wrap::-webkit-scrollbar-thumb {
+    background-color: var(--color-primary);
   }
 
   .results-table {
@@ -1416,6 +1518,7 @@
     letter-spacing: 0.07em;
     color: var(--color-text-muted);
   }
+  .zone-label-actions { margin-left: auto; }
 
   .count-badge {
     display: inline-flex;
@@ -1484,42 +1587,160 @@
 
   .remove-btn:hover { color: var(--color-error); background: color-mix(in srgb, var(--color-error) 10%, transparent); }
 
-  .config-row {
+  .run-layout {
     display: grid;
-    grid-template-columns: 4fr 1fr 1fr 1fr 1fr;
-    gap: var(--space-2);
-    align-items: end;
+    grid-template-columns: 300px 1fr;
+    gap: var(--space-3);
+    align-items: start;
   }
 
-  .config-item {
+  .run-sidebar {
+    position: sticky;
+    top: var(--space-2);
+    align-self: start;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 0;
+    max-height: calc(100dvh - 80px);
+    overflow-y: auto;
+    padding-right: var(--space-1);
+  }
+
+  .run-sidebar::-webkit-scrollbar { width: 4px; }
+  .run-sidebar::-webkit-scrollbar-thumb {
+    background: var(--color-border);
+    border-radius: 2px;
+  }
+
+  .run-main {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
     min-width: 0;
   }
 
-  .config-item .env-label {
-    font-size: var(--text-xs);
-    color: var(--color-text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+  .detected-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .detected-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    max-width: 100%;
+    padding: 3px 8px;
+    font-family: var(--font-ui);
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--color-text-secondary);
+    background: var(--color-surface-sunken);
+    border: 1px solid var(--color-border);
+    border-radius: 999px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .detected-chip svg { flex-shrink: 0; color: var(--color-text-muted); }
+  .detected-chip strong {
     font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
   }
 
-  @media (max-width: 1024px) {
-    .config-row { grid-template-columns: 1fr 1fr; }
-    .config-item-backend { grid-column: 1 / -1; }
+  .sb-section {
+    margin-top: 5px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .sb-section:first-of-type {
+    border-top: none;
+    margin-top: 0;
+    padding-top: 0;
   }
 
-  .env-rows {
+  .sb-section-head { margin-bottom: 4px; }
+  .sb-section-title {
+    font-family: var(--font-ui);
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--color-text-muted);
+  }
+
+  .sb-row {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: var(--space-2);
+    grid-template-columns: 88px 1fr;
+    align-items: center;
+    gap: 8px;
+    min-height: 28px;
+  }
+  .sb-row-stack { display: block; }
+  .sb-row-disabled { opacity: 0.5; }
+
+  .sb-label {
+    font-family: var(--font-ui);
+    font-size: var(--text-xs);
+    font-weight: 500;
+    color: var(--color-text-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+  .sb-label-stack {
+    display: block;
+    font-size: var(--text-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--color-text-muted);
+    margin-bottom: 4px;
   }
 
-  .env-rows-save {
-    grid-template-columns: repeat(4, 1fr);
-    margin-top: var(--space-1);
+  input.sb-input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+  select.sb-input {
+    width: 100%;
+    height: 28px;
+    min-width: 0;
+    padding: 0 8px;
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+  }
+  select.sb-input {
+    cursor: pointer;
+    color: var(--color-text-muted);
+  }
+
+  /* Normalize embedded components inside the sidebar:
+     labels stay --font-ui (prose), values/buttons use --font-mono (identifiers). */
+  .run-sidebar :global(.backend-selector) {
+    gap: 4px;
+  }
+  .run-sidebar :global(.backend-selector .config-label) {
+    font-family: var(--font-ui);
+    font-size: var(--text-xs);
+    font-weight: 500;
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--color-text-secondary);
+  }
+  .run-sidebar :global(.segment-btn) {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    height: 28px;
+  }
+  .sb-input.input-warn {
+    border-color: var(--color-warning, #f59e0b) !important;
+  }
+  .sb-input.input-warn:focus,
+  .sb-input.input-warn:focus-visible {
+    border-color: var(--color-warning, #f59e0b) !important;
+    outline-color: var(--color-warning, #f59e0b);
   }
 
   .env-row {
@@ -1527,10 +1748,6 @@
     flex-direction: column;
     gap: 4px;
     min-width: 0;
-  }
-
-  .env-row-prompt {
-    grid-column: 1 / -1;
   }
 
   .env-label {
@@ -1543,35 +1760,6 @@
     letter-spacing: 0.06em;
     color: var(--color-text-muted);
     white-space: nowrap;
-  }
-
-  .env-value {
-    font-size: var(--text-sm);
-    color: var(--color-text-muted);
-    font-family: var(--font-mono);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    min-width: 0;
-    padding: var(--space-half) 0;
-  }
-
-  .cpu-input {
-    font-family: var(--font-ui);
-    font-size: var(--text-xs);
-    width: 100%;
-    box-sizing: border-box;
-  }
-
-  .cpu-input.input-warn,
-  .version-select.input-warn {
-    border-color: var(--color-warning, #d97706) !important;
-  }
-
-  .version-select.input-warn:focus,
-  .version-select.input-warn:focus-visible {
-    border-color: var(--color-warning, #d97706) !important;
-    outline-color: var(--color-warning, #d97706);
   }
 
   .req-badge {
@@ -1630,15 +1818,46 @@
 
   .action-hint-list .action-hint { margin-top: 0; }
 
-  .backend-row { margin-bottom: var(--space-1); }
-
-  .version-select {
-    color: var(--color-text-muted);
-    cursor: pointer;
-    width: 100%;
-  }
-
   .num-input { font-family: var(--font-mono); }
+
+  .runs-row .sb-label {
+    display: block;
+    margin-bottom: 4px;
+  }
+  .runs-row .segment-group {
+    display: flex;
+    align-items: stretch;
+    width: 100%;
+    border-radius: var(--radius-base);
+    overflow: hidden;
+  }
+  .runs-row .segment-btn {
+    flex: 1 1 0;
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    padding: 0 4px;
+    height: 28px;
+    box-sizing: border-box;
+    border: 1px solid var(--color-border);
+    border-left: none;
+    background: none;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    white-space: nowrap;
+    text-align: center;
+    transition: background var(--transition-base), color var(--transition-base), border-color var(--transition-base);
+  }
+  .runs-row .segment-btn:first-child { border-left: 1px solid var(--color-border); }
+  .runs-row .segment-btn:hover:not(.active) {
+    background: var(--color-accent-light);
+    color: var(--color-primary);
+  }
+  .runs-row .segment-btn.active {
+    background: var(--color-primary);
+    color: var(--color-text-on-primary);
+    border-color: var(--color-primary);
+  }
+  .runs-row .segment-btn.active + .segment-btn { border-left-color: var(--color-primary); }
 
   .prompt-input {
     width: 100%;
@@ -1705,16 +1924,24 @@
   .actions {
     display: flex;
     flex-direction: column;
-    align-items: center;
+    align-items: stretch;
     gap: var(--space-2);
     margin-top: var(--space-3);
+    padding-top: var(--space-2);
   }
 
   .run-action-row {
     display: flex;
-    align-items: center;
+    align-items: stretch;
     gap: var(--space-2);
     flex-wrap: wrap;
+    width: 100%;
+  }
+
+  .run-action-row :global(.btn-primary) {
+    flex: 1 1 100%;
+    width: 100%;
+    justify-content: center;
   }
 
   .save-toggle {
@@ -1787,7 +2014,19 @@
     margin-left: 6px;
   }
 
+  @media (max-width: 900px) {
+    .run-layout {
+      grid-template-columns: 1fr;
+    }
+    .run-sidebar {
+      position: static;
+      max-height: none;
+      overflow-y: visible;
+      padding-right: 0;
+    }
+  }
+
   @media (max-width: 768px) {
-    .env-rows { grid-template-columns: repeat(2, 1fr); }
+    .sb-row { grid-template-columns: 76px 1fr; }
   }
 </style>

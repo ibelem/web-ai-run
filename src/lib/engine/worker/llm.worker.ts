@@ -361,7 +361,7 @@ async function runTransformers(req: LLMWorkerRequest): Promise<void> {
       device,
       ...(useExternalDataFormat ? { use_external_data_format: useExternalDataFormat } : {}),
       progress_callback: (p: any) => {
-        if (p?.status === 'progress' && p?.name) log(id, `Loading: ${p.name}`);
+        if (p?.status === 'initiate' && p?.file) log(id, `Loading: ${p.file}`);
       },
     });
   } catch (e: any) {

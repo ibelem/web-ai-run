@@ -34,7 +34,7 @@
 
   .progress-label {
     font-size: var(--text-xs);
-    color: var(--color-text-secondary);
+    color: var(--color-text-muted);
     min-width: 80px;
   }
 
@@ -60,7 +60,7 @@
     font-family: var(--font-mono);
     font-size: var(--text-xs);
     color: var(--color-text-muted);
-    min-width: 120px;
+    min-width: 50px;
     text-align: right;
     white-space: nowrap;
   }

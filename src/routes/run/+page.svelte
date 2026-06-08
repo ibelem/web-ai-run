@@ -201,6 +201,7 @@
   const usesOnnx = $derived(hashModels.some((m) => m.runtime === "onnx"));
   const usesLitert = $derived(hashModels.some((m) => m.runtime === "litert"));
   const usesWebnn = $derived(selectedBackends.some((b) => b.startsWith("webnn_")));
+  const usesWebnnNpu = $derived(selectedBackends.includes("webnn_npu"));
   const webnnEpRequired = $derived(
     saveResults &&
     usesWebnn &&
@@ -213,7 +214,7 @@
     ...(!$isAuthenticated && saveResults ? ['login_save' as const] : []),
     ...(!$isAuthenticated && totalModels > 1 ? ['login_multi' as const] : []),
     ...(saveResults && $isAuthenticated && (!cpuModel.trim() || !osModel.trim()) ? ['cpu_os' as const] : []),
-    ...(saveResults && $isAuthenticated && isAtLeast($auth.role ?? 'anonymous', 'intel') && (!gpuDriverVersion.trim() || !npuDriverVersion.trim()) ? ['drivers' as const] : []),
+    ...(saveResults && $isAuthenticated && isAtLeast($auth.role ?? 'anonymous', 'intel') && (!gpuDriverVersion.trim() || (usesWebnnNpu && !npuDriverVersion.trim())) ? ['drivers' as const] : []),
     ...(webnnEpRequired ? ['webnn_ep' as const] : []),
     ...(totalModels === 0 ? ['no_models' as const] : []),
   ]);
@@ -1054,7 +1055,7 @@
       <p class="status-text" aria-live="polite">{statusText}</p>
       <div
         class="progress-bar-slot"
-        class:progress-bar-hidden={downloadPercent <= 0 || downloadPercent >= 100}
+        class:progress-bar-hidden={downloadTotal === 0}
       >
         <ProgressBar percent={downloadPercent} label="Downloading" loadedBytes={downloadLoaded} totalBytes={downloadTotal} />
       </div>
@@ -1081,8 +1082,8 @@
     </section>
   {/if}
 
-  {#if queue.length > 0 || results.length > 0}
-    <section class="results-section" class:results-section-running={isRunning}>
+  {#if isRunning && (queue.length > 0 || results.length > 0)}
+    <section class="results-section results-section-running">
       <BenchmarkResults {results} backends={selectedBackends} {queue} {isRunning} onretry={retryItem} />
     </section>
   {/if}
@@ -1095,56 +1096,29 @@
 
   </div>
 
-  {#if runLogs.length > 0 && !isRunning}
-    <section class="logs-section">
-      <div class="logs-header">
-        <h3 class="logs-title">Logs ({runLogs.length})</h3>
-        <div class="export-group">
-          <span class="export-group-icon">
-            {#if logsCopied}
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-            {:else}
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-            {/if}
-          </span>
-          <button class="export-group-btn" class:active={logsCopied} onclick={async () => {
-            await navigator.clipboard.writeText(runLogs.join('\n'));
-            logsCopied = true;
-            setTimeout(() => { logsCopied = false; }, 2000);
-          }} title="Copy all logs">
-            {logsCopied ? 'Copied!' : 'Copy'}
-          </button>
-        </div>
-      </div>
-      <div class="logs-container" bind:this={logsEl}>
-        {#each runLogs as log}
-          <div class="log-line">{log}</div>
-        {/each}
-      </div>
-    </section>
-  {/if}
-
   {#if !isRunning}
-    <section class="config-section">
-      <div class="top-config-grid">
-        <BackendSelector
-          bind:selected={selectedBackends}
-          available={availableBackends}
-        />
-        <RunConfigCmp bind:iterations />
-      </div>
+    <section class="config-section run-layout">
+      <aside class="run-sidebar">
+        {#if environment}
+          <div class="detected-strip">
+            <span class="detected-chip" title={environment.gpu}>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><line x1="6" y1="22" x2="18" y2="22"/><line x1="12" y1="18" x2="12" y2="22"/></svg>
+              <strong>{environment.gpu}</strong>
+            </span>
+            <span class="detected-chip" title="{environment.browser} {environment.browser_version}">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/><line x1="21.17" y1="8" x2="12" y2="8"/><line x1="3.95" y1="6.06" x2="8.54" y2="14"/><line x1="10.88" y1="21.94" x2="15.46" y2="14"/></svg>
+              <strong>{environment.browser.replace(/^(Google|Microsoft|Apple|Mozilla)\s+/, '')} {environment.browser_version}</strong>
+            </span>
+          </div>
+        {/if}
 
-      {#if saveResults || environment}
-        <div class="env-rows">
-          {#if saveResults}
-            <div class="env-row">
-              <span class="env-label"
-                >CPU<span class="req-badge" class:req-done={cpuModel.trim()}
-                  >req</span
-                ></span
-              >
+        {#if saveResults}
+          <div class="sb-section">
+            <div class="sb-section-head"><span class="sb-section-title">Hardware</span></div>
+            <div class="sb-row">
+              <span class="sb-label">CPU<span class="req-badge" class:req-done={cpuModel.trim()}>req</span></span>
               <input
-                class="cpu-input"
+                class="sb-input"
                 class:input-warn={!cpuModel.trim()}
                 type="text"
                 list="cpu-model-list"
@@ -1157,60 +1131,10 @@
                 {/each}
               </datalist>
             </div>
-          {/if}
-          {#if environment}
-            <div class="env-row">
-              <span class="env-label">GPU</span>
-              <span class="env-value">{environment.gpu}</span>
-            </div>
-          {/if}
-          {#if saveResults}
-            <div class="env-row">
-              <span class="env-label"
-                >GPU Driver{#if isAtLeast($auth.role ?? "anonymous", "intel")}<span
-                    class="req-badge"
-                    class:req-done={gpuDriverVersion.trim()}>req</span
-                  >{/if}</span
-              >
+            <div class="sb-row">
+              <span class="sb-label">OS<span class="req-badge" class:req-done={osModel.trim()}>req</span></span>
               <input
-                class="cpu-input"
-                class:input-warn={isAtLeast(
-                  $auth.role ?? "anonymous",
-                  "intel",
-                ) && !gpuDriverVersion.trim()}
-                type="text"
-                placeholder="e.g. 32.0.101.8824"
-                bind:value={gpuDriverVersion}
-              />
-            </div>
-            <div class="env-row">
-              <span class="env-label"
-                >NPU Driver{#if isAtLeast($auth.role ?? "anonymous", "intel")}<span
-                    class="req-badge"
-                    class:req-done={npuDriverVersion.trim()}>req</span
-                  >{/if}</span
-              >
-              <input
-                class="cpu-input"
-                class:input-warn={isAtLeast(
-                  $auth.role ?? "anonymous",
-                  "intel",
-                ) && !npuDriverVersion.trim()}
-                type="text"
-                placeholder="e.g. 32.0.100.4778"
-                bind:value={npuDriverVersion}
-              />
-            </div>
-          {/if}
-          {#if saveResults}
-            <div class="env-row">
-              <span class="env-label"
-                >OS<span class="req-badge" class:req-done={osModel.trim()}
-                  >req</span
-                ></span
-              >
-              <input
-                class="cpu-input"
+                class="sb-input"
                 class:input-warn={!osModel.trim()}
                 type="text"
                 list="os-model-list"
@@ -1223,43 +1147,53 @@
                 {/each}
               </datalist>
             </div>
-          {/if}
-          {#if environment}
-            <div class="env-row">
-              <span class="env-label">Browser</span>
-              <span class="env-value"
-                >{environment.browser} {environment.browser_version}</span
-              >
-            </div>
-          {/if}
-          {#if saveResults && usesWebnn}
-            <div class="env-row">
-              <span class="env-label"
-                >WebNN EP{#if isAtLeast($auth.role ?? "anonymous", "intel")}<span
+            <div class="sb-row">
+              <span class="sb-label"
+                >GPU drv{#if isAtLeast($auth.role ?? "anonymous", "intel")}<span
                   class="req-badge"
-                  class:req-done={!!webnnEp}>req</span
-                >{/if}<span
-                  class="ep-help"
-                  title={'Not sure which EP to pick?\nOpen chrome://webnn-internals/ in a new tab, run the model once, then check the "Active Contexts" tab — the Runtime Backend and selected Execution Provider are listed there.'}
-                  aria-label="How to find your WebNN Execution Provider"
-                  tabindex="0">?</span
-                ></span
+                  class:req-done={gpuDriverVersion.trim()}>req</span
+                >{/if}</span
               >
-              <select
-                class="version-select"
-                class:input-warn={webnnEpRequired}
-                bind:value={webnnEp}
-              >
-                {#each WEBNN_EP_OPTIONS as opt}
-                  <option value={opt.value}>{opt.label}</option>
-                {/each}
-              </select>
+              <input
+                class="sb-input"
+                class:input-warn={isAtLeast(
+                  $auth.role ?? "anonymous",
+                  "intel",
+                ) && !gpuDriverVersion.trim()}
+                type="text"
+                placeholder="e.g. 32.0.101.8824"
+                bind:value={gpuDriverVersion}
+              />
             </div>
-          {/if}
+            {#if usesWebnnNpu}
+              <div class="sb-row">
+                <span class="sb-label"
+                  >NPU drv{#if isAtLeast($auth.role ?? "anonymous", "intel")}<span
+                    class="req-badge"
+                    class:req-done={npuDriverVersion.trim()}>req</span
+                  >{/if}</span
+                >
+                <input
+                  class="sb-input"
+                  class:input-warn={isAtLeast(
+                    $auth.role ?? "anonymous",
+                    "intel",
+                  ) && !npuDriverVersion.trim()}
+                  type="text"
+                  placeholder="e.g. 32.0.100.4778"
+                  bind:value={npuDriverVersion}
+                />
+              </div>
+            {/if}
+          </div>
+        {/if}
+
+        <div class="sb-section">
+          <div class="sb-section-head"><span class="sb-section-title">Runtime</span></div>
           {#if usesOnnx && ortVersion}
-            <div class="env-row">
-              <span class="env-label">ORT Web</span>
-              <select class="version-select" bind:value={ortVersion}>
+            <div class="sb-row">
+              <span class="sb-label">ORT Web</span>
+              <select class="sb-input" bind:value={ortVersion}>
                 {#if ortDevVersions.length}
                   <optgroup label="Dev">
                     {#each ortDevVersions as v}
@@ -1278,9 +1212,9 @@
             </div>
           {/if}
           {#if usesLitert && litertVersion}
-            <div class="env-row">
-              <span class="env-label">LiteRT.js</span>
-              <select class="version-select" bind:value={litertVersion}>
+            <div class="sb-row">
+              <span class="sb-label">LiteRT.js</span>
+              <select class="sb-input" bind:value={litertVersion}>
                 {#if litertDevVersions.length}
                   <optgroup label="Dev">
                     {#each litertDevVersions as v}
@@ -1298,96 +1232,166 @@
               </select>
             </div>
           {/if}
-        </div>
-      {/if}
-
-      {#if hashModels.length > 0}
-        <span class="models-label"
-          >Models <span class="models-count">{totalModels}</span></span
-        >
-        <ul class="model-list">
-          {#each hashModels as m}
-            {@const ext = m.file_path.endsWith(".litertlm")
-              ? "litertlm"
-              : m.file_path.endsWith(".tflite")
-                ? "tflite"
-                : "onnx"}
-            <li class="model-item">
-              <div class="model-item-left">
-                <div class="model-item-top">
-                  <span class="model-item-repo">{m.hf_model_id}</span>
-                  {#if m.data_type}
-                    <span class="dtype-chip" data-dtype={m.data_type}
-                      >{m.data_type === "quantized"
-                        ? "quant"
-                        : m.data_type}</span
-                    >
-                  {/if}
-                </div>
-                <div class="model-item-bottom">
-                  <FormatIcon
-                    format={ext}
-                    size={14}
-                    hfModelId={m.hf_model_id}
-                    filePath={m.file_path}
-                  />
-                  <NetronLink
-                    hfModelId={m.hf_model_id}
-                    filePath={m.file_path}
-                  />
-                  <span class="model-item-name">{m.file_path}</span>
-                </div>
-              </div>
-              <button class="model-item-remove" title="Remove model" onclick={() => { hashModels = hashModels.filter(x => x !== m); }}>×</button>
-            </li>
-          {/each}
-        </ul>
-      {/if}
-
-      <div class="actions">
-        <label class="save-toggle">
-          <input type="checkbox" bind:checked={saveResults} />
-          <span class="save-toggle-text">Upload results</span>
-        </label>
-        <div class="run-action-row">
-          <button
-            class="btn-primary"
-            onclick={startBenchmark}
-            disabled={totalModels === 0 ||
-              (saveResults &&
-                (!$isAuthenticated ||
-                  !cpuModel.trim() ||
-                  !osModel.trim() ||
-                  webnnEpRequired ||
-                  (isAtLeast($auth.role ?? "anonymous", "intel") &&
-                    (!gpuDriverVersion.trim() || !npuDriverVersion.trim()))))}
-            title="Ctrl+Enter"
-          >
-            Run Benchmark <kbd class="kbd-hint">Ctrl+Enter</kbd>
-          </button>
-          {#if hasStoppedItems}
-            <button class="btn-resume" onclick={resumeBenchmark} title="Re-run only the stopped items, skipping completed and errored ones">
-              Resume
-            </button>
+          {#if saveResults && usesWebnn}
+            <div class="sb-row">
+              <span class="sb-label"
+                >WebNN EP{#if isAtLeast($auth.role ?? "anonymous", "intel")}<span
+                  class="req-badge"
+                  class:req-done={!!webnnEp}>req</span
+                >{/if}<span
+                  class="ep-help"
+                  title={'Not sure which EP to pick?\nOpen chrome://webnn-internals/ in a new tab, run the model once, then check the "Active Contexts" tab — the Runtime Backend and selected Execution Provider are listed there.'}
+                  aria-label="How to find your WebNN Execution Provider"
+                  tabindex="0">?</span
+                ></span
+              >
+              <select
+                class="sb-input"
+                class:input-warn={webnnEpRequired}
+                bind:value={webnnEp}
+              >
+                {#each WEBNN_EP_OPTIONS as opt}
+                  <option value={opt.value}>{opt.label}</option>
+                {/each}
+              </select>
+            </div>
           {/if}
         </div>
-        {#if warnings.length > 0}
-          <ul class="action-hint-list">
-            {#each warnings as w}
-              <li class="action-hint" class:action-hint-warn={w !== 'no_models'}>
-                {#if w === 'login_save'}
-                  <a href="/login">Sign in</a> to save results — CPU, GPU, and hardware info make your performance data meaningful.
-                {:else if w === 'login_multi'}
-                  <a href="/login">Sign in</a> to run more than 1 model at a time.
-                {:else if w === 'cpu_os'}
-                  Fill in your CPU and OS above to enable result upload.
-                {:else if w === 'drivers'}
-                  GPU Driver and NPU Driver versions are required for intel/admin roles.
-                {:else if w === 'webnn_ep'}
-                  Pick a WebNN Execution Provider above — required for intel/admin roles when running a WebNN backend.
-                {:else if w === 'no_models'}
-                  No models selected. <a href="/browse">Browse models</a> to pick one, or <a href="/custom">upload your own</a>.
-                {/if}
+
+        <div class="sb-section">
+          <div class="sb-section-head"><span class="sb-section-title">Test</span></div>
+          <BackendSelector
+            bind:selected={selectedBackends}
+            available={availableBackends}
+          />
+          <RunConfigCmp bind:iterations />
+        </div>
+
+        <div class="actions">
+          <label class="save-toggle">
+            <input type="checkbox" bind:checked={saveResults} />
+            <span class="save-toggle-text">Upload results</span>
+          </label>
+          <div class="run-action-row">
+            <button
+              class="btn-primary"
+              onclick={startBenchmark}
+              disabled={totalModels === 0 ||
+                (saveResults &&
+                  (!$isAuthenticated ||
+                    !cpuModel.trim() ||
+                    !osModel.trim() ||
+                    webnnEpRequired ||
+                    (isAtLeast($auth.role ?? "anonymous", "intel") &&
+                      (!gpuDriverVersion.trim() || (usesWebnnNpu && !npuDriverVersion.trim())))))}
+              title="Ctrl+Enter"
+            >
+              Run Benchmark <kbd class="kbd-hint">Ctrl+Enter</kbd>
+            </button>
+            {#if hasStoppedItems}
+              <button class="btn-resume" onclick={resumeBenchmark} title="Re-run only the stopped items, skipping completed and errored ones">
+                Resume
+              </button>
+            {/if}
+          </div>
+          {#if warnings.length > 0}
+            <ul class="action-hint-list">
+              {#each warnings as w}
+                <li class="action-hint" class:action-hint-warn={w !== 'no_models'}>
+                  {#if w === 'login_save'}
+                    <a href="/login">Sign in</a> to save results. The CPU, GPU and hardware details help put your performance scores in context.
+                  {:else if w === 'login_multi'}
+                    <a href="/login">Sign in</a> to run more than 1 model at a time.
+                  {:else if w === 'cpu_os'}
+                    Add hardware details. Providing CPU, GPU and system info helps make benchmark results more useful and comparable.
+                  {:else if w === 'drivers'}
+                    Provide GPU and NPU driver versions to continue. This is required for Intel accounts.
+                  {:else if w === 'webnn_ep'}
+                    Choose an Execution Provider from the sidebar to run the WebNN backend. Required for Intel accounts.
+                  {:else if w === 'no_models'}
+                    No models selected. <a href="/browse">Browse models</a> to pick one, or <a href="/custom">upload your own</a>.
+                  {/if}
+                </li>
+              {/each}
+            </ul>
+          {/if}
+        </div>
+      </aside>
+
+      <div class="run-main">
+        {#if queue.length > 0 || results.length > 0}
+          <section class="results-section">
+            <BenchmarkResults {results} backends={selectedBackends} {queue} {isRunning} onretry={retryItem} />
+          </section>
+        {/if}
+
+        {#if runLogs.length > 0}
+          <section class="logs-section">
+            <div class="logs-header">
+              <span class="models-label">Logs <span class="models-count">{runLogs.length}</span></span>
+              <div class="export-group">
+                <span class="export-group-icon">
+                  {#if logsCopied}
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                  {:else}
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                  {/if}
+                </span>
+                <button class="export-group-btn" class:active={logsCopied} onclick={async () => {
+                  await navigator.clipboard.writeText(runLogs.join('\n'));
+                  logsCopied = true;
+                  setTimeout(() => { logsCopied = false; }, 2000);
+                }} title="Copy all logs">
+                  {logsCopied ? 'Copied!' : 'Copy'}
+                </button>
+              </div>
+            </div>
+            <div class="logs-container" bind:this={logsEl}>
+              {#each runLogs as log}
+                <div class="log-line">{log}</div>
+              {/each}
+            </div>
+          </section>
+        {/if}
+
+        {#if hashModels.length > 0}
+          <span class="models-label"
+            >Models <span class="models-count">{totalModels}</span></span
+          >
+          <ul class="model-list">
+            {#each hashModels as m}
+              {@const ext = m.file_path.endsWith(".litertlm")
+                ? "litertlm"
+                : m.file_path.endsWith(".tflite")
+                  ? "tflite"
+                  : "onnx"}
+              <li class="model-item">
+                <div class="model-item-left">
+                  <div class="model-item-top">
+                    <span class="model-item-repo">{m.hf_model_id}</span>
+                    {#if m.data_type}
+                      <span class="dtype-chip" data-dtype={m.data_type}
+                        >{m.data_type === "quantized"
+                          ? "quant"
+                          : m.data_type}</span
+                      >
+                    {/if}
+                  </div>
+                  <div class="model-item-bottom">
+                    <FormatIcon
+                      format={ext}
+                      size={14}
+                      hfModelId={m.hf_model_id}
+                      filePath={m.file_path}
+                    />
+                    <NetronLink
+                      hfModelId={m.hf_model_id}
+                      filePath={m.file_path}
+                    />
+                    <span class="model-item-name">{m.file_path}</span>
+                  </div>
+                </div>
+                <button class="model-item-remove" title="Remove model" onclick={() => { hashModels = hashModels.filter(x => x !== m); }}>×</button>
               </li>
             {/each}
           </ul>
@@ -1524,16 +1528,25 @@
   .actions {
     display: flex;
     flex-direction: column;
-    align-items: center;
+    align-items: stretch;
     gap: var(--space-2);
     margin-top: var(--space-3);
+    padding-top: var(--space-2);
   }
 
   .run-action-row {
     display: flex;
-    align-items: center;
+    align-items: stretch;
     gap: var(--space-2);
     flex-wrap: wrap;
+    width: 100%;
+  }
+
+  .run-action-row :global(.btn-primary),
+  .run-action-row :global(.btn-resume) {
+    flex: 1 1 100%;
+    width: 100%;
+    justify-content: center;
   }
 
   .save-toggle {
@@ -1840,11 +1853,10 @@
     min-height: 20px;
   }
 
+  /* Reserve the slot's space when hidden so the section doesn't jump
+     when the download phase ends and the bar disappears. */
   .progress-bar-hidden {
     visibility: hidden;
-    height: 0;
-    min-height: 0;
-    overflow: hidden;
   }
 
   .results-section {
@@ -1861,34 +1873,163 @@
     margin-bottom: var(--space-3);
   }
 
-  .top-config-grid {
+  .run-layout {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: var(--space-2);
+    grid-template-columns: 300px 1fr;
+    gap: var(--space-3);
+    align-items: start;
   }
 
-  .env-rows {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: var(--space-2);
-  }
-
-  .env-row {
+  .run-sidebar {
+    position: sticky;
+    top: var(--space-2);
+    align-self: start;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 0;
+    max-height: calc(100dvh - 80px);
+    overflow-y: auto;
+    padding-right: var(--space-1);
+  }
+
+  .run-sidebar::-webkit-scrollbar { width: 4px; }
+  .run-sidebar::-webkit-scrollbar-thumb {
+    background: var(--color-border);
+    border-radius: 2px;
+  }
+
+  .run-main {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
     min-width: 0;
   }
 
-  .env-label {
+  .detected-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .detected-chip {
     display: inline-flex;
     align-items: center;
+    gap: 5px;
+    max-width: 100%;
+    padding: 3px 8px;
+    font-family: var(--font-ui);
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--color-text-secondary);
+    background: var(--color-surface-sunken);
+    border: 1px solid var(--color-border);
+    border-radius: 999px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .detected-chip svg { flex-shrink: 0; color: var(--color-text-muted); }
+  .detected-chip strong {
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+  }
+
+  .sb-section {
+    margin-top: 5px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .sb-section:first-of-type {
+    border-top: none;
+    margin-top: 0;
+    padding-top: 0;
+  }
+
+  .sb-section-head {
+    margin-bottom: 4px;
+  }
+  .sb-section-title {
+    font-family: var(--font-ui);
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--color-text-muted);
+  }
+
+  .sb-row {
+    display: grid;
+    grid-template-columns: 88px 1fr;
+    align-items: center;
+    gap: 8px;
+    min-height: 28px;
+  }
+  .sb-row-stack { display: block; }
+  .sb-row-disabled { opacity: 0.5; }
+
+  .sb-label {
+    font-family: var(--font-ui);
+    font-size: var(--text-xs);
+    font-weight: 500;
+    color: var(--color-text-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+  .sb-label-stack {
+    display: block;
     font-size: var(--text-xs);
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.06em;
     color: var(--color-text-muted);
-    white-space: nowrap;
+    margin-bottom: 4px;
+  }
+
+  input.sb-input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+  select.sb-input {
+    width: 100%;
+    height: 28px;
+    min-width: 0;
+    padding: 0 8px;
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+  }
+  select.sb-input {
+    cursor: pointer;
+    color: var(--color-text-muted);
+  }
+
+  /* Normalize embedded components inside the sidebar:
+     labels stay --font-ui (prose), values/buttons use --font-mono (identifiers). */
+  .run-sidebar :global(.backend-selector) {
+    gap: 4px;
+  }
+  .run-sidebar :global(.backend-selector .config-label),
+  .run-sidebar :global(.run-config .config-label) {
+    font-family: var(--font-ui);
+    font-size: var(--text-xs);
+    font-weight: 500;
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--color-text-secondary);
+  }
+  .run-sidebar :global(.segment-btn) {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    height: 28px;
+  }
+  .sb-input.input-warn {
+    border-color: var(--color-warning, #f59e0b) !important;
+  }
+  .sb-input.input-warn:focus,
+  .sb-input.input-warn:focus-visible {
+    border-color: var(--color-warning, #f59e0b) !important;
+    outline-color: var(--color-warning, #f59e0b);
   }
 
   .req-badge {
@@ -1937,35 +2078,6 @@
     outline: none;
   }
 
-  .env-value {
-    font-size: var(--text-sm);
-    color: var(--color-text-muted);
-    font-family: var(--font-mono);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    min-width: 0;
-    padding: var(--space-half) 0;
-  }
-
-  .cpu-input {
-    width: 100%;
-    min-width: 0;
-  }
-
-  .cpu-input.input-warn,
-  .version-select.input-warn {
-    border-color: var(--color-warning, #f59e0b) !important;
-  }
-
-  .cpu-input.input-warn:focus,
-  .cpu-input.input-warn:focus-visible,
-  .version-select.input-warn:focus,
-  .version-select.input-warn:focus-visible {
-    border-color: var(--color-warning, #f59e0b) !important;
-    outline-color: var(--color-warning, #f59e0b);
-  }
-
   .models-label {
     display: flex;
     align-items: center;
@@ -1995,17 +2107,17 @@
   .model-list {
     list-style: none;
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(3, 1fr);
     gap: 3px;
   }
 
-  @media (max-width: 900px) {
+  @media (max-width: 1100px) {
     .model-list {
       grid-template-columns: repeat(2, 1fr);
     }
   }
 
-  @media (max-width: 600px) {
+  @media (max-width: 700px) {
     .model-list {
       grid-template-columns: 1fr;
     }
@@ -2098,15 +2210,21 @@
     margin-left: auto;
   }
 
-  .version-select {
-    color: var(--color-text-muted);
-    cursor: pointer;
-    width: 100%;
+  @media (max-width: 900px) {
+    .run-layout {
+      grid-template-columns: 1fr;
+    }
+    .run-sidebar {
+      position: static;
+      max-height: none;
+      overflow-y: visible;
+      padding-right: 0;
+    }
   }
 
   @media (max-width: 768px) {
-    .env-rows {
-      grid-template-columns: repeat(2, 1fr);
+    .sb-row {
+      grid-template-columns: 76px 1fr;
     }
   }
 
@@ -2125,13 +2243,6 @@
       flex: 1;
       padding: 8px 12px;
       font-size: var(--text-sm);
-    }
-
-    .env-rows {
-      grid-template-columns: 1fr;
-    }
-    .top-config-grid {
-      grid-template-columns: 1fr;
     }
 
     .actions {
