@@ -1432,12 +1432,6 @@
     margin-bottom: var(--space-1);
   }
 
-  .logs-title {
-    font-size: var(--text-sm);
-    font-weight: 500;
-    color: var(--color-text-secondary);
-  }
-
   .export-group {
     display: inline-flex;
     align-items: stretch;
@@ -1966,9 +1960,6 @@
     gap: 8px;
     min-height: 28px;
   }
-  .sb-row-stack { display: block; }
-  .sb-row-disabled { opacity: 0.5; }
-
   .sb-label {
     font-family: var(--font-ui);
     font-size: var(--text-xs);
@@ -1980,16 +1971,6 @@
     text-transform: none;
     letter-spacing: 0;
   }
-  .sb-label-stack {
-    display: block;
-    font-size: var(--text-xs);
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--color-text-muted);
-    margin-bottom: 4px;
-  }
-
   input.sb-input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
   select.sb-input {
     width: 100%;

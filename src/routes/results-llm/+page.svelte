@@ -413,8 +413,6 @@
     color: var(--color-text-muted);
   }
 
-  .page-header a { color: var(--color-primary); }
-
   .error-text { color: var(--color-error); font-size: var(--text-sm); margin-bottom: var(--space-2); }
 
   .filters {

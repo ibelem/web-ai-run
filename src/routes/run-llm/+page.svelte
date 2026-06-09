@@ -463,7 +463,7 @@
   }
 
   // ── Results export (Markdown / JSON / CSV — copy or download) ────────────
-  const RESULT_HEADERS = ['model', 'dtype', 'backend', 'compilation_ms', 'ttft_ms', 'ttft_stddev_ms', 'tps', 'tps_stddev', 'throughput_tps', 'tpot_ms', 'decode_ms', 'e2e_ms', 'e2e_stddev_ms', 'output_tokens', 'runs', 'warmup_ttft_ms'] as const;
+  const RESULT_HEADERS = ['model', 'prompt_tokens', 'output_tokens', 'dtype', 'backend', 'compilation_ms', 'ttft_ms', 'ttft_stddev_ms', 'tps', 'tps_stddev', 'throughput_tps', 'tpot_ms', 'decode_ms', 'e2e_ms', 'e2e_stddev_ms', 'runs', 'warmup_ttft_ms'] as const;
 
   function resultRows() {
     return results
@@ -474,6 +474,8 @@
         const x = r.result!;
         return {
           ...base,
+          prompt_tokens: x.promptTokens,
+          output_tokens: x.outputTokens,
           compilation_ms: x.compilationMs,
           ttft_ms: x.ttftMs,
           ttft_stddev_ms: x.ttftStddevMs,
@@ -484,7 +486,6 @@
           decode_ms: x.decodeMs,
           e2e_ms: x.e2eMs,
           e2e_stddev_ms: x.e2eStddevMs,
-          output_tokens: x.outputTokens,
           runs,
           warmup_ttft_ms: x.warmupTtftMs,
         };
@@ -520,17 +521,17 @@
     lines.push(`- Transformers.js: \`${transformersVersion}\``);
     if (environment) lines.push(`- Env: ${environment.browser} ${environment.browser_version} · ${environment.os} · ${environment.gpu}`);
     lines.push('');
-    lines.push('| Model | dtype | Compilation | TTFT | TPS | Throughput | TPOT | Decode | E2E | Tokens |');
-    lines.push('|---|---|---:|---:|---:|---:|---:|---:|---:|---:|');
+    lines.push('| Model | Prompt | Output | dtype | Compilation | TTFT | TPS | Throughput | TPOT | Decode | E2E |');
+    lines.push('|---|---:|---:|---|---:|---:|---:|---:|---:|---:|---:|');
     for (const r of rows) {
       if ((r as any).error) {
-        lines.push(`| ${r.model} | ${r.dtype} | error: ${(r as any).error} |  |  |  |  |  |  |  |`);
+        lines.push(`| ${r.model} |  |  | ${r.dtype} | error: ${(r as any).error} |  |  |  |  |  |  |`);
         continue;
       }
       const x = r as any;
       const std = (avg: number, s: number, d = 0, u = '') =>
         s > 0 ? `${avg.toFixed(d)} ± ${s.toFixed(d)}${u}` : `${avg.toFixed(d)}${u}`;
-      lines.push(`| ${r.model} | ${r.dtype} | ${x.compilation_ms.toFixed(0)} ms | ${std(x.ttft_ms, x.ttft_stddev_ms, 0, ' ms')} | ${std(x.tps, x.tps_stddev, 1, ' tok/s')} | ${x.throughput_tps.toFixed(1)} tok/s | ${x.tpot_ms.toFixed(1)} ms | ${x.decode_ms.toFixed(0)} ms | ${std(x.e2e_ms, x.e2e_stddev_ms, 0, ' ms')} | ${x.output_tokens} |`);
+      lines.push(`| ${r.model} | ${x.prompt_tokens} | ${x.output_tokens} | ${r.dtype} | ${x.compilation_ms.toFixed(0)} ms | ${std(x.ttft_ms, x.ttft_stddev_ms, 0, ' ms')} | ${std(x.tps, x.tps_stddev, 1, ' tok/s')} | ${x.throughput_tps.toFixed(1)} tok/s | ${x.tpot_ms.toFixed(1)} ms | ${x.decode_ms.toFixed(0)} ms | ${std(x.e2e_ms, x.e2e_stddev_ms, 0, ' ms')} |`);
     }
     return lines.join('\n');
   }
@@ -669,6 +670,8 @@
           <thead>
             <tr>
               <th class="col-model">Model</th>
+              <th class="col-num" title="Number of prompt tokens fed to the model. With a synthetic prompt this is exact (re-tokenized by the model's tokenizer). 'Custom' prompts show the actual token count from the run.">Prompt</th>
+              <th class="col-num" title="Output tokens generated per run.&#10;With do_sample=false and fixed max_new_tokens this is deterministic unless an EOS token stops generation early.">Output</th>
               <th>dtype</th>
               <th>Backend</th>
               <th class="col-num" title="Compilation time (ms)&#10;Formula: pipeline-ready time − pipeline-start time&#10;Includes: read weights from OPFS cache, parse ONNX graph, compile kernels (WebGPU shaders / WebNN graph / WASM), upload weights to device memory.&#10;Excludes: model download (measured separately in the Download phase) and generation runs.">Compilation</th>
@@ -678,7 +681,6 @@
               <th class="col-num" title="Time Per Output Token (ms)&#10;Formula: decodeMs / (outputTokens − 1)&#10;Inverse of TPS (TPOT ≈ 1000 / TPS). The average time the model takes to produce each token after the first.">TPOT</th>
               <th class="col-num" title="Decode time (ms)&#10;Formula: tEnd − firstTokenTime&#10;Total time spent generating tokens after TTFT. E2E = TTFT + Decode.">Decode</th>
               <th class="col-num" title="End-to-end time (ms)&#10;Formula: tEnd − promptStartTime  (= TTFT + Decode)&#10;Total wall time for one generation. Shown as avg ± stddev.">E2E</th>
-              <th class="col-num" title="Output tokens generated per run.&#10;With do_sample=false and fixed max_new_tokens this is deterministic unless an EOS token stops generation early.">Tokens</th>
             </tr>
           </thead>
           <tbody>
@@ -686,6 +688,13 @@
               {#if r.result || r.error}
                 <tr class:result-row-error={!!r.error}>
                   <td class="col-model" title={r.model.hf_model_id}>{r.model.hf_model_id}</td>
+                  {#if r.result}
+                    <td class="col-num">{r.result.promptTokens}</td>
+                    <td class="col-num">{r.result.outputTokens}</td>
+                  {:else}
+                    <td class="col-num">—</td>
+                    <td class="col-num">—</td>
+                  {/if}
                   <td><span class="dtype-chip" data-dtype={r.model.data_type}>{r.model.data_type}</span></td>
                   <td>{backend}</td>
                   {#if r.result}
@@ -696,9 +705,8 @@
                     <td class="col-num">{fmt(r.result.tpotMs, 1, ' ms')}</td>
                     <td class="col-num">{fmt(r.result.decodeMs, 0, ' ms')}</td>
                     <td class="col-num">{fmtAvgStd(r.result.e2eMs, r.result.e2eStddevMs, 0, ' ms')}</td>
-                    <td class="col-num">{r.result.outputTokens}</td>
                   {:else}
-                    <td class="col-error-msg" colspan="8">{r.error}</td>
+                    <td class="col-error-msg" colspan="7">{r.error}</td>
                   {/if}
                 </tr>
               {/if}
@@ -904,23 +912,23 @@
             <div class="zone-label">
               Results
               <span class="count-badge">{results.filter(r => r.result || r.error).length}</span>
-            </div>
-            <div class="results-export-row">
-              <div class="export-group">
-                <span class="export-group-icon" title="Copy results">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-                </span>
-                <button class="export-group-btn" class:active={copiedFlag === 'md'}   onclick={() => copy('md')}   title="Copy results as Markdown">{copiedFlag === 'md' ? 'Copied!' : 'MD'}</button>
-                <button class="export-group-btn" class:active={copiedFlag === 'json'} onclick={() => copy('json')} title="Copy results as JSON">{copiedFlag === 'json' ? 'Copied!' : 'JSON'}</button>
-                <button class="export-group-btn" class:active={copiedFlag === 'csv'}  onclick={() => copy('csv')}  title="Copy results as CSV">{copiedFlag === 'csv' ? 'Copied!' : 'CSV'}</button>
-              </div>
-              <div class="export-group">
-                <span class="export-group-icon" title="Download results">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                </span>
-                <button class="export-group-btn" onclick={() => download('md')}   title="Download results as Markdown">MD</button>
-                <button class="export-group-btn" onclick={() => download('json')} title="Download results as JSON">JSON</button>
-                <button class="export-group-btn" onclick={() => download('csv')}  title="Download results as CSV">CSV</button>
+              <div class="zone-label-actions results-export-row">
+                <div class="export-group">
+                  <span class="export-group-icon" title="Copy results">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                  </span>
+                  <button class="export-group-btn" class:active={copiedFlag === 'md'}   onclick={() => copy('md')}   title="Copy results as Markdown">{copiedFlag === 'md' ? 'Copied!' : 'MD'}</button>
+                  <button class="export-group-btn" class:active={copiedFlag === 'json'} onclick={() => copy('json')} title="Copy results as JSON">{copiedFlag === 'json' ? 'Copied!' : 'JSON'}</button>
+                  <button class="export-group-btn" class:active={copiedFlag === 'csv'}  onclick={() => copy('csv')}  title="Copy results as CSV">{copiedFlag === 'csv' ? 'Copied!' : 'CSV'}</button>
+                </div>
+                <div class="export-group">
+                  <span class="export-group-icon" title="Download results">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  </span>
+                  <button class="export-group-btn" onclick={() => download('md')}   title="Download results as Markdown">MD</button>
+                  <button class="export-group-btn" onclick={() => download('json')} title="Download results as JSON">JSON</button>
+                  <button class="export-group-btn" onclick={() => download('csv')}  title="Download results as CSV">CSV</button>
+                </div>
               </div>
             </div>
             <div class="results-table-wrap">
@@ -928,6 +936,8 @@
                 <thead>
                   <tr>
                     <th class="col-model">Model</th>
+                    <th class="col-num" title="Number of prompt tokens fed to the model.">Prompt</th>
+                    <th class="col-num" title="Output tokens generated per run.">Output</th>
                     <th>dtype</th>
                     <th>Backend</th>
                     <th class="col-num" title="Compilation time (ms)">Compilation</th>
@@ -937,7 +947,6 @@
                     <th class="col-num" title="Time Per Output Token (ms)">TPOT</th>
                     <th class="col-num" title="Decode time (ms)">Decode</th>
                     <th class="col-num" title="End-to-end time (ms)">E2E</th>
-                    <th class="col-num" title="Output tokens generated per run.">Tokens</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -945,6 +954,13 @@
                     {#if r.result || r.error}
                       <tr class:result-row-error={!!r.error}>
                         <td class="col-model" title={r.model.hf_model_id}>{r.model.hf_model_id}</td>
+                        {#if r.result}
+                          <td class="col-num">{r.result.promptTokens}</td>
+                          <td class="col-num">{r.result.outputTokens}</td>
+                        {:else}
+                          <td class="col-num">—</td>
+                          <td class="col-num">—</td>
+                        {/if}
                         <td><span class="dtype-chip" data-dtype={r.model.data_type}>{r.model.data_type}</span></td>
                         <td>{backend}</td>
                         {#if r.result}
@@ -955,9 +971,8 @@
                           <td class="col-num">{fmt(r.result.tpotMs, 1, ' ms')}</td>
                           <td class="col-num">{fmt(r.result.decodeMs, 0, ' ms')}</td>
                           <td class="col-num">{fmtAvgStd(r.result.e2eMs, r.result.e2eStddevMs, 0, ' ms')}</td>
-                          <td class="col-num">{r.result.outputTokens}</td>
                         {:else}
-                          <td class="col-error-msg" colspan="8">{r.error}</td>
+                          <td class="col-error-msg" colspan="7">{r.error}</td>
                         {/if}
                       </tr>
                     {/if}
@@ -1245,7 +1260,6 @@
     display: flex;
     align-items: center;
     gap: var(--space-1);
-    flex-wrap: wrap;
   }
 
   .results-table-wrap {
@@ -1355,22 +1369,6 @@
     font-size: var(--text-xs);
     color: var(--color-text-secondary);
     margin-top: var(--space-1);
-  }
-
-  /* Logs — identical to custom/+page.svelte */
-  .logs-section { margin-bottom: var(--space-3); }
-
-  .logs-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: var(--space-1);
-  }
-
-  .logs-title {
-    font-size: var(--text-sm);
-    font-weight: 500;
-    color: var(--color-text-secondary);
   }
 
   .export-group {
@@ -1678,9 +1676,6 @@
     gap: 8px;
     min-height: 28px;
   }
-  .sb-row-stack { display: block; }
-  .sb-row-disabled { opacity: 0.5; }
-
   .sb-label {
     font-family: var(--font-ui);
     font-size: var(--text-xs);
@@ -1692,16 +1687,6 @@
     text-transform: none;
     letter-spacing: 0;
   }
-  .sb-label-stack {
-    display: block;
-    font-size: var(--text-xs);
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--color-text-muted);
-    margin-bottom: 4px;
-  }
-
   input.sb-input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
   select.sb-input {
     width: 100%;
@@ -1817,8 +1802,6 @@
   }
 
   .action-hint-list .action-hint { margin-top: 0; }
-
-  .num-input { font-family: var(--font-mono); }
 
   .runs-row .sb-label {
     display: block;

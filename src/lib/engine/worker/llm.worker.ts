@@ -235,10 +235,34 @@ async function runSingleGeneration(
     },
   });
 
-  tStart = performance.now();
-  post({ type: 'generate-start', id, runIndex, promptTokens: 0 });
+  // Custom prompts (promptTokens === 0 means user typed their own text) need the
+  // chat template so instruct models respond properly instead of doing completion.
+  // Synthetic prompts are raw repetitions used only for timing — no template needed.
+  let promptInput: any = req.prompt;
+  let actualPromptTokens: number = req.promptTokens ?? 0;
+  if (!req.promptTokens && tokenizer?.apply_chat_template) {
+    try {
+      promptInput = tokenizer.apply_chat_template(
+        [{ role: 'user', content: req.prompt }],
+        { tokenize: false, add_generation_prompt: true },
+      );
+    } catch {
+      // tokenizer doesn't support chat template — fall back to raw prompt
+    }
+  }
+  if (!req.promptTokens && tokenizer?.encode) {
+    try {
+      const ids = tokenizer.encode(typeof promptInput === 'string' ? promptInput : req.prompt);
+      actualPromptTokens = Array.isArray(ids) ? ids.length : (ids?.length ?? 0);
+    } catch {
+      // leave as 0
+    }
+  }
 
-  const output = await pipe(req.prompt, {
+  tStart = performance.now();
+  post({ type: 'generate-start', id, runIndex, promptTokens: actualPromptTokens });
+
+  const output = await pipe(promptInput, {
     max_new_tokens: req.maxNewTokens,
     do_sample: false,
     return_full_text: false,
@@ -265,7 +289,7 @@ async function runSingleGeneration(
     tps: outputTokens > 1 && decodeMs > 0 ? ((outputTokens - 1) / decodeMs) * 1000 : 0,
     e2eMs: tEnd - tStart,
     outputTokens,
-    promptTokens: output?.[0]?.prompt_tokens ?? output?.[0]?.input_ids?.length ?? 0,
+    promptTokens: actualPromptTokens || (output?.[0]?.prompt_tokens ?? output?.[0]?.input_ids?.length ?? 0),
   };
   if (isTimed) post({ type: 'run-done', id, runIndex, runResult: result });
   return result;
