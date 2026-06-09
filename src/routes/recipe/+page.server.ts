@@ -18,6 +18,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 
   const { data, error } = await (locals.supabase.from('recipes') as any)
     .select('*, profiles!owner_id(display_name, email, avatar_url)')
+    .neq('kind', 'llm')
     .or(`owner_id.eq.${userId},visibility.eq.public`)
     .order('updated_at', { ascending: false });
 

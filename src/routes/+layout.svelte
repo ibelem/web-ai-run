@@ -21,48 +21,73 @@
   let isCrossOriginIsolated = $state(false);
   let isJspiSupported = $state(false);
   let isWebnnAvailable = $state(false);
-  let interruptedRun = $state<{ pending: number; completed: number; total: number } | null>(null);
+  let interruptedRun = $state<{ kind: 'inference' | 'llm'; pending: number; completed: number; total: number } | null>(null);
 
   // Clear interrupted banner when a run finishes
   $effect(() => {
     if (!$isRunningStore && browser) {
-      const raw = localStorage.getItem('interrupted_run');
-      if (!raw) interruptedRun = null;
+      const inf = localStorage.getItem('interrupted_run');
+      const llm = localStorage.getItem('interrupted_llm_run');
+      if (!inf && !llm) interruptedRun = null;
     }
   });
 
   const supabase = createClient();
 
   function checkInterruptedRun() {
+    // /run state takes priority if both exist (older flow, more likely to be the active one)
     try {
       const raw = localStorage.getItem('interrupted_run');
-      if (!raw) return;
-      const saved = JSON.parse(raw);
-      if (!saved?.queue || !Array.isArray(saved.queue)) return;
-      // Expire after 24 hours
-      if (saved.ts && Date.now() - saved.ts > 24 * 60 * 60 * 1000) {
-        localStorage.removeItem('interrupted_run');
-        return;
-      }
-      const pending = saved.queue.filter((i: any) => i.status === 'pending' || i.status === 'downloading' || i.status === 'compiling' || i.status === 'running').length;
-      const completed = saved.queue.filter((i: any) => i.status === 'completed').length;
-      if (pending > 0) {
-        interruptedRun = { pending, completed, total: saved.queue.length };
-      } else {
-        localStorage.removeItem('interrupted_run');
+      if (raw) {
+        const saved = JSON.parse(raw);
+        if (saved?.queue && Array.isArray(saved.queue)) {
+          if (saved.ts && Date.now() - saved.ts > 24 * 60 * 60 * 1000) {
+            localStorage.removeItem('interrupted_run');
+          } else {
+            const pending = saved.queue.filter((i: any) => i.status === 'pending' || i.status === 'downloading' || i.status === 'compiling' || i.status === 'running').length;
+            const completed = saved.queue.filter((i: any) => i.status === 'completed').length;
+            if (pending > 0) {
+              interruptedRun = { kind: 'inference', pending, completed, total: saved.queue.length };
+              return;
+            }
+            localStorage.removeItem('interrupted_run');
+          }
+        }
       }
     } catch {
       localStorage.removeItem('interrupted_run');
+    }
+
+    try {
+      const raw = localStorage.getItem('interrupted_llm_run');
+      if (!raw) return;
+      const saved = JSON.parse(raw);
+      if (!saved?.state || !Array.isArray(saved.state)) return;
+      if (saved.ts && Date.now() - saved.ts > 24 * 60 * 60 * 1000) {
+        localStorage.removeItem('interrupted_llm_run');
+        return;
+      }
+      const pending = saved.state.filter((s: any) => s.status === 'pending').length;
+      const completed = saved.state.filter((s: any) => s.status === 'completed').length;
+      if (pending > 0) {
+        interruptedRun = { kind: 'llm', pending, completed, total: saved.state.length };
+      } else {
+        localStorage.removeItem('interrupted_llm_run');
+      }
+    } catch {
+      localStorage.removeItem('interrupted_llm_run');
     }
   }
 
   function dismissInterruptedRun() {
     localStorage.removeItem('interrupted_run');
+    localStorage.removeItem('interrupted_llm_run');
     interruptedRun = null;
   }
 
   function resumeInterruptedRun() {
-    window.location.href = '/run#resume=1';
+    if (!interruptedRun) return;
+    window.location.href = interruptedRun.kind === 'llm' ? '/run-llm#resume=1' : '/run#resume=1';
   }
 
   onMount(() => {

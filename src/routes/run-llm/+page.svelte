@@ -328,9 +328,56 @@
     // Enable hash-writing only after all state has been restored, so the first
     // run of the $effect doesn't fire before the router is ready.
     mounted = true;
+
+    // Auto-resume if navigated with #resume=1 (from interrupted run banner)
+    if (browser && location.hash.includes('resume=1')) {
+      history.replaceState(null, '', location.pathname);
+      try {
+        const raw = localStorage.getItem(LLM_INTERRUPTED_KEY);
+        if (raw) {
+          const saved = JSON.parse(raw);
+          if (saved?.state && Array.isArray(saved.state)) {
+            // Restore config first so models/backend/etc are set before runAll()
+            const c = saved.config;
+            if (c) {
+              if (c.runs) runs = c.runs;
+              if (c.promptTokens != null) promptTokens = c.promptTokens;
+              if (c.maxNewTokens) maxNewTokens = c.maxNewTokens;
+              if (c.prompt) prompt = c.prompt;
+              if (c.transformersVersion) transformersVersion = c.transformersVersion;
+              if (c.webnnEp) webnnEp = c.webnnEp;
+              if (c.saveResults != null) saveResults = c.saveResults;
+              if (c.cpuModel) cpuModel = c.cpuModel;
+              if (c.osModel) osModel = c.osModel;
+              if (c.gpuDriverVersion) gpuDriverVersion = c.gpuDriverVersion;
+              if (c.npuDriverVersion) npuDriverVersion = c.npuDriverVersion;
+              if (c.models?.length) models = c.models;
+              if (c.backend) {
+                const backendToUi = (b: LLMBackend): Backend => b === 'wasm' ? 'wasm_1' : b as Backend;
+                selectedBackends = [backendToUi(c.backend)];
+              }
+            }
+            // Restore previous results (completed entries skip on resume)
+            results = saved.state.map((s: any) => ({
+              model: s.model,
+              result: s.result ?? null,
+              error: (s.status === 'completed') ? null : s.error,
+            }));
+            // Kick off the run, telling it to keep already-completed entries
+            runAll({ resume: true });
+          }
+        }
+      } catch {}
+    }
+
+    if (browser) window.addEventListener('beforeunload', handleBeforeUnload);
   });
 
-  onDestroy(() => { terminateLlmWorker(); stopCompileTimer(); });
+  onDestroy(() => {
+    if (browser) window.removeEventListener('beforeunload', handleBeforeUnload);
+    terminateLlmWorker();
+    stopCompileTimer();
+  });
 
   function startCompileTimer() {
     compileStartMs = performance.now();
@@ -340,16 +387,21 @@
     if (compileIntervalId) { clearInterval(compileIntervalId); compileIntervalId = null; }
   }
 
-  async function runAll() {
+  async function runAll(opts: { resume?: boolean } = {}) {
     if (models.length === 0 || isRunning) return;
     isRunning = true;
-    results = models.map(m => ({ model: m, result: null, error: null }));
+    if (!opts.resume) {
+      results = models.map(m => ({ model: m, result: null, error: null }));
+    }
     runLogs = [];
     phaseError = null;
+    saveLlmRunState();
 
     for (let i = 0; i < models.length; i++) {
       activeModelIdx = i;
       const m = models[i];
+      // On resume, skip models that already have a successful result
+      if (opts.resume && results[i]?.result) continue;
       phase = 'download';
       downloadLoaded = 0; downloadTotal = 0; downloadCurrentFile = '';
       tokenStream = ''; liveTps = 0; liveTtft = null; currentRun = 0; tokenCount = 0;
@@ -387,18 +439,21 @@
         });
 
         results[i] = { model: m, result, error: null };
+        saveLlmRunState();
         if (saveResults && userId) await persistResult(m, result);
       } catch (e: any) {
         const msg = e.message ?? String(e);
         results[i] = { model: m, result: null, error: msg };
         runLogs = [...runLogs, `Error: ${msg}`];
-        phaseError = { phase, message: msg };
+        phaseError = { phase, message: msg.replace(/^\[[^\]]+\]\s*/, '') };
+        saveLlmRunState();
       }
     }
 
     stopCompileTimer();
     phase = 'done';
     isRunning = false;
+    clearLlmRunState();
   }
 
   function stopBenchmark() {
@@ -406,6 +461,48 @@
     stopCompileTimer();
     isRunning = false;
     phase = 'idle';
+    // Mark current model as stopped so resume picks it up
+    if (results[activeModelIdx] && !results[activeModelIdx].result) {
+      results[activeModelIdx] = { ...results[activeModelIdx], error: results[activeModelIdx].error ?? 'Stopped by user' };
+    }
+    saveLlmRunState();
+  }
+
+  // ── Crash/interruption recovery ─────────────────────────────────────────────
+  const LLM_INTERRUPTED_KEY = 'interrupted_llm_run';
+
+  function saveLlmRunState() {
+    if (!browser) return;
+    try {
+      const state = results.map((r, i) => ({
+        model: r.model,
+        // Keep completed/error entries; mark active/pending entries as pending so resume re-runs them
+        status: r.result ? 'completed' : (r.error ? 'error' : 'pending'),
+        error: r.error,
+        // Strip non-serializable / large fields from result; keep just the metrics
+        result: r.result,
+      }));
+      const config = {
+        backend, runs, promptTokens, maxNewTokens, prompt,
+        transformersVersion, webnnEp, saveResults,
+        cpuModel, osModel, gpuDriverVersion, npuDriverVersion,
+        models,
+      };
+      localStorage.setItem(LLM_INTERRUPTED_KEY, JSON.stringify({ state, config, ts: Date.now() }));
+    } catch {}
+  }
+
+  function clearLlmRunState() {
+    if (!browser) return;
+    try { localStorage.removeItem(LLM_INTERRUPTED_KEY); } catch {}
+  }
+
+  function handleBeforeUnload(e: BeforeUnloadEvent) {
+    if (!isRunning) return;
+    saveLlmRunState();
+    // Show browser confirmation prompt — gives user a chance to cancel close
+    e.preventDefault();
+    e.returnValue = '';
   }
 
   async function persistResult(m: LLMRecipeModel, r: LLMBenchmarkResult) {
@@ -517,7 +614,7 @@
   function buildMD(): string {
     const rows = resultRows();
     const lines: string[] = ['# LLM Benchmark Results', ''];
-    lines.push(`- Backend: \`${backend}\`  · Runs: ${runs}  · Prompt tokens: ${promptTokens || 'custom'}  · Output tokens: ${maxNewTokens}`);
+    lines.push(`- Backend: \`${backend}\`  · Runs: ${runs}  · Prompt tokens: ${promptTokens || 'custom'}  · Max new tokens: ${maxNewTokens}`);
     lines.push(`- Transformers.js: \`${transformersVersion}\``);
     if (environment) lines.push(`- Env: ${environment.browser} ${environment.browser_version} · ${environment.os} · ${environment.gpu}`);
     lines.push('');
@@ -593,7 +690,7 @@
           {/if}
         </span>
         <span class="progress-count">
-          {#if phase === 'generate'}Run {currentRun}/{runs}{/if}{#if models.length > 1} · LLM {activeModelIdx + 1}/{models.length}{/if}
+          {#if phase === 'generate'}Run {currentRun}/{runs}{/if}{#if models.length > 1}{#if phase === 'generate'}{' · '}{/if}LLM {activeModelIdx + 1}/{models.length}{/if}
         </span>
       </div>
 
@@ -647,31 +744,13 @@
 
   {#if isRunning && results.some(r => r.result || r.error)}
     <section class="results-section results-section-running">
-      <div class="results-export-row">
-        <div class="export-group">
-          <span class="export-group-icon" title="Copy results">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-          </span>
-          <button class="export-group-btn" class:active={copiedFlag === 'md'}   onclick={() => copy('md')}   title="Copy results as Markdown">{copiedFlag === 'md' ? 'Copied!' : 'MD'}</button>
-          <button class="export-group-btn" class:active={copiedFlag === 'json'} onclick={() => copy('json')} title="Copy results as JSON">{copiedFlag === 'json' ? 'Copied!' : 'JSON'}</button>
-          <button class="export-group-btn" class:active={copiedFlag === 'csv'}  onclick={() => copy('csv')}  title="Copy results as CSV">{copiedFlag === 'csv' ? 'Copied!' : 'CSV'}</button>
-        </div>
-        <div class="export-group">
-          <span class="export-group-icon" title="Download results">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          </span>
-          <button class="export-group-btn" onclick={() => download('md')}   title="Download results as Markdown">MD</button>
-          <button class="export-group-btn" onclick={() => download('json')} title="Download results as JSON">JSON</button>
-          <button class="export-group-btn" onclick={() => download('csv')}  title="Download results as CSV">CSV</button>
-        </div>
-      </div>
       <div class="results-table-wrap">
         <table class="results-table">
           <thead>
             <tr>
               <th class="col-model">Model</th>
-              <th class="col-num" title="Number of prompt tokens fed to the model. With a synthetic prompt this is exact (re-tokenized by the model's tokenizer). 'Custom' prompts show the actual token count from the run.">Prompt</th>
-              <th class="col-num" title="Output tokens generated per run.&#10;With do_sample=false and fixed max_new_tokens this is deterministic unless an EOS token stops generation early.">Output</th>
+              <th class="col-num" title="Prompt Tokens (prompt_tokens) — number of input tokens fed to the model. With a synthetic prompt this is exact (re-tokenized by the model's tokenizer). 'Custom' prompts show the actual token count from the run.">Prompt</th>
+              <th class="col-num" title="Output Tokens (output_tokens) — actual number of tokens the model generated this run. Equals Max New unless an end-of-sequence token stopped generation early.">Output</th>
               <th>dtype</th>
               <th>Backend</th>
               <th class="col-num" title="Compilation time (ms)&#10;Formula: pipeline-ready time − pipeline-start time&#10;Includes: read weights from OPFS cache, parse ONNX graph, compile kernels (WebGPU shaders / WebNN graph / WASM), upload weights to device memory.&#10;Excludes: model download (measured separately in the Download phase) and generation runs.">Compilation</th>
@@ -714,7 +793,6 @@
           </tbody>
         </table>
       </div>
-      <p class="results-footer">{runs} run{runs !== 1 ? 's' : ''} · TTFT/TPS/E2E shown as avg ± stddev</p>
     </section>
   {/if}
 
@@ -727,14 +805,11 @@
   </div><!-- /running-center -->
 
   {#if phaseError && !isRunning}
-    <div class="error-banner">
-      <strong>[{phaseError.phase}]</strong> {phaseError.message}
-      {#if phaseError.message.includes('too large') || phaseError.message.includes('RangeError')}
-        <p class="action-hint">Try a smaller dtype (q4f16, int8) or a different model.</p>
-      {:else if phaseError.phase === 'download'}
-        <p class="action-hint">Check your network connection or try again.</p>
-      {/if}
-    </div>
+    {#if phaseError.message.includes('too large') || phaseError.message.includes('RangeError')}
+      <div class="error-banner"><p class="action-hint">Try a smaller dtype (q4f16, int8) or a different model.</p></div>
+    {:else if phaseError.phase === 'download'}
+      <div class="error-banner"><p class="action-hint">Check your network connection or try again.</p></div>
+    {/if}
   {/if}
 
   {#if !isRunning}
@@ -843,14 +918,14 @@
             backends={BACKENDS.filter(b => b.id !== 'wasm_n')}
           />
           <div class="sb-row">
-            <span class="sb-label" title="Synthesize a prompt of exactly this many tokens (like onnxruntime-genai -l). Larger = more prefill work, longer TTFT. Set to 'Custom' to use your typed prompt verbatim (not reproducible across users).">Prompt</span>
+            <span class="sb-label" title="Prompt Tokens — number of input tokens fed to the model (prompt_tokens). Synthesizes a prompt of exactly this many tokens for reproducibility (like onnxruntime-genai -l). Larger = more prefill work, longer TTFT. Set to 'Custom' to use your typed prompt verbatim (not reproducible across users).">Prompt</span>
             <select class="sb-input" bind:value={promptTokens}>
               <option value={0}>Custom</option>
               {#each TOKEN_OPTIONS as t}<option value={t}>{t}</option>{/each}
             </select>
           </div>
           <div class="sb-row">
-            <span class="sb-label" title="max_new_tokens passed to model.generate(). Larger = longer decode phase, more stable TPS measurement.">Output</span>
+            <span class="sb-label" title="Max New Tokens — the upper bound passed to model.generate() (max_new_tokens). The model stops at this count, or earlier if it emits an end-of-sequence token. The actual count generated is shown as 'Output' in the results table. Larger = longer decode phase, more stable TPS measurement.">Max New</span>
             <select class="sb-input" bind:value={maxNewTokens}>
               {#each TOKEN_OPTIONS as t}<option value={t}>{t}</option>{/each}
             </select>
@@ -936,8 +1011,8 @@
                 <thead>
                   <tr>
                     <th class="col-model">Model</th>
-                    <th class="col-num" title="Number of prompt tokens fed to the model.">Prompt</th>
-                    <th class="col-num" title="Output tokens generated per run.">Output</th>
+                    <th class="col-num" title="Prompt Tokens (prompt_tokens) — number of input tokens fed to the model.">Prompt</th>
+                    <th class="col-num" title="Output Tokens (output_tokens) — actual tokens generated. Equals Max New unless EOS stopped generation early.">Output</th>
                     <th>dtype</th>
                     <th>Backend</th>
                     <th class="col-num" title="Compilation time (ms)">Compilation</th>
@@ -1093,7 +1168,7 @@
           </p>
         {:else}
           <p class="prompt-hint">
-            Custom mode: your prompt is used verbatim. Output tokens is an <strong>upper bound</strong> — the model may stop earlier if it emits an end-of-sequence token, so TPS / decode time can be noisy at small token counts. Not directly comparable to other users' runs.
+            Custom mode: your prompt is used verbatim. Max New is an <strong>upper bound</strong> — the model may stop earlier if it emits an end-of-sequence token, so the Output count (and TPS / decode time) can be noisy at small token counts. Not directly comparable to other users' runs.
           </p>
         {/if}
       </div>
@@ -1205,12 +1280,11 @@
     opacity: 0.75;
   }
 
-  .progress-bar-slot { min-height: 20px; }
   /* Keep the slot's space reserved when hidden so the section doesn't jump
      between "downloadTotal == 0" and the first progress event. */
   .progress-bar-hidden { visibility: hidden; }
 
-  .indeterminate-bar { height: 4px; border-radius: 2px; background: var(--color-surface-sunken); overflow: hidden; margin: 8px 0; }
+  .indeterminate-bar { height: 1px; border-radius: 2px; background: var(--color-surface-sunken); overflow: hidden; margin: 8px 0; }
   .indeterminate-inner { height: 100%; width: 40%; background: var(--color-primary); border-radius: 2px; animation: slide 1.4s ease-in-out infinite; }
   @keyframes slide { 0% { transform: translateX(-100%); } 100% { transform: translateX(350%); } }
 
@@ -1343,15 +1417,34 @@
   .btn-stop {
     display: inline-flex;
     align-items: center;
+    gap: 5px;
     font-family: var(--font-ui);
     font-size: var(--text-sm);
-    font-weight: 500;
-    padding: var(--space-1) var(--space-3);
-    border: 1px solid var(--color-error);
+    padding: 6px 12px;
+    border: 1px solid var(--color-border-strong);
     border-radius: var(--radius-base);
     background: none;
-    color: var(--color-error);
+    color: var(--color-text-muted);
     cursor: pointer;
+    transition: border-color var(--transition-base), color var(--transition-base);
+  }
+  .btn-stop:hover {
+    border-color: var(--color-error);
+    color: var(--color-error);
+  }
+  .btn-stop:hover .kbd-hint { 
+    border-color: var(--color-error); color: var(--color-error); 
+  }
+
+  .btn-stop .kbd-hint {
+    display: inline-flex;
+    align-items: center;
+    padding: 0 5px;
+    margin: 0;
+    font-family: var(--font-mono);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-base);
+    font-size: 10px;
   }
 
   /* Error banner */

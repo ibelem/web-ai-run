@@ -2,15 +2,19 @@
   import type { Backend } from '$lib/engine/types';
   import { BACKENDS } from '$lib/engine/backends';
 
-  let { selected = $bindable([]), available = [], backends: backendList = BACKENDS }: { selected: Backend[]; available: Backend[]; backends?: typeof BACKENDS } = $props();
+  let { selected = $bindable([]), available = [], backends: backendList = BACKENDS, singleRow = false }: { selected: Backend[]; available: Backend[]; backends?: typeof BACKENDS; singleRow?: boolean } = $props();
 
   const ROW_1: Backend[] = ['wasm_1', 'wasm_n', 'webnn_cpu'];
   const ROW_2: Backend[] = ['webgpu', 'webnn_gpu', 'webnn_npu'];
 
-  const rows = $derived([
-    ROW_1.map((id) => backendList.find((b) => b.id === id)).filter((b): b is typeof BACKENDS[number] => !!b),
-    ROW_2.map((id) => backendList.find((b) => b.id === id)).filter((b): b is typeof BACKENDS[number] => !!b),
-  ]);
+  const rows = $derived(
+    singleRow
+      ? [[...ROW_1, ...ROW_2].map((id) => backendList.find((b) => b.id === id)).filter((b): b is typeof BACKENDS[number] => !!b)]
+      : [
+          ROW_1.map((id) => backendList.find((b) => b.id === id)).filter((b): b is typeof BACKENDS[number] => !!b),
+          ROW_2.map((id) => backendList.find((b) => b.id === id)).filter((b): b is typeof BACKENDS[number] => !!b),
+        ]
+  );
 
   function toggle(id: Backend) {
     if (selected.includes(id)) {

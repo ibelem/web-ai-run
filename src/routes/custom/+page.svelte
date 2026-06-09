@@ -578,7 +578,7 @@
   {#if file && !isRunning}
     <section class="config-section">
       <div class="top-config-grid">
-        <BackendSelector bind:selected={selectedBackends} available={availableBackends} />
+        <BackendSelector bind:selected={selectedBackends} available={availableBackends} singleRow />
         <RunConfigCmp bind:iterations />
       </div>
 
@@ -891,25 +891,36 @@
   }
 
   .btn-stop {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
     font-family: var(--font-ui);
     font-size: var(--text-sm);
-    font-weight: 500;
-    padding: var(--space-1) var(--space-3);
-    border: 1px solid var(--color-error);
+    padding: 6px 12px;
+    border: 1px solid var(--color-border-strong);
     border-radius: var(--radius-base);
     background: none;
-    color: var(--color-error);
+    color: var(--color-text-muted);
     cursor: pointer;
+    transition: border-color var(--transition-base), color var(--transition-base);
+  }
+  .btn-stop:hover {
+    border-color: var(--color-error);
+    color: var(--color-error);
+  }
+  .btn-stop:hover .kbd-hint { 
+    border-color: var(--color-error); color: var(--color-error); 
   }
 
-  .kbd-hint {
+  .btn-stop .kbd-hint {
+    display: inline-flex;
+    align-items: center;
+    padding: 0 5px;
+    margin: 0;
     font-family: var(--font-mono);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-base);
     font-size: 10px;
-    padding: 1px 4px;
-    margin-left: 4px;
-    border: 1px solid currentColor;
-    border-radius: var(--radius-sm);
-    opacity: 0.6;
   }
 
   .error-text {
@@ -1016,10 +1027,6 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     margin: 0;
-  }
-
-  .progress-bar-slot {
-    min-height: 20px;
   }
 
   .progress-bar-hidden {

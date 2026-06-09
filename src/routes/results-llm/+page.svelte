@@ -128,21 +128,21 @@
     { key: 'runtime',         label: 'Runtime',         defaultVisible: true  },
     { key: 'backend',         label: 'Backend',         defaultVisible: true  },
     { key: 'status',          label: 'Status',          defaultVisible: true  },
+    { key: 'prompt_tokens',   label: 'Prompt',          defaultVisible: true  },
+    { key: 'tokens',          label: 'Output',          defaultVisible: true  },
     { key: 'ttft',            label: 'TTFT',            defaultVisible: true  },
     { key: 'tps',             label: 'TPS',             defaultVisible: true  },
     { key: 'tpot',            label: 'TPOT',            defaultVisible: true  },
     { key: 'e2e',             label: 'E2E',             defaultVisible: true  },
     { key: 'e2e_tps',         label: 'E2E TPS',         defaultVisible: true  },
-    { key: 'tokens',          label: 'Tokens',          defaultVisible: true  },
     { key: 'compile',         label: 'Compile',         defaultVisible: true  },
     // Default-off
     { key: 'webnn_ep',        label: 'WebNN EP',        defaultVisible: false },
-    { key: 'prompt_tokens',   label: 'Prompt Tokens',   defaultVisible: false },
-    { key: 'max_new_tokens',  label: 'Max New Tokens',  defaultVisible: false },
+    { key: 'max_new_tokens',  label: 'Max New',         defaultVisible: false },
     { key: 'runs',            label: 'Runs',            defaultVisible: false },
     { key: 'runtime_version', label: 'Runtime Version', defaultVisible: false },
-    { key: 'os',              label: 'OS',              defaultVisible: true  },
-    { key: 'browser',         label: 'Browser',         defaultVisible: true  },
+    { key: 'os',              label: 'OS',              defaultVisible: false },
+    { key: 'browser',         label: 'Browser',         defaultVisible: false },
     { key: 'browser_ver',     label: 'Browser Version', defaultVisible: false },
     { key: 'cpu',             label: 'CPU',             defaultVisible: false },
     { key: 'gpu',             label: 'GPU',             defaultVisible: false },
@@ -150,7 +150,7 @@
     { key: 'npu_driver',      label: 'NPU Driver',      defaultVisible: false },
   ];
 
-  const LS_KEY = 'results_llm_visible_cols_v1';
+  const LS_KEY = 'results_llm_visible_cols_v2';
 
   function loadVisibleCols(): Set<OptColKey> {
     const defaults = new Set(OPTIONAL_COLS.filter(c => c.defaultVisible).map(c => c.key));
@@ -270,16 +270,16 @@
             {#if isVisible('runtime')}<th>Runtime</th>{/if}
             {#if isVisible('backend')}<th>Backend</th>{/if}
             {#if isVisible('status')}<th>Status</th>{/if}
+            {#if isVisible('prompt_tokens')}<th title="Prompt Tokens (prompt_tokens) — number of input tokens fed to the model.">Prompt</th>{/if}
+            {#if isVisible('tokens')}<th title="Output Tokens (output_tokens) — actual tokens generated this run. Equals Max New unless an end-of-sequence token stopped generation early.">Output</th>{/if}
             {#if isVisible('ttft')}<th title="Time To First Token (prefill latency). Lower is better. Time from generate() call to the first decoded token, in ms.">TTFT</th>{/if}
             {#if isVisible('tps')}<th title="Decode throughput = (output_tokens − 1) / (e2e − ttft). Higher is better. Steady-state token generation rate in tok/s.">TPS</th>{/if}
             {#if isVisible('tpot')}<th title="Time Per Output Token = (e2e − ttft) / (output_tokens − 1). Lower is better. Average per-token decode latency in ms.">TPOT</th>{/if}
             {#if isVisible('e2e')}<th title="End-to-End wall-clock time from generate() call to the last token. Lower is better. Includes prefill + decode, in ms.">E2E</th>{/if}
             {#if isVisible('e2e_tps')}<th title="End-to-End throughput = output_tokens / e2e. Higher is better. Effective tok/s including prefill cost.">E2E TPS</th>{/if}
-            {#if isVisible('tokens')}<th title="Number of output tokens generated in this run.">Tokens</th>{/if}
             {#if isVisible('compile')}<th title="Initial model compilation/load-and-compile time, in ms. One-time cost per session.">Compile</th>{/if}
             {#if isVisible('webnn_ep')}<th>WebNN EP</th>{/if}
-            {#if isVisible('prompt_tokens')}<th>Prompt Tokens</th>{/if}
-            {#if isVisible('max_new_tokens')}<th>Max New</th>{/if}
+            {#if isVisible('max_new_tokens')}<th title="Max New Tokens (max_new_tokens) — the cap passed to model.generate(). The model stops at this count, or earlier if EOS is emitted. The actual count is shown as 'Output'.">Max New</th>{/if}
             {#if isVisible('runs')}<th>Runs</th>{/if}
             {#if isVisible('runtime_version')}<th>Runtime Ver</th>{/if}
             {#if isVisible('os')}<th>OS</th>{/if}
@@ -289,6 +289,7 @@
             {#if isVisible('gpu')}<th>GPU</th>{/if}
             {#if isVisible('gpu_driver')}<th>GPU Driver</th>{/if}
             {#if isVisible('npu_driver')}<th>NPU Driver</th>{/if}
+            <th class="th-tested">By</th>
             <th>Date</th>
           </tr>
         </thead>
@@ -309,15 +310,15 @@
                   {r.status}{r.error_phase ? ` [${r.error_phase}]` : ''}
                 </td>
               {/if}
+              {#if isVisible('prompt_tokens')}<td class="cell-metric">{r.prompt_tokens ?? '—'}</td>{/if}
+              {#if isVisible('tokens')}<td class="cell-metric">{r.output_tokens ?? '—'}</td>{/if}
               {#if isVisible('ttft')}<td class="cell-metric">{fmt(r.ttft_ms, 0, 'ms')}</td>{/if}
               {#if isVisible('tps')}<td class="cell-metric">{fmt(r.tps, 1, 'tok/s')}</td>{/if}
               {#if isVisible('tpot')}<td class="cell-metric">{fmt(r.tpot_ms, 1, 'ms')}</td>{/if}
               {#if isVisible('e2e')}<td class="cell-metric">{fmt(r.e2e_ms, 0, 'ms')}</td>{/if}
               {#if isVisible('e2e_tps')}<td class="cell-metric">{fmt(r.e2e_tps, 1, 'tok/s')}</td>{/if}
-              {#if isVisible('tokens')}<td class="cell-metric">{r.output_tokens ?? '—'}</td>{/if}
               {#if isVisible('compile')}<td class="cell-metric">{fmt(r.compilation_ms, 0, 'ms')}</td>{/if}
               {#if isVisible('webnn_ep')}<td class="cell-opt">{r.webnn_ep ?? '—'}</td>{/if}
-              {#if isVisible('prompt_tokens')}<td class="cell-metric">{r.prompt_tokens ?? '—'}</td>{/if}
               {#if isVisible('max_new_tokens')}<td class="cell-metric">{r.max_new_tokens ?? '—'}</td>{/if}
               {#if isVisible('runs')}<td class="cell-metric">{r.runs ?? '—'}</td>{/if}
               {#if isVisible('runtime_version')}<td class="cell-opt">{r.runtime_version ?? '—'}</td>{/if}
@@ -328,6 +329,18 @@
               {#if isVisible('gpu')}<td class="cell-opt cell-opt-long" title={r.gpu ?? ''}>{r.gpu ?? '—'}</td>{/if}
               {#if isVisible('gpu_driver')}<td class="cell-opt">{r.gpu_driver_version ?? '—'}</td>{/if}
               {#if isVisible('npu_driver')}<td class="cell-opt">{r.npu_driver_version ?? '—'}</td>{/if}
+              <td class="cell-tested">
+                <div class="tested-avatar-wrap" title={data.profile?.display_name ?? 'You'}>
+                  {#if data.profile?.avatar_url}
+                    <img src={data.profile.avatar_url} alt="" class="tested-avatar" crossorigin="anonymous" />
+                  {:else}
+                    <span class="tested-avatar tested-avatar-placeholder">
+                      {(data.profile?.display_name ?? 'Y')[0].toUpperCase()}
+                    </span>
+                  {/if}
+                  <span class="tested-tooltip">{data.profile?.display_name ?? 'You'}</span>
+                </div>
+              </td>
               <td class="cell-date">{fmtDate(r.completed_at)}</td>
             </tr>
           {/each}
@@ -679,5 +692,70 @@
     .filters-actions { margin-left: 0; }
     .table-footer { flex-direction: column; align-items: flex-start; }
     .footer-right { min-width: 0; justify-content: flex-start; }
+  }
+
+  /* ── Tested-by avatar ─────────────────────────────────── */
+  .th-tested {
+    width: 28px;
+  }
+
+  .cell-tested {
+    width: 28px;
+    padding: var(--space-1) 4px;
+    vertical-align: middle;
+    line-height: 0;
+  }
+
+  .tested-avatar-wrap {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 0;
+  }
+
+  .tested-avatar {
+    margin: 2px 0px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    display: block;
+    flex-shrink: 0;
+    border: 1px solid var(--color-border);
+    outline-offset: -1px;
+  }
+
+  .tested-avatar-placeholder {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-surface-sunken);
+    font-family: var(--font-ui);
+    font-size: 9px;
+    font-weight: 700;
+    color: var(--color-text-secondary);
+  }
+
+  .tested-tooltip {
+    display: none;
+    position: absolute;
+    bottom: calc(100% + 5px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--color-surface-raised);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: 2px 8px;
+    font-family: var(--font-ui);
+    font-size: 11px;
+    color: var(--color-text-primary);
+    white-space: nowrap;
+    pointer-events: none;
+    box-shadow: var(--shadow-dropdown);
+    z-index: 10;
+  }
+
+  .tested-avatar-wrap:hover .tested-tooltip {
+    display: block;
   }
 </style>

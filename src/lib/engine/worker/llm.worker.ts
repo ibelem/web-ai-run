@@ -1,5 +1,5 @@
 import type { LLMWorkerRequest, LLMWorkerMessage, LLMBenchmarkResult, SingleRunResult, LLMBackend } from '../types';
-import { getHfBase, getFromOPFS, saveToOPFS } from './shared/download';
+import { getHfBase, getFromOPFS, getOPFSFile, saveToOPFS } from './shared/download';
 import { installConsoleWrappers, startWebNNCapture, finalizeCapture } from './shared/webnn-tap';
 import { average, stddev, percentile } from './shared/metrics';
 
@@ -63,34 +63,48 @@ async function resolveLlmFileSet(hfModelId: string, dtype: string): Promise<stri
   const present = new Set(tree.map(f => f.path));
 
   const required = ['config.json', 'tokenizer.json', 'tokenizer_config.json'];
-  const optional = ['generation_config.json', 'special_tokens_map.json'];
+  const optional = ['generation_config.json', 'special_tokens_map.json',
+                    'preprocessor_config.json', 'processor_config.json',
+                    'chat_template.json', 'special_tokens_map.json'];
   for (const f of required) {
     if (!present.has(f)) throw new Error(`Required file missing in ${hfModelId}: ${f}`);
   }
 
   const suffix = dtype === 'fp32' ? '' : `_${dtype}`;
-  const candidates = [
+
+  // Find the primary decoder ONNX — the model can't run without this.
+  const primaryCandidates = [
     `onnx/decoder_model_merged${suffix}.onnx`,
     `onnx/model${suffix}.onnx`,
     `onnx/decoder_model${suffix}.onnx`,
   ];
-  const onnxPath = candidates.find(c => present.has(c));
-  if (!onnxPath) throw new Error(`No ONNX file for dtype "${dtype}" in ${hfModelId}. Tried: ${candidates.join(', ')}`);
+  const primaryOnnx = primaryCandidates.find(c => present.has(c));
+  if (!primaryOnnx) throw new Error(`No ONNX file for dtype "${dtype}" in ${hfModelId}. Tried: ${primaryCandidates.join(', ')}`);
 
-  const result = [...required, ...optional.filter(f => present.has(f)), onnxPath];
+  // Find ALL ONNX files matching the dtype suffix (multi-graph models like
+  // VLMs need embed_tokens_q4f16.onnx, vision_encoder_q4f16.onnx, etc.)
+  const onnxFiles = tree
+    .filter(f => f.path.startsWith('onnx/') && f.path.endsWith(`${suffix}.onnx`))
+    .map(f => f.path);
 
-  // Check for external data sidecar — small graph file means weights are external
-  const onnxEntry = tree.find(f => f.path === onnxPath)!;
-  if (onnxEntry.size < 1_000_000) {
+  // For each ONNX file, also pull its external data sidecars (any name that
+  // matches `<onnx>.onnx_data` or `<onnx>.onnx_data_N`).
+  const result = [...required, ...optional.filter(f => present.has(f))];
+  for (const onnxPath of onnxFiles) {
+    if (result.includes(onnxPath)) continue;
+    result.push(onnxPath);
+    const onnxEntry = tree.find(f => f.path === onnxPath)!;
     const sidecar = `${onnxPath}_data`;
-    if (!present.has(sidecar)) {
+    const hasSidecar = present.has(sidecar);
+    if (!hasSidecar && onnxEntry.size < 1_000_000 && onnxPath === primaryOnnx) {
       throw new Error(`External data missing: ${sidecar} (graph is ${onnxEntry.size} bytes — too small to be self-contained)`);
     }
-    result.push(sidecar);
-    // Numbered sidecars: _data_1, _data_2, ...
-    for (let i = 1; i <= 99; i++) {
-      const ns = `${onnxPath}_data_${i}`;
-      if (present.has(ns)) result.push(ns); else break;
+    if (hasSidecar) {
+      result.push(sidecar);
+      for (let i = 1; i <= 99; i++) {
+        const ns = `${onnxPath}_data_${i}`;
+        if (present.has(ns)) result.push(ns); else break;
+      }
     }
   }
 
@@ -167,31 +181,93 @@ async function downloadBundle(id: string, hfModelId: string, files: string[]): P
 
 // ── Custom fetch override — routes Transformers.js / ORT through OPFS ───────
 
-function setupOpfsFetch(hfModelId: string, files: string[], fileSizes: Map<string, number>): () => void {
-  const entryByUrl = new Map<string, { key: string; size: number }>();
+// Shard groups: when an ONNX external data file is split into numbered download
+// shards (_data, _data_1, _data_2, ...), the ONNX graph references only the base
+// name (_data) with tensor offsets spanning the FULL concatenated size. We serve
+// the merged buffer for the base path; numbered shards are never served standalone.
+//
+// Returns Map<basePath, [basePath, basePath_1, basePath_2, ...]> sorted by index.
+function buildShardGroups(files: string[]): Map<string, string[]> {
+  // Collect numbered shards: path → index
+  const numbered = new Map<string, number>();
+  for (const f of files) {
+    const m = f.match(/^(.+\.onnx_data)_(\d+)$/);
+    if (m) numbered.set(f, parseInt(m[2], 10));
+  }
+
+  const groups = new Map<string, string[]>();
+  for (const f of files) {
+    if (!/\.onnx_data$/.test(f)) continue;
+    // Collect all numbered shards that belong to this base, sorted by index
+    const shards = [...numbered.entries()]
+      .filter(([path]) => path.startsWith(f + '_'))
+      .sort(([, a], [, b]) => a - b)
+      .map(([path]) => path);
+    groups.set(f, [f, ...shards]);
+  }
+  return groups;
+}
+
+function setupOpfsFetch(hfModelId: string, files: string[], fileSizes: Map<string, number>, logId?: string): () => void {
+  // Build URL routes. Sort by descending suffix length so longer paths (e.g.
+  // ".onnx_data_1", ".onnx_data") match before shorter prefixes (".onnx") —
+  // a substring check on the URL would otherwise route ".onnx_data" requests
+  // to the small ".onnx" graph stub.
+  const routes: { suffix: string; key: string; size: number; matchedFile: string }[] = [];
   for (const f of files) {
     const key = opfsKey(hfModelId, f);
     const size = fileSizes.get(f) ?? 0;
-    // Match both huggingface.co and hf-mirror.com URLs
     for (const s of [`/${hfModelId}/resolve/main/${f}`, `/${hfModelId}/blob/main/${f}`]) {
-      entryByUrl.set(s, { key, size });
+      routes.push({ suffix: s, key, size, matchedFile: f });
     }
   }
+  routes.sort((a, b) => b.suffix.length - a.suffix.length);
+
+  // Pre-compute shard groups so we know which base paths need concatenation
+  const shardGroups = buildShardGroups(files);
+
+  // Cache File handles per matched path so we don't re-open OPFS repeatedly.
+  const fileCache = new Map<string, File>();
 
   const origFetch = globalThis.fetch;
 
   (globalThis as any).fetch = async (input: any, init?: any) => {
     const url: string = typeof input === 'string' ? input : (input as Request).url;
-    for (const [suffix, { key, size }] of entryByUrl) {
-      if (url.includes(suffix)) {
-        const buf = await getFromOPFS(key, size || undefined);
-        if (buf) {
-          return new Response(buf, {
-            status: 200,
-            headers: { 'content-length': String(buf.byteLength), 'content-type': 'application/octet-stream' },
-          });
+    if (logId && (url.includes('.onnx') || url.includes('decoder'))) {
+      log(logId, `[fetch] ${(init?.method ?? 'GET')} ${url}`);
+      flushLogs(logId);
+    }
+    let matched = false;
+    for (const { suffix, key, size, matchedFile } of routes) {
+      if (!url.includes(suffix)) continue;
+      matched = true;
+
+      // Serve from OPFS as a streaming Blob — no in-memory ArrayBuffer.
+      let file = fileCache.get(key);
+      if (!file) {
+        const f = await getOPFSFile(key, size || undefined);
+        if (f) {
+          file = f;
+          fileCache.set(key, file);
+          if (logId && matchedFile?.includes('.onnx_data')) {
+            log(logId, `[opfs-open] ${matchedFile} → ${(f.size / 1_048_576).toFixed(1)} MB`);
+            flushLogs(logId);
+          }
+        } else if (logId && matchedFile?.includes('.onnx_data')) {
+          log(logId, `[opfs-open] ${matchedFile} → FAILED (expected ${(size / 1_048_576).toFixed(1)} MB)`);
+          flushLogs(logId);
         }
       }
+      if (file) {
+        return new Response(file, {
+          status: 200,
+          headers: { 'content-length': String(file.size), 'content-type': 'application/octet-stream' },
+        });
+      }
+    }
+    if (!matched && logId && (url.includes('.onnx_data') || url.includes('.onnx?') || url.endsWith('.onnx'))) {
+      log(logId, `[fetch-passthrough] ${url}`);
+      flushLogs(logId);
     }
     return origFetch(input, init);
   };
@@ -353,17 +429,31 @@ async function runTransformers(req: LLMWorkerRequest): Promise<void> {
 
   // Phase 2: Compile
   post({ type: 'compile-start', id });
-  const restoreFetch = setupOpfsFetch(req.hfModelId, fileSet, fileSizes);
+  const restoreFetch = setupOpfsFetch(req.hfModelId, fileSet, fileSizes, id);
 
   // If the fileSet includes external data sidecars, tell Transformers.js explicitly.
   // The model's config.json uses un-suffixed keys (e.g. "model.onnx") so for dtype
   // variants like "model_q4f16.onnx" the auto-detection in Transformers.js returns 0
   // chunks, leaving ORT to look for the sidecar on disk — which fails in a browser.
-  const onnxFile = fileSet.find(f => f.endsWith('.onnx'));
-  const sidecars = fileSet.filter(f => /\.onnx_data(_\d+)?$/.test(f));
-  const useExternalDataFormat = onnxFile && sidecars.length > 0
-    ? { [onnxFile.split('/').pop()!]: sidecars.length }
-    : undefined;
+  //
+  // Multi-shard models (_data + _data_1 + ...): the ONNX graph references only the
+  // base name (_data) with tensor offsets spanning the FULL concatenated size. We
+  // always tell Transformers.js there is 1 logical chunk — setupOpfsFetch merges the
+  // numbered shards into one buffer before serving it.
+  // Build a per-file map of chunk counts for transformers.js. The reference
+  // implementation (webnn-text-generation-nextjs/lib/constants.ts) passes the
+  // exact shard count (1 for single sidecar, 2+ for multi-shard). transformers.js
+  // then generates getModelDataFiles({path: "..._data"}, {path: "..._data_1"}, ...)
+  // and ORT internally maps both to the single logical external data reference.
+  const onnxFiles = fileSet.filter(f => f.endsWith('.onnx'));
+  const externalDataMap: Record<string, number> = {};
+  for (const onnx of onnxFiles) {
+    const baseName = onnx.split('/').pop()!;
+    const shardCount = fileSet.filter(f => f === `${onnx}_data` || new RegExp(`^${onnx.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}_data_\\d+$`).test(f)).length;
+    if (shardCount > 0) externalDataMap[baseName] = shardCount;
+  }
+  const useExternalDataFormat = Object.keys(externalDataMap).length > 0 ? externalDataMap : undefined;
+  if (useExternalDataFormat) log(id, `use_external_data_format: ${JSON.stringify(useExternalDataFormat)}`);
 
   const tjsUrl = getTransformersCdnUrl(req.runtimeVersion);
   log(id, `Loading @huggingface/transformers@${req.runtimeVersion}`);

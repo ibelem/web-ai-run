@@ -1494,7 +1494,7 @@ git commit -m "feat: add benchmark state store (queue, results, progress)"
 
   .progress-track {
     flex: 1;
-    height: 4px;
+    height: 1px;
     background: var(--color-surface-sunken);
     border-radius: 2px;
     overflow: hidden;

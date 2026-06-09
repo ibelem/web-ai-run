@@ -40,7 +40,7 @@
 
   .progress-track {
     flex: 1;
-    height: 2px;
+    height: 1px;
     background: var(--color-accent);
     border-radius: 2px;
     overflow: hidden;

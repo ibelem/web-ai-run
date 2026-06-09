@@ -40,6 +40,25 @@ export function sanitizeFileName(s: string): string {
   return s.replace(/[^a-zA-Z0-9._-]/g, '--');
 }
 
+// Chunk size for reading large files from OPFS — 256 MB keeps heap pressure low.
+const OPFS_READ_CHUNK = 256 * 1024 * 1024;
+
+// Return the OPFS File handle (extends Blob — supports streaming, slicing, and
+// zero-copy Response construction). Use this for large files instead of
+// getFromOPFS which materializes the full ArrayBuffer in memory.
+export async function getOPFSFile(fileName: string, expectedSize?: number): Promise<File | null> {
+  try {
+    const root = await navigator.storage.getDirectory();
+    const modelsDir = await root.getDirectoryHandle('models', { create: true });
+    const fileHandle = await modelsDir.getFileHandle(fileName);
+    const file = await fileHandle.getFile();
+    if (expectedSize !== undefined && expectedSize > 0 && file.size !== expectedSize) return null;
+    return file;
+  } catch {
+    return null;
+  }
+}
+
 export async function getFromOPFS(fileName: string, expectedSize?: number): Promise<ArrayBuffer | null> {
   try {
     const root = await navigator.storage.getDirectory();
@@ -47,9 +66,22 @@ export async function getFromOPFS(fileName: string, expectedSize?: number): Prom
     const fileHandle = await modelsDir.getFileHandle(fileName);
     const file = await fileHandle.getFile();
     if (expectedSize !== undefined && expectedSize > 0 && file.size !== expectedSize) return null;
+
+    const size = file.size;
+    // For large files, read in chunks to avoid browser arrayBuffer() truncation bug.
+    if (size > OPFS_READ_CHUNK) {
+      const out = new Uint8Array(size);
+      let offset = 0;
+      while (offset < size) {
+        const end = Math.min(offset + OPFS_READ_CHUNK, size);
+        const chunk = await file.slice(offset, end).arrayBuffer();
+        out.set(new Uint8Array(chunk), offset);
+        offset = end;
+      }
+      return out.buffer;
+    }
+
     const buf = await file.arrayBuffer();
-    // arrayBuffer() can silently truncate for large files (browser bug) — validate the result too.
-    if (expectedSize !== undefined && expectedSize > 0 && buf.byteLength !== expectedSize) return null;
     return buf;
   } catch {
     return null;
