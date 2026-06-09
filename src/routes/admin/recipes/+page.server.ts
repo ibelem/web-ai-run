@@ -12,6 +12,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 
   const { data, error: dbError } = await (locals.supabase.from('recipes') as any)
     .select('*, profiles!owner_id(display_name, email, avatar_url)')
+    .neq('kind', 'llm')
     .eq('visibility', 'public')
     .order('featured_order', { ascending: true, nullsFirst: false });
 

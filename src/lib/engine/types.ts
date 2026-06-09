@@ -103,7 +103,6 @@ export interface LLMBenchmarkResult {
 
   ttftMs: number;
   ttftStddevMs: number;
-  ttftP90Ms: number;
   tpotMs: number;
   tps: number;
   tpsStddev: number;
@@ -167,7 +166,6 @@ export interface ResultsLlmRow {
   error_message: string | null;
   error_phase: string | null;
   ttft_ms: number | null;
-  ttft_p90_ms: number | null;
   tpot_ms: number | null;
   tps: number | null;
   decode_ms: number | null;

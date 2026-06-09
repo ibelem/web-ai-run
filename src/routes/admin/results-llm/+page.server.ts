@@ -1,6 +1,7 @@
 import { error, redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import type { ResultsLlmRow } from '$lib/engine/types';
+import { loginUrl } from '$lib/utils/login-redirect';
 
 export interface AdminResultsLlmRow extends ResultsLlmRow {
   user_display_name: string | null;
@@ -18,9 +19,9 @@ function distinct(rows: any[] | null, key: string): string[] {
   return [...new Set((rows ?? []).map((r: any) => r[key]).filter(Boolean))].sort() as string[];
 }
 
-export const load: PageServerLoad = async ({ locals }) => {
+export const load: PageServerLoad = async ({ locals, url }) => {
   const session = await locals.getSession();
-  if (!session) throw redirect(303, '/login');
+  if (!session) throw redirect(303, loginUrl(url.pathname + url.search));
 
   const role = session.user.app_metadata?.role;
   if (role !== 'admin') throw error(403, 'Admin access required');
@@ -31,6 +32,7 @@ export const load: PageServerLoad = async ({ locals }) => {
   const [
     backendRows, dtRows, runtimeRows, statusRows,
     osRows, browserRows, browserVerRows, cpuRows, gpuRows,
+    epRows, gpuDrvRows, npuDrvRows,
     usersRes, resultsRes,
   ] = await Promise.all([
     t('backend'),
@@ -42,6 +44,9 @@ export const load: PageServerLoad = async ({ locals }) => {
     t('browser_version'),
     t('cpu'),
     t('gpu'),
+    t('webnn_ep').not('webnn_ep', 'is', null).neq('webnn_ep', ''),
+    t('gpu_driver_version').not('gpu_driver_version', 'is', null).neq('gpu_driver_version', ''),
+    t('npu_driver_version').not('npu_driver_version', 'is', null).neq('npu_driver_version', ''),
     (supabase.from('profiles') as any)
       .select('id, display_name, avatar_url, email')
       .order('display_name', { ascending: true }),
@@ -75,6 +80,9 @@ export const load: PageServerLoad = async ({ locals }) => {
     distinctBrowserVers: distinct(browserVerRows.data, 'browser_version'),
     distinctCpus:      distinct(cpuRows.data,       'cpu'),
     distinctGpus:      distinct(gpuRows.data,       'gpu'),
+    distinctWebnnEps:  distinct(epRows.data,        'webnn_ep'),
+    distinctGpuDrivers: distinct(gpuDrvRows.data,   'gpu_driver_version'),
+    distinctNpuDrivers: distinct(npuDrvRows.data,   'npu_driver_version'),
     error: resultsRes.error?.message ?? null,
   };
 };

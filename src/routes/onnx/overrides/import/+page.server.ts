@@ -1,6 +1,7 @@
 import { error, redirect } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import { isAtLeast } from '$lib/types/roles';
+import { loginUrl } from '$lib/utils/login-redirect';
 
 function requireAuth(session: any) {
   if (!session) throw redirect(303, '/login');
@@ -8,9 +9,11 @@ function requireAuth(session: any) {
   if (!isAtLeast(role, 'member')) throw error(403, 'Login required');
 }
 
-export const load: PageServerLoad = async ({ locals }) => {
+export const load: PageServerLoad = async ({ locals, url }) => {
   const session = await locals.getSession();
-  requireAuth(session);
+  if (!session) throw redirect(303, loginUrl(url.pathname + url.search));
+  const role = session.user.app_metadata?.role ?? 'anonymous';
+  if (!isAtLeast(role, 'member')) throw error(403, 'Login required');
   return {};
 };
 

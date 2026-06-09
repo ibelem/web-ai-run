@@ -1,10 +1,10 @@
 import { redirect } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
+import { loginUrl, safeNext } from '$lib/utils/login-redirect';
 
 export const GET: RequestHandler = async ({ url, locals }) => {
   const code = url.searchParams.get('code');
-  const raw = url.searchParams.get('next') ?? '/';
-  const next = (raw.startsWith('/') && !raw.startsWith('//')) ? raw : '/';
+  const next = safeNext(url.searchParams.get('next'));
 
   if (code) {
     const { data, error } = await locals.supabase.auth.exchangeCodeForSession(code);
@@ -16,5 +16,7 @@ export const GET: RequestHandler = async ({ url, locals }) => {
     }
   }
 
-  redirect(303, '/login');
+  // OAuth/code-exchange failed — bounce back to /login but preserve `next`
+  // so a successful retry still lands the user on their original page.
+  redirect(303, loginUrl(next));
 };

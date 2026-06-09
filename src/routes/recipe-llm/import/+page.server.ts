@@ -1,9 +1,10 @@
 import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
+import { loginUrl } from '$lib/utils/login-redirect';
 
-export const load: PageServerLoad = async ({ locals }) => {
+export const load: PageServerLoad = async ({ locals, url }) => {
   const session = await locals.getSession();
-  if (!session) throw redirect(302, '/login');
+  if (!session) throw redirect(302, loginUrl(url.pathname + url.search));
 
   const { data: recipes } = await (locals.supabase.from('recipes') as any)
     .select('id, name, slug, models')

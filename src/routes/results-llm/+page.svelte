@@ -1,10 +1,19 @@
 <script lang="ts">
   import { createClient } from '$lib/supabase/client';
   import { browser } from '$app/environment';
+  import { auth, isAuthenticated } from '$lib/stores/auth';
+  import { goto } from '$app/navigation';
+  import { loginUrl, locationPath } from '$lib/utils/login-redirect';
   import type { PageData } from './$types';
   import type { ResultsLlmRow } from '$lib/engine/types';
 
   let { data }: { data: PageData } = $props();
+
+  $effect(() => {
+    if (browser && !$auth.loading && !$isAuthenticated) {
+      goto(loginUrl(locationPath(window.location)));
+    }
+  });
 
   const supabase = createClient();
 
@@ -130,6 +139,7 @@
     { key: 'status',          label: 'Status',          defaultVisible: true  },
     { key: 'prompt_tokens',   label: 'Prompt',          defaultVisible: true  },
     { key: 'tokens',          label: 'Output',          defaultVisible: true  },
+    { key: 'max_new_tokens',  label: 'Max New',         defaultVisible: false },
     { key: 'ttft',            label: 'TTFT',            defaultVisible: true  },
     { key: 'tps',             label: 'TPS',             defaultVisible: true  },
     { key: 'tpot',            label: 'TPOT',            defaultVisible: true  },
@@ -138,7 +148,6 @@
     { key: 'compile',         label: 'Compile',         defaultVisible: true  },
     // Default-off
     { key: 'webnn_ep',        label: 'WebNN EP',        defaultVisible: false },
-    { key: 'max_new_tokens',  label: 'Max New',         defaultVisible: false },
     { key: 'runs',            label: 'Runs',            defaultVisible: false },
     { key: 'runtime_version', label: 'Runtime Version', defaultVisible: false },
     { key: 'os',              label: 'OS',              defaultVisible: false },
@@ -272,6 +281,7 @@
             {#if isVisible('status')}<th>Status</th>{/if}
             {#if isVisible('prompt_tokens')}<th title="Prompt Tokens (prompt_tokens) — number of input tokens fed to the model.">Prompt</th>{/if}
             {#if isVisible('tokens')}<th title="Output Tokens (output_tokens) — actual tokens generated this run. Equals Max New unless an end-of-sequence token stopped generation early.">Output</th>{/if}
+            {#if isVisible('max_new_tokens')}<th title="Max New Tokens (max_new_tokens) — the cap passed to model.generate(). The model stops at this count, or earlier if EOS is emitted. The actual count is shown as 'Output'.">Max New</th>{/if}
             {#if isVisible('ttft')}<th title="Time To First Token (prefill latency). Lower is better. Time from generate() call to the first decoded token, in ms.">TTFT</th>{/if}
             {#if isVisible('tps')}<th title="Decode throughput = (output_tokens − 1) / (e2e − ttft). Higher is better. Steady-state token generation rate in tok/s.">TPS</th>{/if}
             {#if isVisible('tpot')}<th title="Time Per Output Token = (e2e − ttft) / (output_tokens − 1). Lower is better. Average per-token decode latency in ms.">TPOT</th>{/if}
@@ -279,7 +289,6 @@
             {#if isVisible('e2e_tps')}<th title="End-to-End throughput = output_tokens / e2e. Higher is better. Effective tok/s including prefill cost.">E2E TPS</th>{/if}
             {#if isVisible('compile')}<th title="Initial model compilation/load-and-compile time, in ms. One-time cost per session.">Compile</th>{/if}
             {#if isVisible('webnn_ep')}<th>WebNN EP</th>{/if}
-            {#if isVisible('max_new_tokens')}<th title="Max New Tokens (max_new_tokens) — the cap passed to model.generate(). The model stops at this count, or earlier if EOS is emitted. The actual count is shown as 'Output'.">Max New</th>{/if}
             {#if isVisible('runs')}<th>Runs</th>{/if}
             {#if isVisible('runtime_version')}<th>Runtime Ver</th>{/if}
             {#if isVisible('os')}<th>OS</th>{/if}
@@ -300,7 +309,7 @@
                 <input type="checkbox" class="row-check" checked={selected.has(r.id)} onchange={() => toggleRow(r.id)} />
               </td>
               <td class="cell-model" title={r.hf_model_id}>
-                <span class="cell-copy" onclick={() => copyCell(r.hf_model_id)} title="Copy">{r.hf_model_id}</span>
+                <button type="button" class="cell-copy" onclick={() => copyCell(r.hf_model_id)} title="Copy">{r.hf_model_id}</button>
               </td>
               {#if isVisible('dtype')}<td><span class="dtype-chip" data-dtype={r.data_type}>{r.data_type}</span></td>{/if}
               {#if isVisible('runtime')}<td class="cell-opt">{r.runtime}</td>{/if}
@@ -312,6 +321,7 @@
               {/if}
               {#if isVisible('prompt_tokens')}<td class="cell-metric">{r.prompt_tokens ?? '—'}</td>{/if}
               {#if isVisible('tokens')}<td class="cell-metric">{r.output_tokens ?? '—'}</td>{/if}
+              {#if isVisible('max_new_tokens')}<td class="cell-metric">{r.max_new_tokens ?? '—'}</td>{/if}
               {#if isVisible('ttft')}<td class="cell-metric">{fmt(r.ttft_ms, 0, 'ms')}</td>{/if}
               {#if isVisible('tps')}<td class="cell-metric">{fmt(r.tps, 1, 'tok/s')}</td>{/if}
               {#if isVisible('tpot')}<td class="cell-metric">{fmt(r.tpot_ms, 1, 'ms')}</td>{/if}
@@ -319,7 +329,6 @@
               {#if isVisible('e2e_tps')}<td class="cell-metric">{fmt(r.e2e_tps, 1, 'tok/s')}</td>{/if}
               {#if isVisible('compile')}<td class="cell-metric">{fmt(r.compilation_ms, 0, 'ms')}</td>{/if}
               {#if isVisible('webnn_ep')}<td class="cell-opt">{r.webnn_ep ?? '—'}</td>{/if}
-              {#if isVisible('max_new_tokens')}<td class="cell-metric">{r.max_new_tokens ?? '—'}</td>{/if}
               {#if isVisible('runs')}<td class="cell-metric">{r.runs ?? '—'}</td>{/if}
               {#if isVisible('runtime_version')}<td class="cell-opt">{r.runtime_version ?? '—'}</td>{/if}
               {#if isVisible('os')}<td class="cell-opt">{r.os ?? '—'}</td>{/if}
@@ -598,6 +607,14 @@
   .cell-copy {
     cursor: pointer;
     display: block;
+    width: 100%;
+    padding: 0;
+    margin: 0;
+    background: none;
+    border: none;
+    font: inherit;
+    color: inherit;
+    text-align: left;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

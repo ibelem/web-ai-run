@@ -1189,7 +1189,7 @@
         {/if}
 
         <div class="sb-section">
-          <div class="sb-section-head"><span class="sb-section-title">Runtime</span></div>
+          <div class="sb-section-head"><span class="sb-section-title">JS ML Framework</span></div>
           {#if usesOnnx && ortVersion}
             <div class="sb-row">
               <span class="sb-label">ORT Web</span>
@@ -1238,11 +1238,12 @@
                 >WebNN EP{#if isAtLeast($auth.role ?? "anonymous", "intel")}<span
                   class="req-badge"
                   class:req-done={!!webnnEp}>req</span
-                >{/if}<span
+                >{/if}<button
+                  type="button"
                   class="ep-help"
                   title={'Not sure which EP to pick?\nOpen chrome://webnn-internals/ in a new tab, run the model once, then check the "Active Contexts" tab — the Runtime Backend and selected Execution Provider are listed there.'}
                   aria-label="How to find your WebNN Execution Provider"
-                  tabindex="0">?</span
+                  onclick={(e) => e.preventDefault()}>?</button
                 ></span
               >
               <select
@@ -2051,12 +2052,16 @@
     align-items: center;
     justify-content: center;
     margin-left: 4px;
+    padding: 0;
     width: 14px;
     height: 14px;
     border-radius: 50%;
     border: 1px solid transparent;
+    background: none;
+    font-family: var(--font-ui);
     font-size: 10px;
     font-weight: 700;
+    line-height: 1;
     color: var(--color-text-muted);
     cursor: help;
     user-select: none;

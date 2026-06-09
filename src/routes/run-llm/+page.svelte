@@ -522,7 +522,6 @@
       warmup_runs: 1,
       status: 'completed',
       ttft_ms: r.ttftMs,
-      ttft_p90_ms: r.ttftP90Ms,
       tpot_ms: r.tpotMs,
       tps: r.tps,
       decode_ms: r.decodeMs,
@@ -885,7 +884,7 @@
         {/if}
 
         <div class="sb-section">
-          <div class="sb-section-head"><span class="sb-section-title">Runtime</span></div>
+          <div class="sb-section-head"><span class="sb-section-title">JS ML Framework</span></div>
           <div class="sb-row">
             <span class="sb-label">Transformers.js</span>
             <select class="sb-input" bind:value={transformersVersion}>
@@ -897,10 +896,12 @@
           </div>
           {#if saveResults && backend.startsWith('webnn_')}
             <div class="sb-row">
-              <span class="sb-label">WebNN EP{#if isAtLeast($auth.role ?? 'anonymous', 'intel')}<span class="req-badge" class:req-done={!!webnnEp}>req</span>{/if}<span
+              <span class="sb-label">WebNN EP{#if isAtLeast($auth.role ?? 'anonymous', 'intel')}<span class="req-badge" class:req-done={!!webnnEp}>req</span>{/if}<button
+                type="button"
                 class="ep-help"
+                aria-label="How to pick a WebNN EP"
                 title={'Not sure which EP to pick?\nOpen chrome://webnn-internals/ in a new tab, run the model once, then check the "Active Contexts" tab — the Runtime Backend and selected Execution Provider are listed there.'}
-                tabindex="0">?</span></span>
+                onclick={(e) => e.preventDefault()}>?</button></span>
               <select class="sb-input" class:input-warn={webnnEpRequired} bind:value={webnnEp}>
                 {#each WEBNN_EP_OPTIONS as opt}
                   <option value={opt.value}>{opt.label}</option>
@@ -1864,8 +1865,11 @@
     justify-content: center;
     width: 14px;
     height: 14px;
+    padding: 0;
+    margin-left: 4px;
     border-radius: 50%;
     border: 1px solid var(--color-border-strong);
+    background: none;
     font-size: 9px;
     font-weight: 700;
     font-family: var(--font-ui);
@@ -1874,6 +1878,7 @@
     text-transform: none;
     letter-spacing: 0;
     flex-shrink: 0;
+    line-height: 1;
   }
 
   .action-hint {

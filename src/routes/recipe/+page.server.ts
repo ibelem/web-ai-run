@@ -1,17 +1,18 @@
 import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import type { Recipe } from '$lib/recipes/crud';
+import { loginUrl } from '$lib/utils/login-redirect';
 
 export interface RecipeWithOwner extends Recipe {
   owner_display_name: string | null;
   owner_avatar_url: string | null;
 }
 
-export const load: PageServerLoad = async ({ locals }) => {
+export const load: PageServerLoad = async ({ locals, url }) => {
   const session = await locals.getSession();
 
   if (!session) {
-    redirect(302, '/login');
+    redirect(302, loginUrl(url.pathname + url.search));
   }
 
   const userId = session.user.id;

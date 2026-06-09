@@ -9,6 +9,7 @@
   import { cart, cartCount } from '$lib/stores/cart';
   import { cartPanelOpen } from '$lib/stores/cart-panel';
   import CartPanel from '$lib/components/CartPanel.svelte';
+  import NavDropdown, { type NavGroup } from '$lib/components/NavDropdown.svelte';
   import { createClient } from '$lib/supabase/client';
   import { isAtLeast, type Role } from '$lib/types/roles';
   import { gravatarUrl } from '$lib/utils/gravatar';
@@ -142,20 +143,83 @@
 
   let showUserMenu = $state(false);
   let showMobileMenu = $state(false);
-  let showAdminMenu = $state(false);
-  let showLeaderboardMenu = $state(false);
-  let showMobileAdmin = $state(false);
+  let openMobileSection = $state<string | null>(null);
 
   function closeMobileMenu() {
     showMobileMenu = false;
-    showMobileAdmin = false;
+    openMobileSection = null;
   }
 
-  const navItems = $derived([
-    { href: '/browse', label: 'Browse', show: true },
-  ]);
+  function toggleMobileSection(name: string) {
+    openMobileSection = openMobileSection === name ? null : name;
+  }
 
   const showLeaderboard = $derived(isAtLeast($auth.role ?? 'anonymous', 'partner'));
+  const isAdmin = $derived($auth.role === 'admin');
+
+  // ── Nav structure (single source of truth for desktop popovers + mobile accordion) ──
+  const inferenceGroups: NavGroup[] = [
+    { label: 'Model', links: [
+      { href: '/',       label: 'Search', title: 'Search Hugging Face for an ONNX or LiteRT model and queue files into the cart.' },
+      { href: '/browse', label: 'Browse', title: 'Browse the curated catalog of ready-to-benchmark inference models.' },
+    ] },
+    { label: 'Recipe', links: [
+      { href: '/recipe',        label: 'Browse', title: 'Browse public and personal benchmark recipes (model + dtype bundles).' },
+      { href: '/recipe/new',    label: 'New',    title: 'Create a new inference recipe from selected models.' },
+      { href: '/recipe/import', label: 'Import', title: 'Import a recipe from a JSON file or a shared URL.' },
+    ] },
+    { links: [{ href: '/custom',         label: 'Custom',    title: 'Drag and drop your own .onnx or .tflite file (plus sidecars) to benchmark it locally.' }] },
+    { links: [{ href: '/onnx/overrides', label: 'Shapes',    title: 'Free Dimension Overrides — set values for symbolic dimensions (batch_size, seq_length, etc.) so models with dynamic axes can compile on backends that need static shapes.' }] },
+    { links: [{ href: '/results',        label: 'Results',   title: 'Inference benchmark results — TTFT, latency, throughput across runs.' }] },
+  ];
+
+  const llmGroups: NavGroup[] = [
+    { label: 'Recipe', links: [
+      { href: '/recipe-llm',        label: 'Browse', title: 'Browse public and personal LLM recipes (HF model id + dtype).' },
+      { href: '/recipe-llm/new',    label: 'New',    title: 'Create a new LLM recipe.' },
+      { href: '/recipe-llm/import', label: 'Import', title: 'Import an LLM recipe from a JSON file or a shared URL.' },
+    ] },
+    { links: [{ href: '/results-llm', label: 'Results', title: 'LLM benchmark results — Prompt/Output tokens, TTFT, TPS, TPOT, E2E.' }] },
+  ];
+
+  const leaderboardGroups: NavGroup[] = [
+    { links: [{ href: '/leaderboard',          label: 'Overview',  title: 'Aggregate leaderboard across all backends and runtimes.' }] },
+    { links: [{ href: '/leaderboard/litertjs', label: 'LiteRT.js', title: 'LiteRT.js leaderboard — TFLite/LiteRT models on WebGPU and CPU.' }] },
+    { links: [{ href: '/leaderboard/webnnep',  label: 'WebNN EP',  title: 'WebNN Execution Provider leaderboard — ONNX Runtime Web with WebNN backend.' }] },
+  ];
+
+  const adminGroups: NavGroup[] = [
+    { label: 'People', links: [
+      { href: '/admin/users', label: 'Users', title: 'Admin: manage user accounts, roles, and access.' },
+      { href: '/admin/orgs',  label: 'Orgs',  title: 'Admin: manage organizations and partner accounts.' },
+    ] },
+    { label: 'Content', links: [
+      { href: '/admin/models',       label: 'Models',        title: 'Admin: curated model catalog.' },
+      { href: '/admin/recipes',      label: 'Recipes',       title: 'Admin: feature, order, and audit inference recipes.' },
+      { href: '/admin/recipes-llm',  label: 'Recipes (LLM)', title: 'Admin: feature, order, and audit LLM recipes.' },
+    ] },
+    { label: 'Results', links: [
+      { href: '/admin/results',     label: 'Inference', title: 'Admin: all inference benchmark results across users.' },
+      { href: '/admin/results-llm', label: 'LLM',       title: 'Admin: all LLM benchmark results across users.' },
+    ] },
+  ];
+
+  // Active-state checks for triggers
+  const inferenceActive = $derived(
+    $page.url.pathname === '/' ||
+    $page.url.pathname.startsWith('/browse') ||
+    ($page.url.pathname.startsWith('/recipe') && !$page.url.pathname.startsWith('/recipe-llm')) ||
+    $page.url.pathname.startsWith('/custom') ||
+    $page.url.pathname.startsWith('/onnx/overrides') ||
+    ($page.url.pathname === '/results' || ($page.url.pathname.startsWith('/results/') && !$page.url.pathname.startsWith('/results-llm')))
+  );
+  const llmActive = $derived(
+    $page.url.pathname.startsWith('/recipe-llm') ||
+    $page.url.pathname.startsWith('/results-llm') ||
+    $page.url.pathname.startsWith('/run-llm')
+  );
+  const leaderboardActive = $derived($page.url.pathname.startsWith('/leaderboard'));
+  const adminActive = $derived($page.url.pathname.startsWith('/admin'));
 </script>
 
 <a href="#main-content" class="skip-link">Skip to main content</a>
@@ -216,83 +280,13 @@
       </svg>
     </a>
     <div class="nav-links">
-      {#each navItems as item}
-        {#if item.show}
-          <a
-            href={item.href}
-            class="nav-item"
-            class:active={$page.url.pathname.startsWith(item.href)}
-          >
-            {item.label}
-          </a>
-        {/if}
-      {/each}
-
-      <!-- Recipe -->
-      <a href="/recipe" class="nav-item" class:active={$page.url.pathname === '/recipe' || ($page.url.pathname.startsWith('/recipe/') && !$page.url.pathname.startsWith('/recipe-llm'))}>Recipe</a>
-
-      <!-- Custom -->
-      <a href="/custom" class="nav-item" class:active={$page.url.pathname.startsWith('/custom')}>Custom</a>
-
-      <!-- Results -->
-      {#if $isAuthenticated}
-        <a href="/results" class="nav-item" class:active={$page.url.pathname === '/results' || ($page.url.pathname.startsWith('/results/') && !$page.url.pathname.startsWith('/results-llm'))}>Results</a>
-      {/if}
-
-      <!-- Overrides -->
-      {#if $isAuthenticated}
-        <a href="/onnx/overrides" class="nav-item" class:active={$page.url.pathname.startsWith('/onnx/overrides')}>Overrides</a>
-      {/if}
-
+      <NavDropdown label="Inference" isActive={inferenceActive} groups={inferenceGroups} />
+      <NavDropdown label="LLM"        isActive={llmActive}       groups={llmGroups} />
       {#if showLeaderboard}
-        <div class="admin-menu-wrapper">
-          <button
-            class="nav-item admin-trigger"
-            class:active={$page.url.pathname.startsWith('/leaderboard')}
-            onclick={() => showLeaderboardMenu = !showLeaderboardMenu}
-            aria-expanded={showLeaderboardMenu}
-          >
-            Leaderboard
-            <svg class="admin-chevron" class:open={showLeaderboardMenu} width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
-              <polyline points="6 9 12 15 18 9"/>
-            </svg>
-          </button>
-          {#if showLeaderboardMenu}
-            <!-- svelte-ignore a11y_no_static_element_interactions -->
-            <div class="admin-overlay" onclick={() => showLeaderboardMenu = false} onkeydown={() => {}}></div>
-            <div class="admin-dropdown">
-              <a href="/leaderboard" class="dropdown-item" onclick={() => showLeaderboardMenu = false}>Overview</a>
-              <a href="/leaderboard/litertjs" class="dropdown-item" onclick={() => showLeaderboardMenu = false}>LiteRT.js</a>
-              <a href="/leaderboard/webnnep" class="dropdown-item" onclick={() => showLeaderboardMenu = false}>WebNN EP</a>
-            </div>
-          {/if}
-        </div>
+        <NavDropdown label="Leaderboard" isActive={leaderboardActive} groups={leaderboardGroups} />
       {/if}
-      {#if $auth.role === 'admin'}
-        <div class="admin-menu-wrapper">
-          <button
-            class="nav-item admin-trigger"
-            class:active={$page.url.pathname.startsWith('/admin')}
-            onclick={() => showAdminMenu = !showAdminMenu}
-            aria-expanded={showAdminMenu}
-          >
-            Admin
-            <svg class="admin-chevron" class:open={showAdminMenu} width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
-              <polyline points="6 9 12 15 18 9"/>
-            </svg>
-          </button>
-          {#if showAdminMenu}
-            <!-- svelte-ignore a11y_no_static_element_interactions -->
-            <div class="admin-overlay" onclick={() => showAdminMenu = false} onkeydown={() => {}}></div>
-            <div class="admin-dropdown">
-              <a href="/admin/users" class="dropdown-item" onclick={() => showAdminMenu = false}>Users</a>
-              <a href="/admin/orgs" class="dropdown-item" onclick={() => showAdminMenu = false}>Orgs</a>
-              <a href="/admin/models" class="dropdown-item" onclick={() => showAdminMenu = false}>Models</a>
-              <a href="/admin/recipes" class="dropdown-item" onclick={() => showAdminMenu = false}>Recipes</a>
-              <a href="/admin/results" class="dropdown-item" onclick={() => showAdminMenu = false}>Results</a>
-            </div>
-          {/if}
-        </div>
+      {#if isAdmin}
+        <NavDropdown label="Admin" isActive={adminActive} groups={adminGroups} />
       {/if}
     </div>
   </div>
@@ -378,63 +372,47 @@
   </div>
 </nav>
 
+{#snippet mobileSection(name: string, label: string, isActive: boolean, groups: NavGroup[])}
+  <button
+    class="mobile-section-header"
+    class:active={isActive}
+    onclick={() => toggleMobileSection(name)}
+    aria-expanded={openMobileSection === name}
+  >
+    {label}
+    <svg class="admin-chevron" class:open={openMobileSection === name} width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+      <polyline points="6 9 12 15 18 9"/>
+    </svg>
+  </button>
+  {#if openMobileSection === name}
+    <div class="mobile-section-body">
+      {#each groups as group}
+        {#if group.label}
+          <div class="mobile-group-label">{group.label}</div>
+          {#each group.links as link}
+            <a href={link.href} class="mobile-link mobile-link-grouped" class:active={$page.url.pathname === link.href || (link.href !== '/' && $page.url.pathname.startsWith(link.href + '/'))} onclick={closeMobileMenu} title={link.title}>{link.label}</a>
+          {/each}
+        {:else}
+          {#each group.links as link}
+            <a href={link.href} class="mobile-link mobile-link-single" class:active={$page.url.pathname === link.href || (link.href !== '/' && $page.url.pathname.startsWith(link.href + '/'))} onclick={closeMobileMenu} title={link.title}>{link.label}</a>
+          {/each}
+        {/if}
+      {/each}
+    </div>
+  {/if}
+{/snippet}
+
 {#if showMobileMenu}
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div class="mobile-overlay" onclick={closeMobileMenu} onkeydown={() => {}}></div>
   <div class="mobile-menu">
-    {#each navItems as item}
-      {#if item.show}
-        <a
-          href={item.href}
-          class="mobile-menu-item"
-          class:active={$page.url.pathname.startsWith(item.href)}
-          onclick={closeMobileMenu}
-        >
-          {item.label}
-        </a>
-      {/if}
-    {/each}
-
-    <!-- Recipe -->
-    <a href="/recipe" class="mobile-menu-item" class:active={$page.url.pathname === '/recipe' || ($page.url.pathname.startsWith('/recipe/') && !$page.url.pathname.startsWith('/recipe-llm'))} onclick={closeMobileMenu}>Recipe</a>
-
-    <!-- Custom -->
-    <a href="/custom" class="mobile-menu-item" class:active={$page.url.pathname.startsWith('/custom')} onclick={closeMobileMenu}>Custom</a>
-
-    <!-- Results -->
-    {#if $isAuthenticated}
-      <a href="/results" class="mobile-menu-item" class:active={$page.url.pathname === '/results' || ($page.url.pathname.startsWith('/results/') && !$page.url.pathname.startsWith('/results-llm'))} onclick={closeMobileMenu}>Results</a>
-    {/if}
-
-    <!-- Overrides -->
-    {#if $isAuthenticated}
-      <a href="/onnx/overrides" class="mobile-menu-item" class:active={$page.url.pathname.startsWith('/onnx/overrides')} onclick={closeMobileMenu}>Overrides</a>
-    {/if}
-
+    {@render mobileSection('inference', 'Inference', inferenceActive, inferenceGroups)}
+    {@render mobileSection('llm', 'LLM', llmActive, llmGroups)}
     {#if showLeaderboard}
-      <a href="/leaderboard" class="mobile-menu-item" class:active={$page.url.pathname === '/leaderboard'} onclick={closeMobileMenu}>Leaderboard</a>
-      <a href="/leaderboard/litertjs" class="mobile-menu-item mobile-admin-item" onclick={closeMobileMenu}>LiteRT.js</a>
-      <a href="/leaderboard/webnnep" class="mobile-menu-item mobile-admin-item" onclick={closeMobileMenu}>WebNN EP</a>
+      {@render mobileSection('leaderboard', 'Leaderboard', leaderboardActive, leaderboardGroups)}
     {/if}
-    {#if $auth.role === 'admin'}
-      <button
-        class="mobile-menu-item mobile-admin-toggle"
-        class:active={$page.url.pathname.startsWith('/admin')}
-        onclick={() => showMobileAdmin = !showMobileAdmin}
-        aria-expanded={showMobileAdmin}
-      >
-        Admin
-        <svg class="admin-chevron" class:open={showMobileAdmin} width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
-          <polyline points="6 9 12 15 18 9"/>
-        </svg>
-      </button>
-      {#if showMobileAdmin}
-        <a href="/admin/users" class="mobile-menu-item mobile-admin-item" onclick={closeMobileMenu}>Users</a>
-        <a href="/admin/orgs" class="mobile-menu-item mobile-admin-item" onclick={closeMobileMenu}>Orgs</a>
-        <a href="/admin/models" class="mobile-menu-item mobile-admin-item" onclick={closeMobileMenu}>Models</a>
-        <a href="/admin/recipes" class="mobile-menu-item mobile-admin-item" onclick={closeMobileMenu}>Recipes</a>
-        <a href="/admin/results" class="mobile-menu-item mobile-admin-item" onclick={closeMobileMenu}>Results</a>
-      {/if}
+    {#if isAdmin}
+      {@render mobileSection('admin', 'Admin', adminActive, adminGroups)}
     {/if}
   </div>
 {/if}
@@ -612,12 +590,6 @@
     color: var(--color-text-primary);
   }
 
-  .nav-item.active {
-    opacity: 1;
-    color: var(--color-text-primary);
-    border-bottom-color: var(--color-nav-active-border);
-  }
-
   .nav-cart {
     display: inline-flex;
     align-items: center;
@@ -639,42 +611,12 @@
     line-height: 1;
   }
 
-  .admin-menu-wrapper {
-    position: relative;
-  }
-
-  .admin-trigger {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-  }
-
   .admin-chevron {
     transition: transform var(--transition-base);
   }
 
   .admin-chevron.open {
     transform: rotate(180deg);
-  }
-
-  .admin-overlay {
-    position: fixed;
-    inset: 0;
-    z-index: calc(var(--z-dropdown) - 1);
-  }
-
-  .admin-dropdown {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    margin-top: 4px;
-    min-width: 140px;
-    background: var(--color-surface);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-dropdown);
-    z-index: var(--z-dropdown);
-    padding: 4px 0;
   }
 
   .user-menu-wrapper {
@@ -805,43 +747,82 @@
       box-shadow: var(--shadow-dropdown);
     }
 
-    .mobile-menu-item {
+    .mobile-section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      padding: 12px var(--space-3);
+      min-height: 44px;
+      font-family: var(--font-ui);
+      font-size: var(--text-base);
+      font-weight: 600;
+      text-align: left;
+      color: var(--color-text-primary);
+      background: none;
+      border: none;
+      border-bottom: 1px solid var(--color-border);
+      cursor: pointer;
+      transition: background var(--transition-base);
+    }
+
+    .mobile-section-header:hover {
+      background: var(--color-nav-item-hover);
+    }
+
+    .mobile-section-header.active {
+      box-shadow: inset 3px 0 0 var(--color-nav-active-border);
+    }
+
+    .mobile-section-body {
+      padding: 4px 0 8px;
+      background: var(--color-surface-sunken);
+      border-bottom: 1px solid var(--color-border);
+    }
+
+    .mobile-group-label {
+      padding: 8px var(--space-3) 4px;
+      font-family: var(--font-ui);
+      font-size: var(--text-xs);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--color-text-muted);
+    }
+
+    .mobile-link {
+      display: flex;
+      align-items: center;
+      padding: 10px var(--space-3);
+      min-height: 40px;
       font-family: var(--font-ui);
       font-size: var(--text-base);
       font-weight: 500;
       text-decoration: none;
-      color: var(--color-text-secondary);
-      padding: 12px var(--space-3);
-      min-height: 44px;
-      display: flex;
-      align-items: center;
-      transition: background var(--transition-base);
+      color: var(--color-text-primary);
+      transition: background var(--transition-base), color var(--transition-base);
     }
 
-    .mobile-menu-item:hover {
+    .mobile-link-grouped {
+      padding-left: calc(var(--space-3) + 16px);
+    }
+
+    .mobile-link-single {
+      font-size: var(--text-xs);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--color-text-muted);
+    }
+
+    .mobile-link:hover {
       background: var(--color-nav-item-hover);
+      color: var(--color-text-primary);
     }
 
-    .mobile-menu-item.active {
+    .mobile-link.active {
       color: var(--color-primary);
       background: var(--color-nav-item-active);
-    }
-
-    .mobile-admin-toggle {
-      width: 100%;
-      text-align: left;
-      border: none;
-      background: none;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-
-    .mobile-admin-item {
-      padding-left: calc(var(--space-3) + 12px);
-      font-size: var(--text-sm);
-      color: var(--color-text-muted);
     }
 
 

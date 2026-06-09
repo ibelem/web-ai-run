@@ -7,10 +7,12 @@
 
   let { data }: { data: PageData } = $props();
 
-  // Pre-populate from fork if present
+  // Pre-populate from fork if present (one-time read; fork data doesn't change after mount)
+  // svelte-ignore state_referenced_locally
   let recipeName = $state(data.forkName ? `${data.forkName} (fork)` : '');
   let visibility = $state<'personal' | 'public'>('personal');
   let description = $state('');
+  // svelte-ignore state_referenced_locally
   let models = $state<LLMRecipeModel[]>(
     (data.forkModels ?? []).map((m: any) => ({
       hf_model_id: m.hf_model_id,

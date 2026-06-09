@@ -1,7 +1,7 @@
 import type { LLMWorkerRequest, LLMWorkerMessage, LLMBenchmarkResult, SingleRunResult, LLMBackend } from '../types';
 import { getHfBase, getFromOPFS, getOPFSFile, saveToOPFS } from './shared/download';
 import { installConsoleWrappers, startWebNNCapture, finalizeCapture } from './shared/webnn-tap';
-import { average, stddev, percentile } from './shared/metrics';
+import { average, stddev } from './shared/metrics';
 
 // Install console wrappers at module load — same reason as inference.worker.ts.
 installConsoleWrappers();
@@ -387,7 +387,6 @@ function aggregateRuns(runs: SingleRunResult[], compilationMs: number, warmupTtf
     e2eMsRuns: e2eArr,
     ttftMs: average(ttftArr),
     ttftStddevMs: stddev(ttftArr),
-    ttftP90Ms: percentile([...ttftArr].sort((a, b) => a - b), 0.9),
     tpotMs,
     tps: average(tpsArr),
     tpsStddev: stddev(tpsArr),

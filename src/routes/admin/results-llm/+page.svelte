@@ -17,6 +17,9 @@
   let filterBrowserVer = $state(sp.get('brv')    ?? '');
   let filterCpu       = $state(sp.get('cpu')     ?? '');
   let filterGpu       = $state(sp.get('gpu')     ?? '');
+  let filterWebnnEp   = $state(sp.get('ep')      ?? '');
+  let filterGpuDriver = $state(sp.get('gpudrv')  ?? '');
+  let filterNpuDriver = $state(sp.get('npudrv')  ?? '');
 
   $effect(() => {
     if (!browser) return;
@@ -32,6 +35,9 @@
     if (filterBrowserVer) params.set('brv',     filterBrowserVer);
     if (filterCpu)        params.set('cpu',     filterCpu);
     if (filterGpu)        params.set('gpu',     filterGpu);
+    if (filterWebnnEp)    params.set('ep',      filterWebnnEp);
+    if (filterGpuDriver)  params.set('gpudrv',  filterGpuDriver);
+    if (filterNpuDriver)  params.set('npudrv',  filterNpuDriver);
     const qs = params.toString();
     history.replaceState(history.state, '', qs ? `?${qs}` : location.pathname);
   });
@@ -45,6 +51,9 @@
   const distinctBrowserVers = $derived(data.distinctBrowserVers ?? []);
   const distinctCpus        = $derived(data.distinctCpus        ?? []);
   const distinctGpus        = $derived(data.distinctGpus        ?? []);
+  const distinctWebnnEps    = $derived(data.distinctWebnnEps    ?? []);
+  const distinctGpuDrivers  = $derived(data.distinctGpuDrivers  ?? []);
+  const distinctNpuDrivers  = $derived(data.distinctNpuDrivers  ?? []);
   const users               = $derived((data.users ?? []) as UserProfile[]);
 
   const filtered = $derived(
@@ -59,6 +68,9 @@
       if (filterBrowserVer && r.browser_version !== filterBrowserVer) return false;
       if (filterCpu       && r.cpu !== filterCpu) return false;
       if (filterGpu       && r.gpu !== filterGpu) return false;
+      if (filterWebnnEp   && r.webnn_ep !== filterWebnnEp) return false;
+      if (filterGpuDriver && r.gpu_driver_version !== filterGpuDriver) return false;
+      if (filterNpuDriver && r.npu_driver_version !== filterNpuDriver) return false;
       if (filterQuery) {
         const q = filterQuery.toLowerCase();
         if (!r.hf_model_id.toLowerCase().includes(q)) return false;
@@ -116,7 +128,8 @@
 
   $effect(() => {
     void filterUser, filterQuery, filterBackend, filterDataType, filterRuntime,
-         filterStatus, filterOs, filterBrowser, filterBrowserVer, filterCpu, filterGpu, pageSize;
+         filterStatus, filterOs, filterBrowser, filterBrowserVer, filterCpu, filterGpu,
+         filterWebnnEp, filterGpuDriver, filterNpuDriver, pageSize;
     currentPage = 1;
   });
 
@@ -171,29 +184,30 @@
     }
   }
 
-  type OptColKey = 'dtype' | 'runtime' | 'backend' | 'status' | 'ttft' | 'ttft_p90' | 'tps' | 'tpot' | 'e2e' | 'e2e_tps' | 'tokens' | 'compile' | 'os' | 'browser' | 'browser_ver' | 'cpu' | 'gpu';
+  type OptColKey = 'dtype' | 'runtime' | 'backend' | 'status' | 'prompt_tokens' | 'tokens' | 'max_new_tokens' | 'ttft' | 'tps' | 'tpot' | 'e2e' | 'e2e_tps' | 'compile' | 'os' | 'browser' | 'browser_ver' | 'cpu' | 'gpu';
 
   const OPTIONAL_COLS: { key: OptColKey; label: string; defaultVisible: boolean }[] = [
-    { key: 'dtype',       label: 'Data Type',    defaultVisible: true  },
-    { key: 'runtime',     label: 'Runtime',      defaultVisible: true  },
-    { key: 'backend',     label: 'Backend',      defaultVisible: true  },
-    { key: 'status',      label: 'Status',       defaultVisible: true  },
-    { key: 'ttft',        label: 'TTFT avg',     defaultVisible: true  },
-    { key: 'ttft_p90',    label: 'TTFT P90',     defaultVisible: true  },
-    { key: 'tps',         label: 'TPS',          defaultVisible: true  },
-    { key: 'tpot',        label: 'TPOT',         defaultVisible: true  },
-    { key: 'e2e',         label: 'E2E',          defaultVisible: true  },
-    { key: 'e2e_tps',     label: 'E2E TPS',      defaultVisible: true  },
-    { key: 'tokens',      label: 'Tokens',       defaultVisible: true  },
-    { key: 'compile',     label: 'Compile',      defaultVisible: true  },
-    { key: 'os',          label: 'OS',           defaultVisible: false },
-    { key: 'browser',     label: 'Browser',      defaultVisible: false },
-    { key: 'browser_ver', label: 'Browser Ver',  defaultVisible: false },
-    { key: 'cpu',         label: 'CPU',          defaultVisible: false },
-    { key: 'gpu',         label: 'GPU',          defaultVisible: false },
+    { key: 'dtype',          label: 'Data Type', defaultVisible: true  },
+    { key: 'runtime',        label: 'JS Framework', defaultVisible: true  },
+    { key: 'backend',        label: 'Backend',   defaultVisible: true  },
+    { key: 'status',         label: 'Status',    defaultVisible: true  },
+    { key: 'prompt_tokens',  label: 'Prompt',    defaultVisible: true  },
+    { key: 'tokens',         label: 'Output',    defaultVisible: true  },
+    { key: 'max_new_tokens', label: 'Max New',   defaultVisible: false },
+    { key: 'ttft',           label: 'TTFT',      defaultVisible: true  },
+    { key: 'tps',            label: 'TPS',       defaultVisible: true  },
+    { key: 'tpot',           label: 'TPOT',      defaultVisible: true  },
+    { key: 'e2e',            label: 'E2E',       defaultVisible: true  },
+    { key: 'e2e_tps',        label: 'E2E TPS',   defaultVisible: true  },
+    { key: 'compile',        label: 'Compile',   defaultVisible: true  },
+    { key: 'os',             label: 'OS',        defaultVisible: false },
+    { key: 'browser',        label: 'Browser',   defaultVisible: false },
+    { key: 'browser_ver',    label: 'Browser Ver', defaultVisible: false },
+    { key: 'cpu',            label: 'CPU',       defaultVisible: false },
+    { key: 'gpu',            label: 'GPU',       defaultVisible: false },
   ];
 
-  const LS_KEY = 'admin_results_llm_visible_cols_v1';
+  const LS_KEY = 'admin_results_llm_visible_cols_v2';
 
   function loadVisibleCols(): Set<OptColKey> {
     const defaults = new Set(OPTIONAL_COLS.filter(c => c.defaultVisible).map(c => c.key));
@@ -283,8 +297,13 @@
         {#each backends as b}<option value={b}>{b}</option>{/each}
       </select>
 
+      <select class="filter-select" bind:value={filterWebnnEp}>
+        <option value="">WebNN EP</option>
+        {#each distinctWebnnEps as v}<option value={v}>{v}</option>{/each}
+      </select>
+
       <select class="filter-select" bind:value={filterRuntime}>
-        <option value="">Runtime</option>
+        <option value="">JS Framework</option>
         {#each runtimes as r}<option value={r}>{r}</option>{/each}
       </select>
 
@@ -329,16 +348,17 @@
             </th>
             <th class="th-model sortable" onclick={() => toggleSort('model')}>Model{sortIndicator('model')}</th>
             {#if isVisible('dtype')}<th class="sortable" onclick={() => toggleSort('dtype')}>Type{sortIndicator('dtype')}</th>{/if}
-            {#if isVisible('runtime')}<th class="sortable" onclick={() => toggleSort('runtime')}>Runtime{sortIndicator('runtime')}</th>{/if}
+            {#if isVisible('runtime')}<th class="sortable" onclick={() => toggleSort('runtime')}>JS Framework{sortIndicator('runtime')}</th>{/if}
             {#if isVisible('backend')}<th class="sortable" onclick={() => toggleSort('backend')}>Backend{sortIndicator('backend')}</th>{/if}
             {#if isVisible('status')}<th class="sortable" onclick={() => toggleSort('status')}>Status{sortIndicator('status')}</th>{/if}
+            {#if isVisible('prompt_tokens')}<th title="Prompt Tokens (prompt_tokens) — number of input tokens fed to the model.">Prompt</th>{/if}
+            {#if isVisible('tokens')}<th class="sortable" title="Output Tokens (output_tokens) — actual tokens generated this run." onclick={() => toggleSort('tokens')}>Output{sortIndicator('tokens')}</th>{/if}
+            {#if isVisible('max_new_tokens')}<th title="Max New Tokens (max_new_tokens) — the cap passed to model.generate(). The actual count is shown as 'Output'.">Max New</th>{/if}
             {#if isVisible('ttft')}<th class="sortable" onclick={() => toggleSort('ttft')}>TTFT{sortIndicator('ttft')}</th>{/if}
-            {#if isVisible('ttft_p90')}<th>TTFT P90</th>{/if}
             {#if isVisible('tps')}<th class="sortable" onclick={() => toggleSort('tps')}>TPS{sortIndicator('tps')}</th>{/if}
             {#if isVisible('tpot')}<th class="sortable" onclick={() => toggleSort('tpot')}>TPOT{sortIndicator('tpot')}</th>{/if}
             {#if isVisible('e2e')}<th class="sortable" onclick={() => toggleSort('e2e')}>E2E{sortIndicator('e2e')}</th>{/if}
             {#if isVisible('e2e_tps')}<th class="sortable" onclick={() => toggleSort('e2e_tps')}>E2E TPS{sortIndicator('e2e_tps')}</th>{/if}
-            {#if isVisible('tokens')}<th class="sortable" onclick={() => toggleSort('tokens')}>Tokens{sortIndicator('tokens')}</th>{/if}
             {#if isVisible('compile')}<th class="sortable" onclick={() => toggleSort('compile')}>Compile{sortIndicator('compile')}</th>{/if}
             {#if isVisible('os')}<th>OS</th>{/if}
             {#if isVisible('browser')}<th>Browser</th>{/if}
@@ -360,13 +380,14 @@
               {#if isVisible('runtime')}<td class="cell-opt">{row.runtime}</td>{/if}
               {#if isVisible('backend')}<td><span class="badge-backend {backendClass(row.backend)}">{row.backend}</span></td>{/if}
               {#if isVisible('status')}<td><span class="status-dot" class:status-ok={row.status === 'completed'} class:status-error={row.status === 'error'} title={row.error_message ?? row.status}></span></td>{/if}
+              {#if isVisible('prompt_tokens')}<td class="cell-metric">{row.prompt_tokens ?? '—'}</td>{/if}
+              {#if isVisible('tokens')}<td class="cell-metric">{row.output_tokens ?? '—'}</td>{/if}
+              {#if isVisible('max_new_tokens')}<td class="cell-metric">{row.max_new_tokens ?? '—'}</td>{/if}
               {#if isVisible('ttft')}<td class="cell-metric">{fmt(row.ttft_ms, 0, 'ms')}</td>{/if}
-              {#if isVisible('ttft_p90')}<td class="cell-metric">{fmt(row.ttft_p90_ms, 0, 'ms')}</td>{/if}
               {#if isVisible('tps')}<td class="cell-metric">{fmt(row.tps, 1, 't/s')}</td>{/if}
               {#if isVisible('tpot')}<td class="cell-metric">{fmt(row.tpot_ms, 1, 'ms')}</td>{/if}
               {#if isVisible('e2e')}<td class="cell-metric">{fmt(row.e2e_ms ? row.e2e_ms / 1000 : null, 2, 's')}</td>{/if}
               {#if isVisible('e2e_tps')}<td class="cell-metric">{fmt(row.e2e_tps, 1, 't/s')}</td>{/if}
-              {#if isVisible('tokens')}<td class="cell-metric">{row.output_tokens ?? '—'}</td>{/if}
               {#if isVisible('compile')}<td class="cell-metric">{fmt(row.compilation_ms ? row.compilation_ms / 1000 : null, 1, 's')}</td>{/if}
               {#if isVisible('os')}<td class="cell-opt">{row.os ?? '—'}</td>{/if}
               {#if isVisible('browser')}<td class="cell-opt">{row.browser ?? '—'}</td>{/if}
@@ -412,6 +433,14 @@
       <select class="filter-select filter-select-wide" bind:value={filterGpu}>
         <option value="">GPU</option>
         {#each distinctGpus as v}<option value={v}>{v}</option>{/each}
+      </select>
+      <select class="filter-select" bind:value={filterGpuDriver}>
+        <option value="">GPU Driver</option>
+        {#each distinctGpuDrivers as v}<option value={v}>{v}</option>{/each}
+      </select>
+      <select class="filter-select" bind:value={filterNpuDriver}>
+        <option value="">NPU Driver</option>
+        {#each distinctNpuDrivers as v}<option value={v}>{v}</option>{/each}
       </select>
     </div>
 
@@ -574,10 +603,9 @@
 
   .cell-metric { font-variant-numeric: tabular-nums; }
   .cell-date { font-family: var(--font-ui); font-size: 10px; color: var(--color-text-muted); }
-  .cell-opt { font-family: var(--font-ui); font-size: 10px; color: var(--color-text-muted); white-space: nowrap; }
   .cell-opt-long { max-width: 12vw; overflow: hidden; text-overflow: ellipsis; }
 
-  :global(.results-table .dtype-chip) { min-width: unset; }
+  :global(.results-table .dtype-chip) { min-width: 56px; }
 
   .badge-backend {
     font-family: var(--font-ui);

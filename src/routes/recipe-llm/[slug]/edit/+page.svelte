@@ -7,9 +7,14 @@
 
   let { data }: { data: PageData } = $props();
 
+  // Initial values from server-loaded recipe; intentionally read once.
+  // svelte-ignore state_referenced_locally
   let recipeName = $state(data.recipe.name ?? '');
+  // svelte-ignore state_referenced_locally
   let visibility = $state<'personal' | 'public'>(data.recipe.visibility ?? 'personal');
+  // svelte-ignore state_referenced_locally
   let description = $state(data.recipe.description ?? '');
+  // svelte-ignore state_referenced_locally
   let models = $state<LLMRecipeModel[]>(data.recipe.models ?? []);
   let hfSearchQuery = $state('');
   let saving = $state(false);

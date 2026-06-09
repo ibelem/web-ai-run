@@ -1,5 +1,8 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
+  import { browser } from '$app/environment';
   import { createClient } from '$lib/supabase/client';
+  import { safeNext, stashNext } from '$lib/utils/login-redirect';
 
   type View = 'email' | 'password' | 'signup' | 'otp' | 'forgot-sent';
 
@@ -13,12 +16,34 @@
   let magicLinkLoading = $state(false);
   let otpLoading = $state(false);
 
+  // Where to send the user after a successful sign-in. Read from ?next= on
+  // mount, falls back to '/'. Stashed in sessionStorage so OAuth round-trips
+  // and email-link flows can recover it on the callback.
+  let nextDest = $state('/');
+
+  onMount(() => {
+    if (!browser) return;
+    const url = new URL(window.location.href);
+    nextDest = safeNext(url.searchParams.get('next'));
+    if (nextDest !== '/') stashNext(nextDest);
+  });
+
+  function navigateNext() {
+    window.location.href = nextDest;
+  }
+
+  function callbackUrl(): string {
+    const base = `${window.location.origin}/auth/callback`;
+    return nextDest === '/' ? base : `${base}?next=${encodeURIComponent(nextDest)}`;
+  }
+
   const supabase = createClient();
 
   async function signInOAuth(provider: 'github' | 'google' | 'azure') {
+    if (nextDest !== '/') stashNext(nextDest);
     await supabase.auth.signInWithOAuth({
       provider,
-      options: { redirectTo: `${window.location.origin}/auth/callback` }
+      options: { redirectTo: callbackUrl() }
     });
   }
 
@@ -61,7 +86,7 @@
       error = 'Invalid password';
       return;
     }
-    window.location.href = '/';
+    navigateNext();
   }
 
   async function signUp(e: Event) {
@@ -82,7 +107,7 @@
       email,
       password,
       options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        emailRedirectTo: callbackUrl(),
       },
     });
 
@@ -112,7 +137,7 @@
     const { error: otpError } = await supabase.auth.signInWithOtp({
       email,
       options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        emailRedirectTo: callbackUrl(),
       },
     });
 
@@ -150,7 +175,7 @@
       return;
     }
 
-    window.location.href = '/';
+    navigateNext();
   }
 
   async function resetPassword() {

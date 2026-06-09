@@ -5,6 +5,7 @@
   import { auth } from '$lib/stores/auth';
   import { isAtLeast } from '$lib/types/roles';
   import { goto } from '$app/navigation';
+  import { loginUrl, locationPath } from '$lib/utils/login-redirect';
 
   let { data } = $props();
 
@@ -14,7 +15,7 @@
 
   $effect(() => {
     if (browser && !$auth.loading && $auth.role === 'anonymous' && !$auth.session) {
-      goto('/login');
+      goto(loginUrl(locationPath(window.location)));
     }
   });
 

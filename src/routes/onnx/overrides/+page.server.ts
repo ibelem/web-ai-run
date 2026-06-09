@@ -1,6 +1,7 @@
 import { error, redirect } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import { isAtLeast } from '$lib/types/roles';
+import { loginUrl } from '$lib/utils/login-redirect';
 
 function requireAuth(session: any) {
   if (!session) throw redirect(303, '/login');
@@ -8,9 +9,11 @@ function requireAuth(session: any) {
   if (!isAtLeast(role, 'member')) throw error(403, 'Login required');
 }
 
-export const load: PageServerLoad = async ({ locals }) => {
+export const load: PageServerLoad = async ({ locals, url }) => {
   const session = await locals.getSession();
-  requireAuth(session);
+  if (!session) throw redirect(303, loginUrl(url.pathname + url.search));
+  const role = session.user.app_metadata?.role ?? 'anonymous';
+  if (!isAtLeast(role, 'member')) throw error(403, 'Login required');
 
   const { data, error: dbError } = await (locals.supabase.from('free_dimension_overrides') as any)
     .select('id, hf_model_id, file_path, overrides, updated_by, updated_at, profiles!updated_by(display_name, email, avatar_url)')
@@ -18,8 +21,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 
   if (dbError) throw error(500, dbError.message);
 
-  const role = session!.user.app_metadata?.role ?? 'member';
-  const userId = session!.user.id;
+  const userId = session.user.id;
 
   const overrides = (data ?? []).map((r: any) => ({
     id: r.id,

@@ -4,6 +4,7 @@
   import type { PageData } from './$types';
 
   let { data }: { data: PageData } = $props();
+  // svelte-ignore state_referenced_locally
   const { userId } = data;
   // svelte-ignore state_referenced_locally
   let recipe = $state<any>(data.recipe);

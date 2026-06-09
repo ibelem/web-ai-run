@@ -2,6 +2,7 @@ import { error, fail, redirect } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import type { RecipeModel } from '$lib/supabase/types';
 import { inferDataType } from '$lib/huggingface/parser';
+import { loginUrl } from '$lib/utils/login-redirect';
 
 function slugify(name: string): string {
   return name
@@ -11,9 +12,9 @@ function slugify(name: string): string {
     .slice(0, 60);
 }
 
-export const load: PageServerLoad = async ({ locals }) => {
+export const load: PageServerLoad = async ({ locals, url }) => {
   const session = await locals.getSession();
-  if (!session) throw redirect(302, '/login');
+  if (!session) throw redirect(302, loginUrl(url.pathname + url.search));
 
   const { data, error: dbError } = await (locals.supabase.from('recipes') as any)
     .select('id, name, slug, models')

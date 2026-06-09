@@ -1,6 +1,7 @@
 import { error, redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import type { ResultRow } from '../../results/+page';
+import { loginUrl } from '$lib/utils/login-redirect';
 
 export interface AdminResultRow extends ResultRow {
   user_id: string;
@@ -19,9 +20,9 @@ function distinct(rows: any[] | null, key: string): string[] {
   return [...new Set((rows ?? []).map((r: any) => r[key]).filter(Boolean))].sort() as string[];
 }
 
-export const load: PageServerLoad = async ({ locals }) => {
+export const load: PageServerLoad = async ({ locals, url }) => {
   const session = await locals.getSession();
-  if (!session) throw redirect(303, '/login');
+  if (!session) throw redirect(303, loginUrl(url.pathname + url.search));
 
   const role = session.user.app_metadata?.role;
   if (role !== 'admin') throw error(403, 'Admin access required');

@@ -5,12 +5,13 @@
   import { auth, isAuthenticated } from '$lib/stores/auth';
   import { goto } from '$app/navigation';
   import { createClient } from '$lib/supabase/client';
+  import { loginUrl, locationPath } from '$lib/utils/login-redirect';
 
   let { data } = $props();
 
   $effect(() => {
     if (browser && !$auth.loading && !$isAuthenticated) {
-      goto('/login');
+      goto(loginUrl(locationPath(window.location)));
     }
   });
 
