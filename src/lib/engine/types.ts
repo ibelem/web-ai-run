@@ -145,6 +145,12 @@ export interface LLMWorkerRequest {
   maxNewTokens: number;
   runs: number;
   warmupRuns: number;
+  /**
+   * Optional pre-resolved file list for local bundles (`hfModelId` starting with
+   * `__local__/`). When set the worker skips its HF tree fetch and download
+   * step and assumes every file is already in OPFS under the standard key.
+   */
+  localFiles?: string[];
 }
 
 export interface ResultsLlmRow {

@@ -405,24 +405,48 @@ function aggregateRuns(runs: SingleRunResult[], compilationMs: number, warmupTtf
 
 async function runTransformers(req: LLMWorkerRequest): Promise<void> {
   const { id } = req;
+  const isLocal = req.hfModelId.startsWith('__local__/');
 
-  // Phase 1: Download
-  log(id, `Resolving file set for ${req.hfModelId} dtype=${req.dtype}`);
+  // Phase 1: Download (skipped for local bundles — files were written to OPFS
+  // by the page before posting the request).
   let fileSet: string[];
-  try {
-    fileSet = await resolveLlmFileSet(req.hfModelId, req.dtype);
-  } catch (e: any) {
-    post({ type: 'error', id, message: e?.message ?? String(e), phase: 'download' });
-    return;
-  }
-  log(id, `File set: ${fileSet.join(', ')}`);
-
   let fileSizes: Map<string, number>;
-  try {
-    fileSizes = await downloadBundle(id, req.hfModelId, fileSet);
-  } catch (e: any) {
-    post({ type: 'error', id, message: e?.message ?? String(e), phase: 'download' });
-    return;
+  if (isLocal) {
+    if (!req.localFiles || req.localFiles.length === 0) {
+      post({ type: 'error', id, message: 'Local bundle: no file list provided', phase: 'download' });
+      return;
+    }
+    fileSet = req.localFiles;
+    log(id, `Local bundle ${req.hfModelId} dtype=${req.dtype} (${fileSet.length} files)`);
+    // Probe OPFS for each file to capture its actual size — needed by setupOpfsFetch
+    // so the override can validate the served Blob has the expected length.
+    fileSizes = new Map();
+    for (const f of fileSet) {
+      const file = await getOPFSFile(opfsKey(req.hfModelId, f));
+      if (!file) {
+        post({ type: 'error', id, message: `Local bundle: file "${f}" not found in OPFS`, phase: 'download' });
+        return;
+      }
+      fileSizes.set(f, file.size);
+    }
+    post({ type: 'download-start', id, totalBytes: 0, fileCount: fileSet.length, files: fileSet });
+    post({ type: 'download-done', id, cacheHit: true, durationMs: 0 });
+  } else {
+    log(id, `Resolving file set for ${req.hfModelId} dtype=${req.dtype}`);
+    try {
+      fileSet = await resolveLlmFileSet(req.hfModelId, req.dtype);
+    } catch (e: any) {
+      post({ type: 'error', id, message: e?.message ?? String(e), phase: 'download' });
+      return;
+    }
+    log(id, `File set: ${fileSet.join(', ')}`);
+
+    try {
+      fileSizes = await downloadBundle(id, req.hfModelId, fileSet);
+    } catch (e: any) {
+      post({ type: 'error', id, message: e?.message ?? String(e), phase: 'download' });
+      return;
+    }
   }
   flushLogs(id);
 

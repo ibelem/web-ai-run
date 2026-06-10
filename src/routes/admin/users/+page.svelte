@@ -39,6 +39,7 @@
     </div>
   {/if}
 
+  <!-- Desktop / wide-viewport table -->
   <div class="users-table-wrapper">
     <table class="users-table">
       <thead>
@@ -81,6 +82,45 @@
       </tbody>
     </table>
   </div>
+
+  <!-- Mobile card list. CSS swaps which view is visible at <=640px. -->
+  <ul class="users-cards">
+    {#each pagedUsers as user}
+      <li class="user-card">
+        <div class="user-card-head">
+          {#if user.avatar_url}
+            <img src={user.avatar_url} alt="" class="table-avatar" loading="lazy" crossorigin="anonymous" />
+          {/if}
+          <div class="user-card-name">
+            <span class="user-card-display">{user.display_name ?? '—'}</span>
+            <span class="user-card-email mono">{user.email}</span>
+          </div>
+        </div>
+        <dl class="user-card-meta">
+          {#if user.organization}
+            <div class="user-card-row"><dt>Org</dt><dd>{user.organization}</dd></div>
+          {/if}
+          {#if user.job_title}
+            <div class="user-card-row"><dt>Title</dt><dd>{user.job_title}</dd></div>
+          {/if}
+          <div class="user-card-row"><dt>Joined</dt><dd class="mono">{new Date(user.created_at).toLocaleDateString()}</dd></div>
+          <div class="user-card-row user-card-row-role">
+            <dt>Role</dt>
+            <dd>
+              <form method="POST" action="?/setRole" use:enhance>
+                <input type="hidden" name="user_id" value={user.id} />
+                <select name="role" class="user-card-role-select" onchange={(e) => (e.target as HTMLSelectElement).form?.requestSubmit()}>
+                  {#each ROLE_HIERARCHY as role}
+                    <option value={role} selected={user.role === role}>{role}</option>
+                  {/each}
+                </select>
+              </form>
+            </dd>
+          </div>
+        </dl>
+      </li>
+    {/each}
+  </ul>
 
   {#if totalPages > 1}
     <nav class="pagination">
@@ -253,20 +293,105 @@
     color: var(--color-text-secondary);
   }
 
+  /* ── Mobile card list ─────────────────────────────────────────────────
+     The data table doesn't compress well below ~640px — six columns plus
+     a role <select> means horizontal scrolling and tiny tap targets.
+     Below 640px we render each user as a vertically-stacked card instead. */
+  .users-cards {
+    display: none;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+
   @media (max-width: 640px) {
-    .users-table {
-      font-size: var(--text-xs);
+    .users-table-wrapper { display: none; }
+
+    .users-cards {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-2);
     }
 
-    .users-table th,
-    .users-table td {
-      padding: var(--space-half) var(--space-1);
+    .user-card {
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-base);
+      background: var(--color-surface);
+      padding: var(--space-2);
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-1);
+    }
+
+    .user-card-head {
+      display: flex;
+      align-items: center;
+      gap: var(--space-1);
+    }
+    .user-card-head .table-avatar {
+      width: 36px;
+      height: 36px;
+      flex-shrink: 0;
+    }
+    .user-card-name {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+    .user-card-display {
+      font-size: var(--text-sm);
+      font-weight: 600;
+      color: var(--color-text-primary);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .user-card-email {
+      font-size: var(--text-xs);
+      color: var(--color-text-muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .user-card-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin: 0;
+      padding-top: var(--space-1);
+      border-top: 1px solid var(--color-border);
+    }
+    .user-card-row {
+      display: grid;
+      grid-template-columns: 60px 1fr;
+      align-items: center;
+      gap: var(--space-1);
+      font-size: var(--text-xs);
+    }
+    .user-card-row dt {
+      font-weight: 500;
+      color: var(--color-text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      font-size: 10px;
+    }
+    .user-card-row dd {
+      margin: 0;
+      color: var(--color-text-primary);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .user-card-row-role dd { white-space: normal; }
+    .user-card-role-select {
+      width: 100%;
+      min-height: 32px;
     }
 
     .pagination {
       gap: var(--space-1);
     }
-
     .page-btn {
       padding: 6px 12px;
       font-size: var(--text-sm);

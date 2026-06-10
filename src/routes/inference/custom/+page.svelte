@@ -523,6 +523,10 @@
       onchange={handleFileInput}
     />
 
+    <p class="cross-link-hint">
+      Benchmarking an LLM (TTFT, TPS, TPOT)? <a href="/llm/custom">Use the LLM custom runner →</a>
+    </p>
+
     {#if errorMessage}
       <p class="error-text">{errorMessage}</p>
     {/if}
@@ -606,6 +610,7 @@
           <p class="error-text">{errorMessage}</p>
         {/if}
 
+        <div class="sb-section-head"><span class="sb-section-title">Model</span></div>
         <div class="file-info">
           <div class="file-details">
             <FormatIcon format={fileFormat(file.name)} size={16} />
@@ -727,6 +732,21 @@
     opacity: 0.7;
   }
 
+  .cross-link-hint {
+    max-width: 560px;
+    margin: var(--space-2) auto 0;
+    text-align: center;
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+  }
+  .cross-link-hint a {
+    color: var(--color-primary);
+    text-decoration: none;
+  }
+  .cross-link-hint a:hover {
+    text-decoration: underline;
+  }
+
   .badge-sidecar {
     color: var(--color-primary);
     border-color: var(--color-primary);
@@ -814,7 +834,7 @@
   .run-main {
     display: flex;
     flex-direction: column;
-    gap: var(--space-2);
+    gap: 4px;
     min-width: 0;
   }
 

@@ -12,6 +12,7 @@ export interface LLMRunOptions {
   runs: number;
   warmupRuns: number;
   timeoutMs?: number;
+  localFiles?: string[];
   onDownloadStart?:    (totalBytes: number, fileCount: number, files: string[]) => void;
   onDownloadProgress?: (loaded: number, total: number, currentFile: string) => void;
   onDownloadDone?:     (cacheHit: boolean, durationMs: number) => void;
@@ -93,6 +94,7 @@ export function runLlmInWorker(options: LLMRunOptions): Promise<LLMBenchmarkResu
       maxNewTokens: options.maxNewTokens,
       runs: options.runs,
       warmupRuns: options.warmupRuns,
+      localFiles: options.localFiles,
     };
 
     function handleMessage(event: MessageEvent<LLMWorkerMessage>) {
