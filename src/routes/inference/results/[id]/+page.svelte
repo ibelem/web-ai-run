@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { ResultRow } from '../+page';
+  import type { ResultRow } from '../+page.server';
   import { getBackendLabel } from '$lib/engine/backends';
   import { page } from '$app/stores';
 

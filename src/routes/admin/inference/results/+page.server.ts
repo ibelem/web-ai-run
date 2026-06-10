@@ -1,6 +1,6 @@
 import { error, redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
-import type { ResultRow } from '../../../inference/results/+page';
+import type { ResultRow } from '../../../inference/results/+page.server';
 import { loginUrl } from '$lib/utils/login-redirect';
 
 export interface AdminResultRow extends ResultRow {

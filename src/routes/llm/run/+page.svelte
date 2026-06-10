@@ -1930,6 +1930,7 @@
     box-sizing: border-box;
     resize: vertical;
     font-family: var(--font-ui);
+    font-size: var(--text-xs);
   }
 
   .prompt-input:focus-visible { border-color: var(--color-focus-ring); outline: none; }

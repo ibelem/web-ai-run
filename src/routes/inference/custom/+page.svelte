@@ -13,6 +13,7 @@
   import RunConfigCmp from '$lib/components/RunConfig.svelte';
   import ProgressBar from '$lib/components/ProgressBar.svelte';
   import BenchmarkResults from '$lib/components/BenchmarkResults.svelte';
+  import { autoTitle } from '$lib/utils/auto-title';
 
   let availableBackends = $state<Backend[]>(['wasm_1']);
   let selectedBackends = $state<Backend[]>(['webgpu']);
@@ -439,63 +440,8 @@
 </script>
 
 <div class="custom-page" class:run-page-running={isRunning}>
-  <header class="page-header" class:hidden={isRunning}>
-    <h1>Custom Benchmark</h1>
-    <p>Upload your own model file and benchmark it locally in the browser.</p>
-  </header>
-
-  {#if !file && !isRunning}
-    <div
-      class="dropzone"
-      class:drag-over={dragOver}
-      role="button"
-      tabindex="0"
-      ondragover={(e) => { e.preventDefault(); dragOver = true; }}
-      ondragleave={() => dragOver = false}
-      ondrop={handleDrop}
-      onclick={() => document.getElementById('file-input')?.click()}
-      onkeydown={(e) => { if (e.key === 'Enter') document.getElementById('file-input')?.click(); }}
-    >
-      <svg class="drop-icon" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-        <polyline points="17 8 12 3 7 8"/>
-        <line x1="12" y1="3" x2="12" y2="15"/>
-      </svg>
-      <p class="drop-text">Drop a model file here or <span class="drop-browse">click to browse</span></p>
-      <p class="drop-hint">Supports .onnx, .tflite <span class="drop-hint-todo">(.litertlm, .task LLM formats: coming soon)</span></p>
-      <p class="drop-hint drop-hint-sidecar">For models with external data (.onnx_data*), select all files to upload, or drag all files together</p>
-    </div>
-    <input
-      id="file-input"
-      type="file"
-      accept=".onnx,.tflite"
-      multiple
-      style="display:none"
-      onchange={handleFileInput}
-    />
-  {/if}
-
-  {#if errorMessage}
-    <p class="error-text">{errorMessage}</p>
-  {/if}
-
-  {#if file && !isRunning}
-    <div class="file-info">
-      <div class="file-details">
-        <FormatIcon format={fileFormat(file.name)} size={16} />
-        <span class="file-name">{file.name}</span>
-        <span class="file-size">{formatSize(file.size)}</span>
-        {#if runtime}<span class="badge">{runtime}</span>{/if}
-        {#if sidecarFiles.length > 0}
-          <span class="badge badge-sidecar" title={sidecarFiles.map(s => s.path).join(', ')}>+{sidecarFiles.length} data</span>
-        {/if}
-      </div>
-      <button class="btn-clear" onclick={clearFile}>Remove</button>
-    </div>
-  {/if}
-
-  <div class="running-center" class:running-center-active={isRunning}>
-    {#if isRunning}
+  {#if isRunning}
+    <div class="running-center running-center-active">
       <section class="status-section">
         {#if totalQueue > 0}
           <div class="status-row status-row-top">
@@ -531,122 +477,182 @@
           </div>
         {/if}
       </section>
-    {/if}
 
-    {#if queue.length > 0 || results.length > 0}
-      <section class="results-section" class:results-section-running={isRunning}>
-        <BenchmarkResults {results} backends={selectedBackends} {queue} {isRunning} onretry={retryItem} />
-      </section>
-    {/if}
+      {#if queue.length > 0 || results.length > 0}
+        <section class="results-section results-section-running">
+          <BenchmarkResults {results} backends={selectedBackends} {queue} {isRunning} onretry={retryItem} />
+        </section>
+      {/if}
 
-    {#if isRunning}
       <div class="run-controls">
         <button class="btn-stop" onclick={stopBenchmark} title="Esc">Stop <kbd class="kbd-hint">Esc</kbd></button>
       </div>
-    {/if}
-  </div>
+    </div>
+  {:else if !file}
+    <header class="page-header">
+      <h1>Custom Benchmark</h1>
+      <p>Upload your own model file and benchmark it locally in the browser.</p>
+    </header>
 
-  {#if runLogs.length > 0 && !isRunning}
-    <section class="logs-section">
-      <div class="logs-header">
-        <h3 class="logs-title">Logs ({runLogs.length})</h3>
-        <div class="export-group">
-          <span class="export-group-icon">
-            {#if logsCopied}
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-            {:else}
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-            {/if}
-          </span>
-          <button class="export-group-btn" class:active={logsCopied} onclick={async () => {
-            await navigator.clipboard.writeText(runLogs.join('\n'));
-            logsCopied = true;
-            setTimeout(() => { logsCopied = false; }, 2000);
-          }} title="Copy all logs">
-            {logsCopied ? 'Copied!' : 'Copy'}
+    <div
+      class="dropzone"
+      class:drag-over={dragOver}
+      role="button"
+      tabindex="0"
+      ondragover={(e) => { e.preventDefault(); dragOver = true; }}
+      ondragleave={() => dragOver = false}
+      ondrop={handleDrop}
+      onclick={() => document.getElementById('file-input')?.click()}
+      onkeydown={(e) => { if (e.key === 'Enter') document.getElementById('file-input')?.click(); }}
+    >
+      <svg class="drop-icon" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+        <polyline points="17 8 12 3 7 8"/>
+        <line x1="12" y1="3" x2="12" y2="15"/>
+      </svg>
+      <p class="drop-text">Drop a model file here or <span class="drop-browse">click to browse</span></p>
+      <p class="drop-hint">Supports .onnx, .tflite</p>
+      <p class="drop-hint drop-hint-sidecar">For models with external data (.onnx_data*), select all files to upload, or drag all files together</p>
+    </div>
+    <input
+      id="file-input"
+      type="file"
+      accept=".onnx,.tflite"
+      multiple
+      style="display:none"
+      onchange={handleFileInput}
+    />
+
+    {#if errorMessage}
+      <p class="error-text">{errorMessage}</p>
+    {/if}
+  {:else}
+    <header class="page-header">
+      <h1>Custom Benchmark</h1>
+      <p>Upload your own model file and benchmark it locally in the browser.</p>
+    </header>
+
+    <section class="run-layout">
+      <aside class="run-sidebar" use:autoTitle>
+        <div class="sb-section">
+          <div class="sb-section-head"><span class="sb-section-title">JS ML Framework</span></div>
+          {#if usesOnnx && ortVersion}
+            <div class="sb-row">
+              <span class="sb-label">ORT Web</span>
+              <select class="sb-input" bind:value={ortVersion}>
+                {#if ortDevVersions.length}
+                  <optgroup label="Dev">
+                    {#each ortDevVersions as v}<option value={v}>{v}</option>{/each}
+                  </optgroup>
+                {/if}
+                {#if ortStableVersions.length}
+                  <optgroup label="Stable">
+                    {#each ortStableVersions as v}<option value={v}>{v}</option>{/each}
+                  </optgroup>
+                {/if}
+              </select>
+            </div>
+          {/if}
+          {#if usesLitert && litertVersion}
+            <div class="sb-row">
+              <span class="sb-label">LiteRT.js</span>
+              <select class="sb-input" bind:value={litertVersion}>
+                {#if litertDevVersions.length}
+                  <optgroup label="Dev">
+                    {#each litertDevVersions as v}<option value={v}>{v}</option>{/each}
+                  </optgroup>
+                {/if}
+                {#if litertStableVersions.length}
+                  <optgroup label="Stable">
+                    {#each litertStableVersions as v}<option value={v}>{v}</option>{/each}
+                  </optgroup>
+                {/if}
+              </select>
+            </div>
+          {/if}
+          {#if usesOnnx}
+            <div class="sb-row">
+              <span class="sb-label" title="Free Dimension Overrides — only used for WebNN backends with dynamic input shapes">FDO</span>
+              <input
+                class="sb-input"
+                type="text"
+                placeholder="batch_size: 1, height: 224"
+                bind:value={fdoText}
+              />
+            </div>
+          {/if}
+        </div>
+
+        <div class="sb-section">
+          <div class="sb-section-head"><span class="sb-section-title">Test</span></div>
+          <BackendSelector bind:selected={selectedBackends} available={availableBackends} />
+          <RunConfigCmp bind:iterations />
+        </div>
+
+        <div class="actions">
+          <button
+            class="btn-primary"
+            onclick={startBenchmark}
+            disabled={selectedBackends.length === 0}
+            title="Ctrl+Enter"
+          >
+            Run Benchmark <kbd class="kbd-hint">Ctrl+Enter</kbd>
           </button>
         </div>
-      </div>
-      <div class="logs-container" bind:this={logsEl}>
-        {#each runLogs as log}
-          <div class="log-line">{log}</div>
-        {/each}
-      </div>
-    </section>
-  {/if}
+      </aside>
 
-  {#if file && !isRunning}
-    <section class="config-section">
-      <div class="top-config-grid">
-        <BackendSelector bind:selected={selectedBackends} available={availableBackends} singleRow />
-        <RunConfigCmp bind:iterations />
-      </div>
+      <div class="run-main">
+        {#if errorMessage}
+          <p class="error-text">{errorMessage}</p>
+        {/if}
 
-      <div class="env-rows">
-        {#if usesOnnx && ortVersion}
-          <div class="env-row">
-            <span class="env-label">ORT Web</span>
-            <select class="version-select" bind:value={ortVersion}>
-              {#if ortDevVersions.length}
-                <optgroup label="Dev">
-                  {#each ortDevVersions as v}
-                    <option value={v}>{v}</option>
-                  {/each}
-                </optgroup>
-              {/if}
-              {#if ortStableVersions.length}
-                <optgroup label="Stable">
-                  {#each ortStableVersions as v}
-                    <option value={v}>{v}</option>
-                  {/each}
-                </optgroup>
-              {/if}
-            </select>
+        <div class="file-info">
+          <div class="file-details">
+            <FormatIcon format={fileFormat(file.name)} size={16} />
+            <span class="file-name">{file.name}</span>
+            <span class="file-size">{formatSize(file.size)}</span>
+            {#if runtime}<span class="badge">{runtime}</span>{/if}
+            {#if sidecarFiles.length > 0}
+              <span class="badge badge-sidecar" title={sidecarFiles.map(s => s.path).join(', ')}>+{sidecarFiles.length} data</span>
+            {/if}
           </div>
-        {/if}
-        {#if usesLitert && litertVersion}
-          <div class="env-row">
-            <span class="env-label">LiteRT.js</span>
-            <select class="version-select" bind:value={litertVersion}>
-              {#if litertDevVersions.length}
-                <optgroup label="Dev">
-                  {#each litertDevVersions as v}
-                    <option value={v}>{v}</option>
-                  {/each}
-                </optgroup>
-              {/if}
-              {#if litertStableVersions.length}
-                <optgroup label="Stable">
-                  {#each litertStableVersions as v}
-                    <option value={v}>{v}</option>
-                  {/each}
-                </optgroup>
-              {/if}
-            </select>
-          </div>
-        {/if}
-        {#if usesOnnx}
-          <div class="env-row env-row-fdo">
-            <span class="env-label" title="Free Dimension Overrides — only used for WebNN backends with dynamic input shapes">FDO</span>
-            <input
-              class="fdo-input"
-              type="text"
-              placeholder="batch_size: 1, height: 224, width: 224"
-              bind:value={fdoText}
-            />
-          </div>
-        {/if}
-      </div>
+          <button class="btn-clear" onclick={clearFile}>Remove</button>
+        </div>
 
-      <div class="actions">
-        <button
-          class="btn-primary"
-          onclick={startBenchmark}
-          disabled={selectedBackends.length === 0}
-          title="Ctrl+Enter"
-        >
-          Run Benchmark <kbd class="kbd-hint">Ctrl+Enter</kbd>
-        </button>
+        {#if queue.length > 0 || results.length > 0}
+          <section class="results-section">
+            <BenchmarkResults {results} backends={selectedBackends} {queue} {isRunning} onretry={retryItem} />
+          </section>
+        {/if}
+
+        {#if runLogs.length > 0}
+          <section class="logs-section">
+            <div class="logs-header">
+              <h3 class="logs-title">Logs ({runLogs.length})</h3>
+              <div class="export-group">
+                <span class="export-group-icon">
+                  {#if logsCopied}
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                  {:else}
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                  {/if}
+                </span>
+                <button class="export-group-btn" class:active={logsCopied} onclick={async () => {
+                  await navigator.clipboard.writeText(runLogs.join('\n'));
+                  logsCopied = true;
+                  setTimeout(() => { logsCopied = false; }, 2000);
+                }} title="Copy all logs">
+                  {logsCopied ? 'Copied!' : 'Copy'}
+                </button>
+              </div>
+            </div>
+            <div class="logs-container" bind:this={logsEl}>
+              {#each runLogs as log}
+                <div class="log-line">{log}</div>
+              {/each}
+            </div>
+          </section>
+        {/if}
       </div>
     </section>
   {/if}
@@ -655,10 +661,6 @@
 <style>
   .custom-page {
     max-width: 100%;
-  }
-
-  .hidden {
-    display: none !important;
   }
 
   .run-page-running {
@@ -716,11 +718,6 @@
   .drop-hint {
     font-size: var(--text-sm);
     color: var(--color-text-muted);
-  }
-
-  .drop-hint-todo {
-    color: var(--color-warning);
-    margin-left: 4px;
   }
 
   .drop-hint-sidecar {
@@ -788,89 +785,122 @@
 
   .btn-clear:hover { color: var(--color-error); border-color: var(--color-error); }
 
-  .config-section {
+  /* Sidebar layout (mirrors /inference/run) */
+  .run-layout {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    gap: var(--space-3);
+    align-items: start;
+  }
+
+  .run-sidebar {
+    position: sticky;
+    top: var(--space-2);
+    align-self: start;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    max-height: calc(100dvh - 80px);
+    overflow-y: auto;
+    padding-right: var(--space-1);
+  }
+
+  .run-sidebar::-webkit-scrollbar { width: 4px; }
+  .run-sidebar::-webkit-scrollbar-thumb {
+    background: var(--color-border);
+    border-radius: 2px;
+  }
+
+  .run-main {
     display: flex;
     flex-direction: column;
     gap: var(--space-2);
-    margin-bottom: var(--space-3);
+    min-width: 0;
   }
 
-  .top-config-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: var(--space-2);
-  }
-
-  @media (max-width: 768px) {
-    .top-config-grid {
-      grid-template-columns: 1fr;
-    }
-  }
-
-  .env-rows {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: var(--space-1) var(--space-3);
-  }
-
-  @media (max-width: 768px) {
-    .env-rows {
-      grid-template-columns: 1fr;
-    }
-  }
-
-  .env-row {
+  .sb-section {
+    margin-top: 5px;
     display: flex;
-    align-items: center;
-    gap: var(--space-1);
-    font-size: var(--text-xs);
-    font-family: var(--font-mono);
+    flex-direction: column;
+    gap: 4px;
+  }
+  .sb-section:first-of-type {
+    margin-top: 0;
+    padding-top: 0;
   }
 
-  .env-label {
+  .sb-section-head {
+    margin-bottom: 4px;
+  }
+  .sb-section-title {
+    font-family: var(--font-ui);
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
     color: var(--color-text-muted);
-    min-width: 80px;
-    flex-shrink: 0;
   }
 
-
-  .version-select {
+  .sb-row {
+    display: grid;
+    grid-template-columns: 88px 1fr;
+    align-items: center;
+    gap: 8px;
+    min-height: 28px;
+  }
+  .sb-label {
+    font-family: var(--font-ui);
+    font-size: var(--text-xs);
+    font-weight: 500;
+    color: var(--color-text-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  input.sb-input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+  select.sb-input {
+    width: 100%;
+    height: 28px;
+    min-width: 0;
+    padding: 0 8px;
     font-family: var(--font-mono);
     font-size: var(--text-xs);
-    padding: 3px 6px;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-sm);
-    background: var(--color-surface);
-    color: var(--color-text-primary);
-    flex: 1;
-    min-width: 0;
+  }
+  select.sb-input {
+    cursor: pointer;
+    color: var(--color-text-muted);
   }
 
-  .version-select:focus-visible { border-color: var(--color-focus-ring); }
-
-  .env-row-fdo {
-    grid-column: 1 / -1;
+  /* Normalize embedded BackendSelector + RunConfig inside the sidebar */
+  .run-sidebar :global(.backend-selector) { gap: 4px; }
+  .run-sidebar :global(.backend-selector .config-label),
+  .run-sidebar :global(.run-config .config-label) {
+    font-family: var(--font-ui);
+    font-size: var(--text-xs);
+    font-weight: 500;
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--color-text-secondary);
   }
-
-  .fdo-input {
+  .run-sidebar :global(.segment-btn) {
     font-family: var(--font-mono);
     font-size: var(--text-xs);
-    padding: 4px 8px;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-sm);
-    background: var(--color-surface);
-    color: var(--color-text-primary);
-    flex: 1;
-    min-width: 0;
+    height: 28px;
   }
-
-  .fdo-input:focus-visible { border-color: var(--color-focus-ring); }
 
   .actions {
     display: flex;
-    justify-content: center;
-    gap: var(--space-2);
+    flex-direction: column;
+    gap: var(--space-1);
     margin-top: var(--space-2);
+  }
+
+  @media (max-width: 768px) {
+    .run-layout { grid-template-columns: 1fr; }
+    .run-sidebar {
+      position: static;
+      max-height: none;
+    }
   }
 
   .btn-primary {
@@ -908,6 +938,13 @@
     border-color: var(--color-error);
     color: var(--color-error);
   }
+
+  .kbd-hint {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    padding: 0 4px;
+  }
+
   .btn-stop:hover .kbd-hint { 
     border-color: var(--color-error); color: var(--color-error); 
   }

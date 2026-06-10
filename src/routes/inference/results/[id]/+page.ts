@@ -1,6 +1,6 @@
 import type { PageLoad } from './$types';
 import { createClient } from '$lib/supabase/client';
-import type { ResultRow } from '../+page';
+import type { ResultRow } from '../+page.server';
 
 export const load: PageLoad = async ({ params }) => {
   const supabase = createClient();

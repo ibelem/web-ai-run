@@ -1,5 +1,4 @@
-import type { PageLoad } from './$types';
-import { createClient } from '$lib/supabase/client';
+import type { PageServerLoad } from './$types';
 
 export interface ResultRow {
   id: string;
@@ -34,10 +33,8 @@ export interface ResultRow {
   browser_version: string;
 }
 
-export const load: PageLoad = async () => {
-  const supabase = createClient();
-
-  const { data: { session } } = await supabase.auth.getSession();
+export const load: PageServerLoad = async ({ locals }) => {
+  const session = await locals.getSession();
   if (!session) {
     return {
       results: [],
@@ -49,6 +46,7 @@ export const load: PageLoad = async () => {
     };
   }
 
+  const supabase = locals.supabase;
   const userId = session.user.id;
   const t = (col: string) => (supabase.from('results') as any).select(col).eq('user_id', userId);
 
