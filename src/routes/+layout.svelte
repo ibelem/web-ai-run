@@ -88,7 +88,7 @@
 
   function resumeInterruptedRun() {
     if (!interruptedRun) return;
-    window.location.href = interruptedRun.kind === 'llm' ? '/run-llm#resume=1' : '/run#resume=1';
+    window.location.href = interruptedRun.kind === 'llm' ? '/llm/run#resume=1' : '/inference/run#resume=1';
   }
 
   onMount(() => {
@@ -159,67 +159,52 @@
 
   // ── Nav structure (single source of truth for desktop popovers + mobile accordion) ──
   const inferenceGroups: NavGroup[] = [
-    { label: 'Model', links: [
-      { href: '/',       label: 'Search', title: 'Search Hugging Face for an ONNX or LiteRT model and queue files into the cart.' },
-      { href: '/browse', label: 'Browse', title: 'Browse the curated catalog of ready-to-benchmark inference models.' },
-    ] },
-    { label: 'Recipe', links: [
-      { href: '/recipe',        label: 'Browse', title: 'Browse public and personal benchmark recipes (model + dtype bundles).' },
-      { href: '/recipe/new',    label: 'New',    title: 'Create a new inference recipe from selected models.' },
-      { href: '/recipe/import', label: 'Import', title: 'Import a recipe from a JSON file or a shared URL.' },
-    ] },
-    { links: [{ href: '/custom',         label: 'Custom',    title: 'Drag and drop your own .onnx or .tflite file (plus sidecars) to benchmark it locally.' }] },
-    { links: [{ href: '/onnx/overrides', label: 'Shapes',    title: 'Free Dimension Overrides — set values for symbolic dimensions (batch_size, seq_length, etc.) so models with dynamic axes can compile on backends that need static shapes.' }] },
-    { links: [{ href: '/results',        label: 'Results',   title: 'Inference benchmark results — TTFT, latency, throughput across runs.' }] },
+    { links: [{ href: '/inference',        label: 'Search', title: 'Search Hugging Face for an ONNX or LiteRT model and queue files into the cart.' }] },
+    { links: [{ href: '/inference/browse', label: 'Browse', title: 'Browse the curated catalog of ready-to-benchmark inference models.' }] },
+    { links: [{ href: '/inference/recipe', label: 'Recipe', title: 'Browse, create, or import inference benchmark recipes.' }] },
+    { links: [{ href: '/inference/custom', label: 'Custom', title: 'Drag and drop your own .onnx or .tflite file (plus sidecars) to benchmark it locally.' }] },
+    { links: [{ href: '/inference/overrides', label: 'Shapes',  title: 'Free Dimension Overrides — set values for symbolic dimensions (batch_size, seq_length, etc.) so models with dynamic axes can compile on backends that need static shapes.' }] },
+    { links: [{ href: '/inference/results',   label: 'Results', title: 'Inference benchmark results — TTFT, latency, throughput across runs.' }] },
   ];
 
   const llmGroups: NavGroup[] = [
-    { label: 'Recipe', links: [
-      { href: '/recipe-llm',        label: 'Browse', title: 'Browse public and personal LLM recipes (HF model id + dtype).' },
-      { href: '/recipe-llm/new',    label: 'New',    title: 'Create a new LLM recipe.' },
-      { href: '/recipe-llm/import', label: 'Import', title: 'Import an LLM recipe from a JSON file or a shared URL.' },
-    ] },
-    { links: [{ href: '/results-llm', label: 'Results', title: 'LLM benchmark results — Prompt/Output tokens, TTFT, TPS, TPOT, E2E.' }] },
+    { links: [{ href: '/llm/recipe',  label: 'Recipe',  title: 'Browse, create, or import LLM benchmark recipes.' }] },
+    { links: [{ href: '/llm/results', label: 'Results', title: 'LLM benchmark results — Prompt/Output tokens, TTFT, TPS, TPOT, E2E.' }] },
   ];
 
   const leaderboardGroups: NavGroup[] = [
-    { links: [{ href: '/leaderboard',          label: 'Overview',  title: 'Aggregate leaderboard across all backends and runtimes.' }] },
-    { links: [{ href: '/leaderboard/litertjs', label: 'LiteRT.js', title: 'LiteRT.js leaderboard — TFLite/LiteRT models on WebGPU and CPU.' }] },
-    { links: [{ href: '/leaderboard/webnnep',  label: 'WebNN EP',  title: 'WebNN Execution Provider leaderboard — ONNX Runtime Web with WebNN backend.' }] },
+    { links: [{ href: '/inference/leaderboard', label: 'Inference', title: 'Compare inference benchmark results across any axis (WebNN EP, version, backend, hardware, browser, etc.).' }] },
+    { links: [{ href: '/llm/leaderboard',       label: 'LLM',       title: 'Compare LLM benchmark results across any axis (runtime version, backend, hardware, browser, etc.).' }] },
   ];
 
   const adminGroups: NavGroup[] = [
-    { label: 'People', links: [
-      { href: '/admin/users', label: 'Users', title: 'Admin: manage user accounts, roles, and access.' },
-      { href: '/admin/orgs',  label: 'Orgs',  title: 'Admin: manage organizations and partner accounts.' },
-    ] },
-    { label: 'Content', links: [
-      { href: '/admin/models',       label: 'Models',        title: 'Admin: curated model catalog.' },
-      { href: '/admin/recipes',      label: 'Recipes',       title: 'Admin: feature, order, and audit inference recipes.' },
-      { href: '/admin/recipes-llm',  label: 'Recipes (LLM)', title: 'Admin: feature, order, and audit LLM recipes.' },
-    ] },
-    { label: 'Results', links: [
-      { href: '/admin/results',     label: 'Inference', title: 'Admin: all inference benchmark results across users.' },
-      { href: '/admin/results-llm', label: 'LLM',       title: 'Admin: all LLM benchmark results across users.' },
-    ] },
+    { links: [{ href: '/admin/users',              label: 'Users',           title: 'Admin: manage user accounts, roles, and access.' }] },
+    { links: [{ href: '/admin/orgs',               label: 'Orgs',            title: 'Admin: manage organizations and partner accounts.' }] },
+    { links: [{ href: '/admin/models',             label: 'Models',          title: 'Admin: curated model catalog.' }] },
+    { links: [{ href: '/admin/inference/recipes',  label: 'Recipes · Inference', title: 'Admin: feature, order, and audit inference recipes.' }] },
+    { links: [{ href: '/admin/llm/recipes',        label: 'Recipes · LLM',       title: 'Admin: feature, order, and audit LLM recipes.' }] },
+    { links: [{ href: '/admin/inference/results',  label: 'Results · Inference', title: 'Admin: all inference benchmark results across users.' }] },
+    { links: [{ href: '/admin/llm/results',        label: 'Results · LLM',       title: 'Admin: all LLM benchmark results across users.' }] },
   ];
 
-  // Active-state checks for triggers
+  // Active-state checks for triggers. Leaderboard wins over its parent domain so the
+  // dropdown lights up correctly when the user is on /inference/leaderboard or
+  // /llm/leaderboard. Cast to string because SvelteKit's pathname union only includes
+  // routes that actually exist as +page.svelte; we still want prefix matching.
+  const path = $derived($page.url.pathname as string);
+  const leaderboardActive = $derived(
+    path === '/inference/leaderboard' ||
+    path.startsWith('/inference/leaderboard/') ||
+    path === '/llm/leaderboard' ||
+    path.startsWith('/llm/leaderboard/')
+  );
   const inferenceActive = $derived(
-    $page.url.pathname === '/' ||
-    $page.url.pathname.startsWith('/browse') ||
-    ($page.url.pathname.startsWith('/recipe') && !$page.url.pathname.startsWith('/recipe-llm')) ||
-    $page.url.pathname.startsWith('/custom') ||
-    $page.url.pathname.startsWith('/onnx/overrides') ||
-    ($page.url.pathname === '/results' || ($page.url.pathname.startsWith('/results/') && !$page.url.pathname.startsWith('/results-llm')))
+    !leaderboardActive && (path === '/inference' || path.startsWith('/inference/'))
   );
   const llmActive = $derived(
-    $page.url.pathname.startsWith('/recipe-llm') ||
-    $page.url.pathname.startsWith('/results-llm') ||
-    $page.url.pathname.startsWith('/run-llm')
+    !leaderboardActive && (path === '/llm' || path.startsWith('/llm/'))
   );
-  const leaderboardActive = $derived($page.url.pathname.startsWith('/leaderboard'));
-  const adminActive = $derived($page.url.pathname.startsWith('/admin'));
+  const adminActive = $derived(path.startsWith('/admin'));
 </script>
 
 <a href="#main-content" class="skip-link">Skip to main content</a>
@@ -389,14 +374,10 @@
       {#each groups as group}
         {#if group.label}
           <div class="mobile-group-label">{group.label}</div>
-          {#each group.links as link}
-            <a href={link.href} class="mobile-link mobile-link-grouped" class:active={$page.url.pathname === link.href || (link.href !== '/' && $page.url.pathname.startsWith(link.href + '/'))} onclick={closeMobileMenu} title={link.title}>{link.label}</a>
-          {/each}
-        {:else}
-          {#each group.links as link}
-            <a href={link.href} class="mobile-link mobile-link-single" class:active={$page.url.pathname === link.href || (link.href !== '/' && $page.url.pathname.startsWith(link.href + '/'))} onclick={closeMobileMenu} title={link.title}>{link.label}</a>
-          {/each}
         {/if}
+        {#each group.links as link}
+          <a href={link.href} class="mobile-link" class:active={$page.url.pathname === link.href || (link.href !== '/' && $page.url.pathname.startsWith(link.href + '/'))} onclick={closeMobileMenu} title={link.title}>{link.label}</a>
+        {/each}
       {/each}
     </div>
   {/if}
@@ -783,10 +764,8 @@
     .mobile-group-label {
       padding: 8px var(--space-3) 4px;
       font-family: var(--font-ui);
-      font-size: var(--text-xs);
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.07em;
+      font-size: var(--text-sm);
+      font-weight: 500;
       color: var(--color-text-muted);
     }
 
@@ -799,20 +778,8 @@
       font-size: var(--text-base);
       font-weight: 500;
       text-decoration: none;
-      color: var(--color-text-primary);
+      color: var(--color-text-secondary);
       transition: background var(--transition-base), color var(--transition-base);
-    }
-
-    .mobile-link-grouped {
-      padding-left: calc(var(--space-3) + 16px);
-    }
-
-    .mobile-link-single {
-      font-size: var(--text-xs);
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.07em;
-      color: var(--color-text-muted);
     }
 
     .mobile-link:hover {

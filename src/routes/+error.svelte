@@ -7,9 +7,9 @@
   <h1 class="error-message">{$page.error?.message ?? 'Something went wrong'}</h1>
   <nav class="error-nav">
     <a href="/" class="error-link">Home</a>
-    <a href="/browse" class="error-link">Browse</a>
-    <a href="/recipe" class="error-link">Recipe</a>
-    <a href="/custom" class="error-link">Custom</a>
+    <a href="/inference/browse" class="error-link">Browse</a>
+    <a href="/inference/recipe" class="error-link">Recipe</a>
+    <a href="/inference/custom" class="error-link">Custom</a>
   </nav>
 </div>
 

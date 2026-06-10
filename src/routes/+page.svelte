@@ -1,16 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { get } from 'svelte/store';
-  import { isAuthenticated, auth } from '$lib/stores/auth';
   import { createClient } from '$lib/supabase/client';
-  import { BACKENDS, detectAvailableBackends } from '$lib/engine/backends';
-  import { detectEnvironment } from '$lib/engine/environment';
-  import type { Backend, EnvironmentInfo } from '$lib/engine/types';
   import { inferFormat, stripExt } from '$lib/huggingface/parser';
-  import HFSearch, { type SelectedHFModel } from '$lib/components/HFSearch.svelte';
   import FormatIcon from '$lib/components/FormatIcon.svelte';
-  import HFUrlImport from '$lib/components/HFUrlImport.svelte';
-  import { cart, cartCount } from '$lib/stores/cart';
 
   interface RecentModel {
     id: string;
@@ -24,55 +16,11 @@
     last_synced: string;
   }
 
-  let environment = $state<EnvironmentInfo | null>(null);
-  let availableBackends = $state<Backend[]>([]);
-  let recentResults = $state<any[]>([]);
   let recentModels = $state<RecentModel[]>([]);
-  let loadingEnv = $state(true);
-  let loadingResults = $state(true);
   let loadingModels = $state(true);
 
-  // HF search section (authenticated only)
-  let hfSearchQuery = $state('');
-  let hfModels = $state<SelectedHFModel[]>([]);
-
-  $effect(() => {
-    hfModels = $cart.filter((m) => !m.id) as SelectedHFModel[];
-  });
-
-  $effect(() => {
-    const cartHF = $cart.filter((m) => !m.id);
-    const added = hfModels.filter(
-      (m) => !cartHF.some((c) => c.hf_model_id === m.hf_model_id && c.file_path === m.file_path)
-    );
-    const removed = cartHF.filter(
-      (c) => !hfModels.some((m) => m.hf_model_id === c.hf_model_id && m.file_path === c.file_path)
-    );
-    for (const m of added) cart.add(m);
-    for (const m of removed) cart.remove(m.hf_model_id, m.file_path);
-  });
-
-  const isHFUrl = $derived((() => {
-    try { return new URL(hfSearchQuery.trim()).hostname === 'huggingface.co'; }
-    catch { return false; }
-  })());
-
   onMount(async () => {
-    try {
-      const [env, backends] = await Promise.all([
-        detectEnvironment(),
-        detectAvailableBackends()
-      ]);
-      environment = env;
-      availableBackends = backends;
-    } catch (e) {
-      console.error('Failed to detect environment:', e);
-    } finally {
-      loadingEnv = false;
-    }
-
     const supabase = createClient();
-
     try {
       const { data: models } = await (supabase.from('models') as any)
         .select('id, hf_model_id, file_path, data_type, size_bytes, runtime, source_org, task, last_synced')
@@ -83,30 +31,7 @@
       console.error('Failed to fetch models:', e);
     }
     loadingModels = false;
-
-    const authState = get(auth);
-    if (authState.session) {
-      try {
-        const { data } = await (supabase.from('results') as any)
-          .select('id, model_id, backend, status, median_ms, started_at')
-          .order('created_at', { ascending: false })
-          .limit(5);
-        if (data) recentResults = data;
-      } catch (e) {
-        console.error('Failed to fetch results:', e);
-      }
-    }
-    loadingResults = false;
   });
-
-  function formatDate(iso: string): string {
-    return new Date(iso).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  }
 
   function formatRelative(iso: string): string {
     const diff = Date.now() - new Date(iso).getTime();
@@ -117,58 +42,9 @@
     const days = Math.floor(hours / 24);
     return `${days}d ago`;
   }
-
 </script>
 
 <div class="dashboard">
-  <!-- Hero / HF Search (mutually exclusive) -->
-  {#if $auth.loading}
-    <div class="auth-loading-placeholder"></div>
-  {:else if $isAuthenticated}
-    <section class="hf-home-section">
-      <div class="hf-home-search-wrap">
-        <svg class="hf-home-search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <circle cx="11" cy="11" r="8"/>
-          <line x1="21" y1="21" x2="16.65" y2="16.65"/>
-        </svg>
-        <input
-          class="hf-home-input"
-          type="search"
-          placeholder="onnx-community/yolov10x"
-          bind:value={hfSearchQuery}
-          autocomplete="off"
-          spellcheck="false"
-        />
-        <div class="hf-home-actions">
-          {#if $cartCount === 1}
-            {@const m = $cart[0]}
-            <button
-              class="hf-home-btn hf-home-btn-primary"
-              onclick={() => {
-                const seg = `${m.hf_model_id}|${m.file_path}`;
-                window.location.href = `/run#models=${encodeURIComponent(seg)}&backend=webgpu&n=50`;
-              }}
-            >Run model</button>
-          {:else}
-            <a href="/browse" class="hf-home-btn hf-home-btn-secondary">Browse</a>
-          {/if}
-        </div>
-      </div>
-      {#if isHFUrl}
-        <HFUrlImport url={hfSearchQuery.trim()} bind:selectedHFModels={hfModels} />
-      {:else if hfSearchQuery.trim()}
-        <HFSearch searchQuery={hfSearchQuery} bind:selectedHFModels={hfModels} />
-      {:else}
-        <p class="hf-home-hint">
-          <span class="pulse-dot" aria-hidden="true">
-            <span class="pulse-ring"></span>
-            <span class="pulse-core"></span>
-          </span>
-          Paste a HuggingFace org name, model ID (e.g. <code>onnx-community/yolov10x</code>), or model URL.
-        </p>
-      {/if}
-    </section>
-  {:else}
   <!-- Hero -->
   <section class="hero">
     <div class="hero-orb hero-orb-cyan" aria-hidden="true"></div>
@@ -195,10 +71,12 @@
         </p>
 
         <div class="hero-ctas">
-          <a href="/browse" class="hero-btn-primary">
-            Start benchmarking <span aria-hidden="true">&rarr;</span>
+          <a href="/inference" class="hero-btn-primary">
+            Inference&nbsp;<span aria-hidden="true">&rarr;</span>
           </a>
-          <a href="#capabilities" class="hero-btn-secondary">See your environment</a>
+          <a href="/llm" class="hero-btn-secondary">
+            LLM&nbsp;<span aria-hidden="true">&rarr;</span>
+          </a>
         </div>
 
         <div class="hero-tags">
@@ -258,33 +136,6 @@
     </div>
   </section>
 
-  {/if}
-
-  <!-- Capabilities -->
-  {#if !$auth.loading && !$isAuthenticated}
-  <section id="capabilities" class="card capabilities">
-    <h2 class="card-title">Environment</h2>
-    {#if loadingEnv}
-      <p class="muted">Detecting environment...</p>
-    {:else if environment}
-      <div class="env-grid">
-        <div class="env-item">
-          <span class="env-label">GPU</span>
-          <span class="env-value">{environment.gpu}</span>
-        </div>
-        <div class="env-item">
-          <span class="env-label">Browser</span>
-          <span class="env-value">{environment.browser} {environment.browser_version}</span>
-        </div>
-      </div>
-      <p class="privacy-notice">Your environment information is NOT recorded unless you explicitly agree when running a benchmark.</p>
-    {/if}
-  </section>
-
-  {/if}
-
-  {#if !$auth.loading && !$isAuthenticated}
-
   <!-- Recent Model Updates -->
   <section class="card recent-models">
     <h2 class="card-title">Recent Model Updates</h2>
@@ -295,7 +146,7 @@
     {:else}
       <div class="model-list">
         {#each recentModels as model (model.id)}
-          <a href="/browse?q={encodeURIComponent(model.hf_model_id)}" class="model-row">
+          <a href="/inference/browse?q={encodeURIComponent(model.hf_model_id)}" class="model-row">
             <div class="model-info">
               <span class="model-repo">{model.hf_model_id}</span>
               <span class="model-file">{stripExt(model.file_path)}</span>
@@ -308,10 +159,9 @@
           </a>
         {/each}
       </div>
-      <a href="/browse" class="view-all">View all models &rarr;</a>
+      <a href="/inference/browse" class="view-all">View all models &rarr;</a>
     {/if}
   </section>
-  {/if}
 </div>
 
 <style>
@@ -527,7 +377,6 @@
     animation: hero-float 6s ease-in-out infinite;
   }
 
-
   .mock-float-badge {
     position: absolute;
     font-size: 11px;
@@ -554,7 +403,6 @@
     border-color: var(--color-accent);
     transform: rotate(3deg);
   }
-
 
   .mock-header {
     display: flex;
@@ -629,25 +477,10 @@
     border-radius: 3px;
   }
 
-  .mock-bar-1 {
-    width: 95%;
-    background: var(--color-backend-webnn-gpu);
-  }
-
-  .mock-bar-2 {
-    width: 72%;
-    background: var(--color-backend-webgpu);
-  }
-
-  .mock-bar-3 {
-    width: 40%;
-    background: var(--color-backend-wasm-4);
-  }
-
-  .mock-bar-4 {
-    width: 18%;
-    background: var(--color-backend-wasm-1);
-  }
+  .mock-bar-1 { width: 95%; background: var(--color-backend-webnn-gpu); }
+  .mock-bar-2 { width: 72%; background: var(--color-backend-webgpu); }
+  .mock-bar-3 { width: 40%; background: var(--color-backend-wasm-4); }
+  .mock-bar-4 { width: 18%; background: var(--color-backend-wasm-1); }
 
   .mock-ms {
     font-size: 13px;
@@ -667,11 +500,7 @@
     align-items: center;
   }
 
-  .mock-footer-label {
-    font-size: 12px;
-    color: var(--color-text-muted);
-  }
-
+  .mock-footer-label { font-size: 12px; color: var(--color-text-muted); }
   .mock-footer-value {
     font-size: 16px;
     font-weight: 700;
@@ -680,10 +509,7 @@
   }
 
   @keyframes hero-ping {
-    75%, 100% {
-      transform: scale(2.4);
-      opacity: 0;
-    }
+    75%, 100% { transform: scale(2.4); opacity: 0; }
   }
 
   @keyframes hero-float {
@@ -692,210 +518,20 @@
   }
 
   @media (max-width: 900px) {
-    .hero-content {
-      grid-template-columns: 1fr;
-      padding: 32px 24px 16px;
-      gap: 16px;
-    }
-
-    .hero-title {
-      font-size: 32px;
-    }
-
-    .hero-subtitle {
-      font-size: 15px;
-    }
-
-    .hero-left {
-      padding-bottom: 16px;
-    }
-
-    .hero-right {
-      display: flex;
-      justify-content: center;
-      padding-bottom: 16px;
-    }
-
-    .hero-card-mock {
-      max-width: 100%;
-      margin: 8px 0;
-    }
-
-    .mock-float-top,
-    .mock-float-bottom {
-      display: none;
-    }
+    .hero-content { grid-template-columns: 1fr; padding: 32px 24px 16px; gap: 16px; }
+    .hero-title { font-size: 32px; }
+    .hero-subtitle { font-size: 15px; }
+    .hero-left { padding-bottom: 16px; }
+    .hero-right { display: flex; justify-content: center; padding-bottom: 16px; }
+    .hero-card-mock { max-width: 100%; margin: 8px 0; }
+    .mock-float-top, .mock-float-bottom { display: none; }
   }
 
   @media (max-width: 500px) {
-    .hero-content {
-      padding: 24px 16px 8px;
-    }
-
-    .hero-title {
-      font-size: 26px;
-    }
-
-    .hero-ctas {
-      flex-direction: column;
-      align-items: stretch;
-    }
-
-    .hero-btn-primary,
-    .hero-btn-secondary {
-      justify-content: center;
-    }
-  }
-
-  .auth-loading-placeholder {
-    min-height: 50vh;
-  }
-
-  /* HF home search */
-  .hf-home-section {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    min-height: 50vh;
-    text-align: center;
-  }
-
-  .hf-home-search-wrap {
-    display: flex;
-    align-items: center;
-    gap: 0;
-    width: 100%;
-    max-width: 600px;
-    margin: 0 auto;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-base);
-    background: var(--color-surface-raised);
-    padding: 0 0 0 10px;
-    transition: border-color var(--transition-base), box-shadow var(--transition-base);
-  }
-
-  .hf-home-search-wrap:focus-within {
-    border-color: var(--color-primary);
-    box-shadow: 0 0 0 3px rgba(9, 83, 222, 0.08);
-  }
-
-  .hf-home-search-icon {
-    color: var(--color-text-muted);
-    flex-shrink: 0;
-    margin-right: 10px;
-  }
-
-  .hf-home-input {
-    flex: 1;
-    border: none !important;
-    background: none;
-    outline: none; /* parent .hf-home-search-wrap provides focus-within ring */
-    font-family: var(--font-ui);
-    font-size: var(--text-base);
-    color: var(--color-text-primary);
-    padding: 14px 0;
-    min-width: 0;
-  }
-
-  .hf-home-input::placeholder {
-    color: var(--color-text-muted);
-  }
-
-  /* Remove browser search cancel button */
-  .hf-home-input::-webkit-search-cancel-button {
-    display: none;
-  }
-
-  .hf-home-actions {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    flex-shrink: 0;
-    padding-left: 8px;
-  }
-
-  .hf-home-btn {
-    display: inline-flex;
-    align-items: center;
-    font-family: var(--font-ui);
-    font-size: var(--text-base);
-    font-weight: 500;
-    padding: var(--space-1) var(--space-3);
-    border-radius: var(--radius-base);
-    border-top-left-radius: 0;
-    border-bottom-left-radius: 0;
-    border-top-width: 0 !important;
-    border-bottom-width: 0 !important;
-    border-right-width: 0 !important;
-    white-space: nowrap;
-    text-decoration: none;
-    cursor: pointer;
-    transition: background var(--transition-base), border-color var(--transition-base);
-  }
-
-  .hf-home-btn-secondary {
-    border: 1px solid var(--color-border);
-    background: var(--color-surface);
-    color: var(--color-text-secondary);
-  }
-
-  .hf-home-btn-secondary:hover {
-    color: var(--color-text-on-primary);
-    background: var(--color-primary);
-  }
-
-  .hf-home-btn-primary {
-    border: none;
-    background: var(--color-primary);
-    color: var(--color-text-on-primary);
-    transition: background var(--transition-base);
-  }
-
-  .hf-home-btn-primary:hover {
-    background: var(--color-primary-hover);
-  }
-
-  .hf-home-hint {
-    display: flex;
-    align-items: center;
-    margin-top: var(--space-2);
-    font-size: var(--text-sm);
-    color: var(--color-text-muted);
-  }
-
-  .hf-home-hint code {
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    background: var(--color-surface-sunken);
-    padding: 1px 3px;
-    border-radius: var(--radius-sm);
-  }
-
-  @media (max-width: 600px) {
-    .hf-home-section {
-      padding: 24px 1var(--space-1) var(--space-3);
-    }
-
-    .hf-home-input {
-      font-size: 15px;
-    }
-
-    .hf-home-btn {
-      font-size: var(--text-sm);
-      padding: 8px 14px;
-    }
-
-    .hf-home-hint {
-      align-items: center;
-      flex-wrap: wrap;
-      font-size: var(--text-xs);
-      justify-content: center;
-    }
-
-    .hf-home-hint code {
-      word-break: break-all;
-    }
+    .hero-content { padding: 24px 16px 8px; }
+    .hero-title { font-size: 26px; }
+    .hero-ctas { flex-direction: column; align-items: stretch; }
+    .hero-btn-primary, .hero-btn-secondary { justify-content: center; }
   }
 
   .card {
@@ -917,45 +553,6 @@
     font-size: var(--text-sm);
   }
 
-  /* Capabilities */
-  .env-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-    gap: var(--space-2);
-    margin-bottom: var(--space-3);
-  }
-
-  .env-item {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-half);
-  }
-
-  .env-label {
-    font-size: var(--text-xs);
-    font-weight: 600;
-    color: var(--color-text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-  }
-
-  .env-value {
-    font-size: var(--text-sm);
-    font-family: var(--font-mono);
-    color: var(--color-text-primary);
-    word-break: break-word;
-  }
-
-  .privacy-notice {
-    margin-top: var(--space-2);
-    font-size: var(--text-xs);
-    color: var(--color-text-muted);
-    font-style: italic;
-  }
-
-  /* Quick Actions */
-
-  /* Recent Models */
   .model-list {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -976,9 +573,7 @@
     transition: background var(--transition-base);
   }
 
-  .model-row:hover {
-    background:var(--color-accent-light);
-  }
+  .model-row:hover { background: var(--color-accent-light); }
 
   .model-info {
     display: flex;
@@ -1013,7 +608,6 @@
     flex-shrink: 0;
   }
 
-
   .model-synced {
     font-family: var(--font-mono);
     font-size: 11px;
@@ -1024,15 +618,11 @@
   }
 
   @media (max-width: 768px) {
-    .model-list {
-      grid-template-columns: repeat(2, 1fr);
-    }
+    .model-list { grid-template-columns: repeat(2, 1fr); }
   }
 
   @media (max-width: 500px) {
-    .model-list {
-      grid-template-columns: 1fr;
-    }
+    .model-list { grid-template-columns: 1fr; }
   }
 
   .view-all {
@@ -1041,9 +631,5 @@
     text-decoration: none;
   }
 
-  .view-all:hover {
-    text-decoration: underline;
-  }
-
-
+  .view-all:hover { text-decoration: underline; }
 </style>

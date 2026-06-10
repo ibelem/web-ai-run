@@ -78,7 +78,7 @@
         }))
       ));
     } catch {}
-    window.location.href = '/run';
+    window.location.href = '/inference/run';
   }
 
   // --- Save as Recipe (auth-gated) ---
@@ -108,7 +108,7 @@
         );
         cart.clear();
         onclose?.();
-        setTimeout(async () => { await goto('/recipe'); await invalidateAll(); }, 300);
+        setTimeout(async () => { await goto('/inference/recipe'); await invalidateAll(); }, 300);
       } else {
         if (!selectedRecipeId) return;
         const target = existingRecipes.find((r) => r.id === selectedRecipeId);
@@ -117,7 +117,7 @@
         await updateRecipe(selectedRecipeId, { models: merged });
         cart.clear();
         onclose?.();
-        setTimeout(async () => { await goto('/recipe'); await invalidateAll(); }, 300);
+        setTimeout(async () => { await goto('/inference/recipe'); await invalidateAll(); }, 300);
       }
     } catch (e: any) {
       saveError = e.message ?? 'Failed to save recipe';

@@ -501,9 +501,12 @@
   }
 
   .results-title {
-    font-size: var(--text-sm);
-    font-weight: 500;
-    color: var(--color-text-secondary);
+    font-family: var(--font-ui);
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--color-text-muted);
     flex-shrink: 0;
   }
 

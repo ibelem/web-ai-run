@@ -372,6 +372,7 @@
   .hf-status {
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: var(--space-1);
     font-size: var(--text-sm);
     color: var(--color-text-muted);

@@ -26,10 +26,28 @@
   function toggle() { open = !open; }
   function close() { open = false; onclose?.(); }
 
+  // A link is active if its href is the longest prefix of the current path
+  // among links in this dropdown. This stops e.g. /inference (Search) from
+  // lighting up when the user is at /inference/overrides — the longer match
+  // wins. Exact `/` only matches `/`.
+  const allHrefs = $derived(groups.flatMap(g => g.links.map(l => l.href)));
+
+  function bestMatch(path: string): string | null {
+    let best: string | null = null;
+    for (const href of allHrefs) {
+      if (href === '/') {
+        if (path === '/' && (best === null || best.length < 1)) best = href;
+        continue;
+      }
+      if (path === href || path.startsWith(href + '/')) {
+        if (best === null || href.length > best.length) best = href;
+      }
+    }
+    return best;
+  }
+
   function isLinkActive(href: string): boolean {
-    const path = $page.url.pathname;
-    if (href === '/') return path === '/';
-    return path === href || path.startsWith(href + '/');
+    return bestMatch($page.url.pathname) === href;
   }
 
   function onKeydown(e: KeyboardEvent) {
@@ -61,52 +79,21 @@
     <div class="nav-overlay" onclick={close} onkeydown={() => {}}></div>
     <div class="nav-popover" role="menu">
       {#each groups as group}
-        <div class="nav-row" class:nav-row-single={!group.label && group.links.length === 1}>
-          {#if group.label}
-            <span class="nav-row-label">{group.label}</span>
-            <div class="nav-row-links">
-              {#each group.links as link}
-                <a
-                  href={link.href}
-                  class="nav-link"
-                  class:active={isLinkActive(link.href)}
-                  onclick={close}
-                  role="menuitem"
-                  title={link.title}
-                >
-                  {link.label}
-                </a>
-              {/each}
-            </div>
-          {:else if group.links.length === 1}
-            <a
-              href={group.links[0].href}
-              class="nav-link nav-link-single"
-              class:active={isLinkActive(group.links[0].href)}
-              onclick={close}
-              role="menuitem"
-              title={group.links[0].title}
-            >
-              {group.links[0].label}
-            </a>
-          {:else}
-            <span class="nav-row-label"></span>
-            <div class="nav-row-links">
-              {#each group.links as link}
-                <a
-                  href={link.href}
-                  class="nav-link"
-                  class:active={isLinkActive(link.href)}
-                  onclick={close}
-                  role="menuitem"
-                  title={link.title}
-                >
-                  {link.label}
-                </a>
-              {/each}
-            </div>
-          {/if}
-        </div>
+        {#if group.label}
+          <div class="nav-section-label">{group.label}</div>
+        {/if}
+        {#each group.links as link}
+          <a
+            href={link.href}
+            class="nav-link"
+            class:active={isLinkActive(link.href)}
+            onclick={close}
+            role="menuitem"
+            title={link.title}
+          >
+            {link.label}
+          </a>
+        {/each}
       {/each}
     </div>
   {/if}
@@ -166,7 +153,7 @@
     position: absolute;
     top: calc(100% + 4px);
     left: 0;
-    min-width: 240px;
+    min-width: 160px;
     width: max-content;
     background: var(--color-surface);
     border: 1px solid var(--color-border);
@@ -185,49 +172,28 @@
     to   { opacity: 1; transform: translateY(0); }
   }
 
-  .nav-row {
-    display: grid;
-    grid-template-columns: 70px max-content;
-    align-items: center;
-    column-gap: 4px;
-    padding: 2px 6px;
-    border-radius: var(--radius-sm);
-    min-height: 32px;
-  }
-
-  .nav-row-single {
-    grid-template-columns: 1fr;
-    padding: 0;
-  }
-
-  .nav-row-label {
-    display: inline-flex;
-    align-items: center;
-    height: 100%;
+  .nav-section-label {
     font-family: var(--font-ui);
     font-size: var(--text-xs);
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.07em;
+    font-weight: 500;
     color: var(--color-text-muted);
+    padding: 6px 10px 2px;
     user-select: none;
-    white-space: nowrap;
-    padding: 2px 0 0 4px;
   }
-
-  .nav-row-links {
-    display: flex;
-    flex-wrap: nowrap;
-    gap: 2px;
+  .nav-section-label:not(:first-child) {
+    margin-top: 4px;
+    border-top: 1px solid var(--color-border);
+    padding-top: 8px;
   }
 
   .nav-link {
+    display: block;
     font-family: var(--font-ui);
     font-size: var(--text-sm);
     font-weight: 500;
     text-decoration: none;
     color: var(--color-text-secondary);
-    padding: 4px 10px;
+    padding: 6px 10px;
     border-radius: var(--radius-sm);
     white-space: nowrap;
     transition: background var(--transition-base), color var(--transition-base);
@@ -239,26 +205,6 @@
   }
 
   .nav-link.active {
-    color: var(--color-primary);
-    background: var(--color-nav-item-active);
-  }
-
-  .nav-link-single {
-    display: block;
-    font-size: var(--text-xs);
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.07em;
-    color: var(--color-text-muted);
-    padding: 8px 10px;
-  }
-
-  .nav-link-single:hover {
-    color: var(--color-text-primary);
-    background: var(--color-nav-item-hover);
-  }
-
-  .nav-link-single.active {
     color: var(--color-primary);
     background: var(--color-nav-item-active);
   }

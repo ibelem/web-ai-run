@@ -81,7 +81,7 @@
 {#if groups.length === 0}
   <div class="empty">
     <p>No models found matching your filters.</p>
-    <p class="empty-hint">Try clearing your filters, or <a href="/custom">upload your own model</a> to benchmark.</p>
+    <p class="empty-hint">Try clearing your filters, or <a href="/inference/custom">upload your own model</a> to benchmark.</p>
   </div>
 {:else}
   <div class="list-wrap">

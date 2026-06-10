@@ -149,7 +149,7 @@
   }
 
   function sharedConfigUrl(id: string): string {
-    return `/run/s/${id}`;
+    return `/inference/run/s/${id}`;
   }
 
   function sharedConfigFullUrl(config: SharedRunConfig): string {
@@ -164,7 +164,7 @@
     if (config.os) hash.set('os', config.os);
     if (config.ort) hash.set('ort', config.ort);
     if (config.litert) hash.set('litert', config.litert);
-    return `/run#${hash}`;
+    return `/inference/run#${hash}`;
   }
 
   function sharedConfigSummary(config: SharedRunConfig): string {
@@ -215,14 +215,14 @@
       {#if data.recipes.length === 0}
         <div class="empty" style="display: flex; flex-direction: column; align-items: center; gap: var(--space-2);">
           <p>No recipes yet.</p>
-          <a href="/recipe/new" class="btn-outline">Create a recipe</a>
+          <a href="/inference/recipe/new" class="btn-outline">Create a recipe</a>
         </div>
       {:else}
         <ul class="item-list">
           {#each data.recipes as recipe (recipe.id)}
             <li class="item-row">
               <div class="item-main">
-                <a href="/recipe/{recipe.slug}/edit" class="item-name">{recipe.name}</a>
+                <a href="/inference/recipe/{recipe.slug}/edit" class="item-name">{recipe.name}</a>
                 <span class="item-meta">
                   {recipe.models?.length ?? 0} model{(recipe.models?.length ?? 0) !== 1 ? 's' : ''}
                   · {recipe.visibility}
@@ -230,7 +230,7 @@
                 </span>
               </div>
               <div class="item-actions">
-                <a href="/recipe/{recipe.slug}/edit" class="btn-sm">Edit</a>
+                <a href="/inference/recipe/{recipe.slug}/edit" class="btn-sm">Edit</a>
               </div>
             </li>
           {/each}
