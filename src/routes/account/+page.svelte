@@ -630,6 +630,10 @@
     to { transform: rotate(360deg); }
   }
 
+  @media (prefers-reduced-motion: reduce) {
+    .avatar-spinner-overlay::after { animation: none; }
+  }
+
   .avatar-file-input {
     display: none;
   }

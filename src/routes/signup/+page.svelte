@@ -128,7 +128,7 @@
         />
 
         {#if error}
-          <p class="error-text">{error}</p>
+          <p class="error-text" role="alert">{error}</p>
         {/if}
 
         <button type="submit" class="btn-primary" disabled={loading || !email || !passwordOk || !turnstileToken}>

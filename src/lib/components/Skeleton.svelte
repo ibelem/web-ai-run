@@ -26,4 +26,8 @@
   .skeleton.rounded {
     border-radius: var(--radius-lg);
   }
+
+  @media (prefers-reduced-motion: reduce) {
+    .skeleton { animation: none; opacity: 0.6; }
+  }
 </style>

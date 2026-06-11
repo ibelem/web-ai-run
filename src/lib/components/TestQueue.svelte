@@ -222,4 +222,11 @@
   .spin { animation: spin 0.8s linear infinite; }
 
   @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+  @media (prefers-reduced-motion: reduce) {
+    .spin { animation: none; }
+    .status-downloading,
+    .status-compiling,
+    .status-running { animation: none; opacity: 0.7; }
+  }
 </style>

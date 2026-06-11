@@ -299,6 +299,8 @@
           class="user-trigger"
           onclick={() => showUserMenu = !showUserMenu}
           aria-expanded={showUserMenu}
+          aria-label="User menu"
+          aria-haspopup="menu"
         >
           {#if data.profileAvatarUrl}
             <img

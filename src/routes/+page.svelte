@@ -283,10 +283,7 @@
   }
 
   .hero-gradient {
-    background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-accent) 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    color: var(--color-primary);
   }
 
   .hero-subtitle {
@@ -515,6 +512,11 @@
   @keyframes hero-float {
     0%, 100% { transform: translateY(0) rotate(0deg); }
     50% { transform: translateY(-6px) rotate(0.3deg); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .pulse-ring { animation: none; }
+    .hero-card-mock { animation: none; }
   }
 
   @media (max-width: 900px) {

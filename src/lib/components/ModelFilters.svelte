@@ -291,6 +291,10 @@
     to { transform: rotate(360deg); }
   }
 
+  @media (prefers-reduced-motion: reduce) {
+    .refresh-btn svg.spinning { animation: none; }
+  }
+
   .tag-group {
     display: flex;
     flex-wrap: wrap;

@@ -74,7 +74,7 @@
   --color-surface-raised: #FFFFFF;
   --color-surface-sunken: rgba(245, 247, 250, 0.5);
   --color-surface-alt: #EDF2F7;
-  --color-page-bg: transparent;
+  --color-page-bg: #FCFCFC;
   --color-text-primary: #181818;
   --color-text-secondary: #4A5568;
   --color-text-muted: #6B6B6B;
@@ -146,7 +146,7 @@
   --color-runtime-litert: #0953DE;
 
   /* Semantic colors */
-  --color-success: rgba(9, 83, 222, 1);
+  --color-success: #38A169;
   --color-error: #ff0081;
   --color-warning: #ff0081;
   --color-info: #00C7FD;
@@ -225,7 +225,7 @@
   --color-runtime-litert: #63B3ED;
 
   /* Semantic dark */
-  --color-success:rgba(0, 199, 253, 1);
+  --color-success: #68D391;
   --color-error: #FC8181;
   --color-warning: #F6E05E;
   --color-info: #00C7FD;
@@ -280,10 +280,17 @@ input[type="checkbox"] {
   accent-color: var(--color-info);
 }
 
-/* Global focus ring */
-*:focus-visible {
-  outline: none;
-  outline-offset: 0px;
+/* Global focus ring — keyboard users get a visible 2px ring on every interactive
+   element. Inputs/textareas/selects manage their own focus via border-color above. */
+button:focus-visible,
+a:focus-visible,
+[role="button"]:focus-visible,
+[role="menuitem"]:focus-visible,
+[tabindex]:focus-visible,
+summary:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+  border-radius: var(--radius-base);
 }
 
 /* Base styles */
@@ -342,6 +349,10 @@ body {
 
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner { animation: none; }
 }
 
 /* Error banner */

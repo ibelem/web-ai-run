@@ -172,6 +172,11 @@
     to   { opacity: 1; transform: translateY(0); }
   }
 
+  @media (prefers-reduced-motion: reduce) {
+    .nav-popover { animation: none; }
+    .nav-chevron { transition: none; }
+  }
+
   .nav-section-label {
     font-family: var(--font-ui);
     font-size: var(--text-xs);

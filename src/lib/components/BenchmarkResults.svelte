@@ -718,7 +718,7 @@
     font-family: var(--font-ui);
     font-size: var(--text-xs);
     font-weight: 500;
-    padding: 3px 7px;
+    padding: 3px 8px;
     border: none;
     border-left: 1px solid var(--color-border);
     background: none;
@@ -840,4 +840,11 @@
   .spin { animation: spin 0.8s linear infinite; }
 
   @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+  @media (prefers-reduced-motion: reduce) {
+    .spin { animation: none; }
+    .status-downloading,
+    .status-compiling,
+    .status-running { animation: none; opacity: 0.7; }
+  }
 </style>
