@@ -96,15 +96,15 @@
   ]);
 
   const METRICS = [
-    { key: 'tps',                  label: 'TPS (tok/s)',           higherBetter: true  },
-    { key: 'e2e_tps',              label: 'E2E TPS (tok/s)',       higherBetter: true  },
-    { key: 'ttft_ms',              label: 'TTFT (ms)',             higherBetter: false },
-    { key: 'tpot_ms',              label: 'TPOT (ms/tok)',         higherBetter: false },
-    { key: 'decode_ms',            label: 'Decode (ms)',           higherBetter: false },
-    { key: 'e2e_ms',               label: 'E2E (ms)',              higherBetter: false },
-    { key: 'compilation_ms',       label: 'Compilation (ms)',      higherBetter: false },
-    { key: 'load_and_compile_ms',  label: 'Load + Compile (ms)',   higherBetter: false },
-    { key: 'output_tokens',        label: 'Output Tokens',         higherBetter: true  },
+    { key: 'tps',                  label: 'TPS (tok/s)',           higherBetter: true,  tooltip: 'Decode throughput = (output_tokens − 1) / (e2e − ttft). Higher is better. Steady-state token generation rate in tok/s.' },
+    { key: 'e2e_tps',              label: 'E2E TPS (tok/s)',       higherBetter: true,  tooltip: 'End-to-end throughput = output_tokens / e2e. Higher is better. Effective tok/s including prefill cost.' },
+    { key: 'ttft_ms',              label: 'TTFT (ms)',             higherBetter: false, tooltip: 'Time To First Token. Lower is better. Wall clock from generate() to the first decoded token.' },
+    { key: 'tpot_ms',              label: 'TPOT (ms/tok)',         higherBetter: false, tooltip: 'Time Per Output Token = (e2e − ttft) / (output_tokens − 1). Lower is better. Average per-token decode latency.' },
+    { key: 'decode_ms',            label: 'Decode (ms)',           higherBetter: false, tooltip: 'Decode-phase wall time. e2e − ttft. Lower is better.' },
+    { key: 'e2e_ms',               label: 'E2E (ms)',              higherBetter: false, tooltip: 'End-to-end wall time from generate() to last token. Lower is better. Includes prefill + decode.' },
+    { key: 'compilation_ms',       label: 'Compilation (ms)',      higherBetter: false, tooltip: 'Initial model compilation time. One-time cost per session. Lower is better.' },
+    { key: 'load_and_compile_ms',  label: 'Load + Compile (ms)',   higherBetter: false, tooltip: 'Fetch model bytes + compile. One-time cost per session. Lower is better.' },
+    { key: 'output_tokens',        label: 'Output Tokens',         higherBetter: true,  tooltip: 'Tokens the model generated this run. Equals max_new_tokens unless EOS stopped it early.' },
   ] as const;
 
   // ─────── State (URL hash) ───────
@@ -137,6 +137,27 @@
   const currentMetric = $derived(METRICS.find(m => m.key === selectedMetric) ?? METRICS[0]);
   const axisOptions = $derived(currentAxis.options);
 
+  // Swap A and B in one click — common power-user move when comparing.
+  function swapAB() {
+    const tmp = valueA;
+    valueA = valueB;
+    valueB = tmp;
+    baseline = baseline === 'a' ? 'b' : 'a';
+  }
+
+  const BACKEND_COLORS: Record<string, string> = {
+    wasm:      'backend-wasm',
+    wasm_1:    'backend-wasm',
+    wasm_n:    'backend-wasm',
+    webgpu:    'backend-webgpu',
+    webnn_cpu: 'backend-webnn-cpu',
+    webnn_gpu: 'backend-webnn-gpu',
+    webnn_npu: 'backend-webnn-npu',
+  };
+  function backendClass(id: string): string {
+    return BACKEND_COLORS[id] ?? 'backend-unknown';
+  }
+
   $effect(() => {
     if (!axisOptions.length) return;
     const valid = new Set(axisOptions);
@@ -162,6 +183,7 @@
       if (p.gpudrv !== undefined)    filterGpuDriver  = p.gpudrv;
       if (p.npudrv !== undefined)    filterNpuDriver  = p.npudrv;
       if (p.metric !== undefined)    selectedMetric   = p.metric;
+      if (p.bl !== undefined)        baseline         = p.bl === 'b' ? 'b' : 'a';
     }
     window.addEventListener('hashchange', onHashChange);
     return () => window.removeEventListener('hashchange', onHashChange);
@@ -184,12 +206,14 @@
     if (axis !== 'gpu_driver_version' && filterGpuDriver) params.set('gpudrv', filterGpuDriver);
     if (axis !== 'npu_driver_version' && filterNpuDriver) params.set('npudrv', filterNpuDriver);
     if (selectedMetric !== 'tps') params.set('metric', selectedMetric);
+    if (baseline === 'b') params.set('bl', 'b');
     history.replaceState(null, '', `#${params}`);
   });
 
   // ─────── Derived ───────
   const metricLabel = $derived(currentMetric.label);
   const higherBetter = $derived(currentMetric.higherBetter);
+  const metricTooltip = $derived(currentMetric.tooltip ?? '');
 
   const backends = $derived(data.distinctBackends ?? []);
   const dataTypes = $derived(data.distinctDataTypes ?? []);
@@ -305,7 +329,7 @@
     return rows;
   });
 
-  let baseline = $state<'a' | 'b'>('a');
+  let baseline = $state<'a' | 'b'>(initial.bl === 'b' ? 'b' : 'a');
 
   function relPct(row: CompareRow): number | null {
     const base = baseline === 'a' ? row.valA : row.valB;
@@ -611,6 +635,11 @@
             {/each}
           </select>
         </div>
+        <div class="sb-row sb-row-swap">
+          <button type="button" class="sb-swap-btn" onclick={swapAB} disabled={!valueA || !valueB || valueA === valueB} title="Swap A and B (also flips the baseline)">
+            Swap A &harr; B
+          </button>
+        </div>
         <div class="sb-row">
           <span class="sb-label">Metric</span>
           <select class="sb-input" bind:value={selectedMetric}>
@@ -774,6 +803,9 @@
       {:else}
         <div class="table-wrapper">
           <table class="compare-table">
+            <caption class="sr-only">
+              Compare {currentAxis.titleNoun.toLowerCase()} {currentAxis.fmt ? currentAxis.fmt(valueA) : valueA} versus {currentAxis.fmt ? currentAxis.fmt(valueB) : valueB} on {metricLabel}. Baseline: column {baseline === 'a' ? 'A' : 'B'}.
+            </caption>
             <thead>
               <tr>
                 <th class="th-model sortable" onclick={() => toggleSort('model')}>Model{sortIndicator('model')}</th>
@@ -788,11 +820,11 @@
                 {#if isVisible('os')}<th class="sortable" onclick={() => toggleSort('os')}>OS{sortIndicator('os')}</th>{/if}
                 {#if isVisible('gpu_driver')}<th class="sortable" onclick={() => toggleSort('gpu_driver')}>GPU Driver{sortIndicator('gpu_driver')}</th>{/if}
                 {#if isVisible('npu_driver')}<th class="sortable" onclick={() => toggleSort('npu_driver')}>NPU Driver{sortIndicator('npu_driver')}</th>{/if}
-                <th class="th-metric sortable" onclick={() => toggleSort('valA')}>
+                <th class="th-metric sortable" onclick={() => toggleSort('valA')} title={metricTooltip}>
                   {currentAxis.fmt ? currentAxis.fmt(valueA) : valueA}{sortIndicator('valA')}
                   <br><span class="th-metric-label">{metricLabel}</span>
                 </th>
-                <th class="th-metric sortable" onclick={() => toggleSort('valB')}>
+                <th class="th-metric sortable" onclick={() => toggleSort('valB')} title={metricTooltip}>
                   {currentAxis.fmt ? currentAxis.fmt(valueB) : valueB}{sortIndicator('valB')}
                   <br><span class="th-metric-label">{metricLabel}</span>
                 </th>
@@ -817,9 +849,10 @@
                   <td class="cell-metric cell-geomean">{fmt(geomeanA)}</td>
                   <td class="cell-metric cell-geomean">{fmt(geomeanB)}</td>
                   {#if isVersionAxis}
-                    <td class="cell-change cell-geomean"
-                      class:improved={geomeanChange != null && (higherBetter ? geomeanChange > 0 : geomeanChange < 0)}
-                      class:regressed={geomeanChange != null && (higherBetter ? geomeanChange < 0 : geomeanChange > 0)}>
+                    {@const gImproved = geomeanChange != null && (higherBetter ? geomeanChange > 0 : geomeanChange < 0)}
+                    {@const gRegressed = geomeanChange != null && (higherBetter ? geomeanChange < 0 : geomeanChange > 0)}
+                    <td class="cell-change cell-geomean" class:improved={gImproved} class:regressed={gRegressed}>
+                      {#if gImproved}<span class="change-arrow" aria-hidden="true">▲</span>{:else if gRegressed}<span class="change-arrow" aria-hidden="true">▼</span>{/if}
                       {fmtChange(geomeanChange)}
                     </td>
                   {:else}
@@ -839,7 +872,7 @@
                 <tr>
                   <td class="cell-model cell-copy" title="Click to copy: {row.hf_model_id}" onclick={() => { navigator.clipboard.writeText(row.hf_model_id); cellCopiedMsg = 'Copied!'; setTimeout(() => cellCopiedMsg = '', 1500); }}>{row.hf_model_id}</td>
                   {#if isVisible('dtype')}<td><span>{row.data_type}</span></td>{/if}
-                  {#if isVisible('backend')}<td><span>{getBackendLabel(row.backend)}</span></td>{/if}
+                  {#if isVisible('backend')}<td><span class="badge-backend {backendClass(row.backend)}">{getBackendLabel(row.backend)}</span></td>{/if}
                   {#if isVisible('framework')}<td><span>{row.framework}</span></td>{/if}
                   {#if isVisible('webnn_ep')}<td><span>{row.webnn_ep ?? '—'}</span></td>{/if}
                   {#if isVisible('browser')}<td><span>{row.browser ?? '—'}</span></td>{/if}
@@ -858,10 +891,12 @@
                     {:else}{fmt(row.valB)}{/if}
                   </td>
                   {#if isVersionAxis}
-                    <td class="cell-change"
-                      class:improved={changePct(row) != null && (higherBetter ? changePct(row)! > 0 : changePct(row)! < 0)}
-                      class:regressed={changePct(row) != null && (higherBetter ? changePct(row)! < 0 : changePct(row)! > 0)}>
-                      {fmtChange(changePct(row))}
+                    {@const rChange = changePct(row)}
+                    {@const rImproved = rChange != null && (higherBetter ? rChange > 0 : rChange < 0)}
+                    {@const rRegressed = rChange != null && (higherBetter ? rChange < 0 : rChange > 0)}
+                    <td class="cell-change" class:improved={rImproved} class:regressed={rRegressed}>
+                      {#if rImproved}<span class="change-arrow" aria-hidden="true">▲</span>{:else if rRegressed}<span class="change-arrow" aria-hidden="true">▼</span>{/if}
+                      {fmtChange(rChange)}
                     </td>
                   {:else}
                     <td class="cell-pct">
@@ -1108,7 +1143,7 @@
     text-transform: uppercase;
     letter-spacing: 0.5px;
     color: var(--color-text-muted);
-    padding: var(--space-1) var(--space-2);
+    padding: 2px var(--space-2);
     border-bottom: 1px solid var(--color-border);
     text-align: center;
     white-space: nowrap;
@@ -1116,8 +1151,21 @@
   .th-model { text-align: left; }
   .sortable { cursor: pointer; user-select: none; }
   .sortable:hover { color: var(--color-text-primary); }
-  .th-pct { cursor: pointer; user-select: none; }
-  .th-baseline { color: var(--color-primary); }
+  .th-pct {
+    cursor: pointer;
+    user-select: none;
+    border-bottom: 2px dotted transparent;
+    transition: border-color var(--transition-base), color var(--transition-base);
+  }
+  .th-pct:hover {
+    color: var(--color-text-primary);
+    border-bottom-color: var(--color-border-strong);
+  }
+  .th-baseline {
+    color: var(--color-primary);
+    border-bottom: 2px solid var(--color-primary);
+  }
+  .th-baseline:hover { border-bottom-color: var(--color-primary); }
   .th-metric-label {
     font-weight: 400;
     font-size: 10px;
@@ -1127,7 +1175,7 @@
   }
 
   .compare-table td {
-    padding: var(--space-1) var(--space-2);
+    padding: 2px var(--space-2);
     border-bottom: 1px solid var(--color-border);
     text-align: center;
     white-space: nowrap;
@@ -1191,4 +1239,69 @@
       max-height: none;
     }
   }
+
+  /* ── Screen-reader-only caption ────────────────────────────────── */
+  .sr-only {
+    position: absolute;
+    width: 1px; height: 1px;
+    padding: 0; margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  /* ── Swap A↔B ─────────────────────────────────────────────────── */
+  .sb-row-swap .sb-swap-btn { grid-column: 2; }
+  .sb-swap-btn {
+    width: 100%;
+    height: 28px;
+    padding: 0 8px;
+    font-family: var(--font-ui);
+    font-size: var(--text-xs);
+    font-weight: 500;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-base);
+    background: none;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    transition: background var(--transition-base), color var(--transition-base), border-color var(--transition-base);
+  }
+  .sb-swap-btn:hover:not(:disabled) {
+    background: var(--color-accent-light);
+    color: var(--color-primary);
+    border-color: var(--color-primary);
+  }
+  .sb-swap-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* ── Improved/regressed arrow glyph ──────────────────────────────── */
+  .change-arrow {
+    display: inline-block;
+    font-size: 9px;
+    margin-right: 2px;
+    transform: translateY(-1px);
+  }
+
+  /* ── Backend badge — uniform width matches results pages ─────────── */
+  .badge-backend {
+    font-family: var(--font-ui);
+    font-size: 10px;
+    font-weight: 600;
+    padding: 1px 6px;
+    border-radius: var(--radius-sm);
+    border: 1px solid;
+    white-space: nowrap;
+    display: inline-block;
+    min-width: 72px;
+    text-align: center;
+    box-sizing: border-box;
+    transition: opacity var(--transition-base);
+  }
+  .badge-backend:hover { opacity: 0.8; }
+  .backend-wasm      { color: var(--color-backend-wasm-1);    border-color: var(--color-backend-wasm-1); }
+  .backend-webgpu    { color: var(--color-backend-webgpu);    border-color: var(--color-backend-webgpu); }
+  .backend-webnn-cpu { color: var(--color-backend-webnn-cpu); border-color: var(--color-backend-webnn-cpu); }
+  .backend-webnn-gpu { color: var(--color-backend-webnn-gpu); border-color: var(--color-backend-webnn-gpu); }
+  .backend-webnn-npu { color: var(--color-backend-webnn-npu); border-color: var(--color-backend-webnn-npu); }
+  .backend-unknown   { color: var(--color-text-muted);        border-color: var(--color-border); }
 </style>

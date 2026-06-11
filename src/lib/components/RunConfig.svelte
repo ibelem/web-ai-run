@@ -9,7 +9,11 @@
 
 <div class="run-config">
   <div class="config-row">
-    <span class="config-label">Iterations</span>
+    <span
+      class="config-label"
+      title="Higher iteration counts produce lower-variance results but take longer. 50 is a sensible default for most models."
+      >Iterations</span
+    >
     <div class="segment-group">
       {#each iterationOptions as opt}
         <button

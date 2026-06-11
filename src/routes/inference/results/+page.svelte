@@ -148,6 +148,19 @@
 
   $effect(() => { void filterQuery, filterBackend, filterDataType, filterStatus, filterWebnnEp, filterFramework, filterOs, filterBrowser, filterBrowserVer, filterCpu, filterGpu, filterGpuDriver, filterNpuDriver, pageSize; currentPage = 1; });
 
+  // Any filter active — used by the sidebar's Clear button.
+  const anyFilterActive = $derived(
+    !!(filterQuery || filterBackend || filterDataType || filterStatus || filterWebnnEp ||
+       filterFramework || filterOs || filterBrowser || filterBrowserVer ||
+       filterCpu || filterGpu || filterGpuDriver || filterNpuDriver)
+  );
+
+  function clearFilters() {
+    filterQuery = ''; filterBackend = ''; filterDataType = ''; filterStatus = ''; filterWebnnEp = '';
+    filterFramework = ''; filterOs = ''; filterBrowser = ''; filterBrowserVer = '';
+    filterCpu = ''; filterGpu = ''; filterGpuDriver = ''; filterNpuDriver = '';
+  }
+
   // Bulk selection — current page only
   let selectedIds = $state<Set<string>>(new Set());
 
@@ -435,7 +448,12 @@
     <section class="rs-layout">
       <aside class="rs-sidebar" use:autoTitle>
         <div class="sb-section">
-          <div class="sb-section-head"><span class="sb-section-title">Search</span></div>
+          <div class="sb-section-head">
+            <span class="sb-section-title">Search</span>
+            {#if anyFilterActive}
+              <button type="button" class="sb-clear-btn" onclick={clearFilters} title="Reset all filters">Clear filters</button>
+            {/if}
+          </div>
           <input class="sb-input sb-input-text" type="text" placeholder="Model or file…" bind:value={filterQuery} />
         </div>
 
@@ -635,7 +653,6 @@
             {#if isVisible('gpu')}<th>GPU</th>{/if}
             {#if isVisible('gpu_driver')}<th>GPU Driver</th>{/if}
             {#if isVisible('npu_driver')}<th>NPU Driver</th>{/if}
-            <th class="th-tested">By</th>
             <th class="sortable" onclick={() => toggleSort('started')}>Date{sortIndicator('started')}</th>
           </tr>
         </thead>
@@ -674,18 +691,6 @@
               {#if isVisible('gpu')}<td class="cell-opt cell-opt-long" title={row.gpu}>{row.gpu || '—'}</td>{/if}
               {#if isVisible('gpu_driver')}<td class="cell-opt">{row.gpu_driver_version || '—'}</td>{/if}
               {#if isVisible('npu_driver')}<td class="cell-opt">{row.npu_driver_version || '—'}</td>{/if}
-              <td class="cell-tested">
-                <div class="tested-avatar-wrap" title={data.profile?.display_name ?? 'You'}>
-                  {#if data.profile?.avatar_url}
-                    <img src={data.profile.avatar_url} alt="" class="tested-avatar" crossorigin="anonymous" />
-                  {:else}
-                    <span class="tested-avatar tested-avatar-placeholder">
-                      {(data.profile?.display_name ?? 'Y')[0].toUpperCase()}
-                    </span>
-                  {/if}
-                  <span class="tested-tooltip">{data.profile?.display_name ?? 'You'}</span>
-                </div>
-              </td>
               <td class="cell-date">{fmtDate(row.started_at)}</td>
             </tr>
           {/each}
@@ -763,7 +768,24 @@
     flex-direction: column;
     gap: 4px;
   }
-  .sb-section-head { margin-bottom: 4px; }
+  .sb-section-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-1);
+    margin-bottom: 4px;
+  }
+  .sb-clear-btn {
+    font-family: var(--font-ui);
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--color-primary);
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+  }
+  .sb-clear-btn:hover { text-decoration: underline; }
   .sb-section-title {
     font-family: var(--font-ui);
     font-size: 10px;
@@ -966,10 +988,6 @@
     width: 10vw;
   }
 
-  .th-tested {
-    width: 28px;
-  }
-
   .sortable {
     cursor: pointer;
     user-select: none;
@@ -1091,67 +1109,6 @@
   .status-ok { background: #16a34a; }
   .status-error { background: var(--color-error); }
   .status-running { background: var(--color-primary); }
-
-  /* ── Tested-by avatar ─────────────────────────────────── */
-  .cell-tested {
-    width: 28px;
-    padding: var(--space-1) 4px;
-    vertical-align: middle;
-    line-height: 0;
-  }
-
-  .tested-avatar-wrap {
-    position: relative;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    line-height: 0;
-  }
-
-  .tested-avatar {
-    margin: 2px 0px;
-    width: 18px;
-    height: 18px;
-    border-radius: 50%;
-    display: block;
-    flex-shrink: 0;
-    border: 1px solid var(--color-border);
-    outline-offset: -1px;
-  }
-
-  .tested-avatar-placeholder {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--color-surface-sunken);
-    font-family: var(--font-ui);
-    font-size: 9px;
-    font-weight: 700;
-    color: var(--color-text-secondary);
-  }
-
-  .tested-tooltip {
-    display: none;
-    position: absolute;
-    bottom: calc(100% + 5px);
-    left: 50%;
-    transform: translateX(-50%);
-    background: var(--color-surface-raised);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-sm);
-    padding: 2px 8px;
-    font-family: var(--font-ui);
-    font-size: 11px;
-    color: var(--color-text-primary);
-    white-space: nowrap;
-    pointer-events: none;
-    box-shadow: var(--shadow-dropdown);
-    z-index: 10;
-  }
-
-  .tested-avatar-wrap:hover .tested-tooltip {
-    display: block;
-  }
 
   /* ── Table footer ─────────────────────────────────────── */
   .table-footer {

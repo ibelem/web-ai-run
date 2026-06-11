@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
   import { browser } from "$app/environment";
-  import { replaceState } from "$app/navigation";
+  import { replaceState, beforeNavigate } from "$app/navigation";
   import { get } from "svelte/store";
   import type {
     Backend,
@@ -426,16 +426,29 @@
   }
 
   function handleBeforeUnload(e: BeforeUnloadEvent) {
-    if (!isRunning || !activeWriter || !currentRunItem) return;
-    if (!activeWriter.hasResultId(currentRunItem)) return;
+    if (!isRunning) return;
 
-    // Best-effort sync write using fetch keepalive
-    activeWriter.markCrashedSync(currentRunItem);
+    // Best-effort sync write so an interrupted upload-row gets marked crashed,
+    // not left in 'running' status forever.
+    if (activeWriter && currentRunItem && activeWriter.hasResultId(currentRunItem)) {
+      activeWriter.markCrashedSync(currentRunItem);
+    }
 
     // Show browser confirmation prompt — gives user a chance to cancel close
+    // for ANY active run, not just uploading ones.
     e.preventDefault();
     e.returnValue = "";
   }
+
+  // SvelteKit in-app navigation: stop the user from clicking a nav link
+  // mid-run. Browser-level beforeunload covers tab close / external links.
+  beforeNavigate(({ cancel }) => {
+    if (!isRunning) return;
+    const ok = window.confirm(
+      "A benchmark is still running. Leave this page and abandon the run?"
+    );
+    if (!ok) cancel();
+  });
 
   onDestroy(() => {
     if (!browser) return;
@@ -1059,6 +1072,7 @@
       <div
         class="progress-bar-slot"
         class:progress-bar-hidden={downloadTotal === 0}
+        aria-hidden={downloadTotal === 0}
       >
         <ProgressBar percent={downloadPercent} label="Downloading" loadedBytes={downloadLoaded} totalBytes={downloadTotal} />
       </div>
@@ -1117,9 +1131,12 @@
 
         {#if saveResults}
           <div class="sb-section">
-            <div class="sb-section-head"><span class="sb-section-title">Hardware</span></div>
+            <div class="sb-section-head">
+              <span class="sb-section-title">Hardware</span>
+              <span class="sb-section-hint">All fields required to upload</span>
+            </div>
             <div class="sb-row">
-              <span class="sb-label">CPU<span class="req-badge" class:req-done={cpuModel.trim()}>req</span></span>
+              <span class="sb-label">CPU</span>
               <input
                 class="sb-input"
                 class:input-warn={!cpuModel.trim()}
@@ -1135,7 +1152,7 @@
               </datalist>
             </div>
             <div class="sb-row">
-              <span class="sb-label">OS<span class="req-badge" class:req-done={osModel.trim()}>req</span></span>
+              <span class="sb-label">OS</span>
               <input
                 class="sb-input"
                 class:input-warn={!osModel.trim()}
@@ -1151,12 +1168,7 @@
               </datalist>
             </div>
             <div class="sb-row">
-              <span class="sb-label"
-                >GPU drv{#if isAtLeast($auth.role ?? "anonymous", "intel")}<span
-                  class="req-badge"
-                  class:req-done={gpuDriverVersion.trim()}>req</span
-                >{/if}</span
-              >
+              <span class="sb-label">GPU drv</span>
               <input
                 class="sb-input"
                 class:input-warn={isAtLeast(
@@ -1170,12 +1182,7 @@
             </div>
             {#if usesWebnnNpu}
               <div class="sb-row">
-                <span class="sb-label"
-                  >NPU drv{#if isAtLeast($auth.role ?? "anonymous", "intel")}<span
-                    class="req-badge"
-                    class:req-done={npuDriverVersion.trim()}>req</span
-                  >{/if}</span
-                >
+                <span class="sb-label">NPU drv</span>
                 <input
                   class="sb-input"
                   class:input-warn={isAtLeast(
@@ -1240,10 +1247,7 @@
               <span
                 class="sb-label"
                 title={'Not sure which EP to pick?\nOpen chrome://webnn-internals/ in a new tab, run the model once, then check the "Active Contexts" tab — the Runtime Backend and selected Execution Provider are listed there.'}
-                >WebNN EP{#if isAtLeast($auth.role ?? "anonymous", "intel")}<span
-                  class="req-badge"
-                  class:req-done={!!webnnEp}>req</span
-                >{/if}</span
+                >WebNN EP</span
               >
               <select
                 class="sb-input"
@@ -1268,7 +1272,7 @@
         </div>
 
         <div class="actions">
-          <label class="save-toggle">
+          <label class="save-toggle" title="Save this run to your account. Hardware details are required so results stay comparable across machines.">
             <input type="checkbox" bind:checked={saveResults} />
             <span class="save-toggle-text">Upload results</span>
           </label>
@@ -1566,6 +1570,11 @@
     border-radius: 50%;
     cursor: pointer;
     transition: border-color var(--transition-base), background var(--transition-base);
+  }
+
+  .save-toggle input[type="checkbox"]:focus-visible {
+    outline: 2px solid var(--color-focus-ring);
+    outline-offset: 2px;
   }
 
   .save-toggle input[type="checkbox"]:hover {
@@ -1922,7 +1931,7 @@
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    max-width: 100%;
+    max-width: calc(50% - 3px);
     padding: 3px 8px;
     font-family: var(--font-ui);
     font-size: 11px;
@@ -1930,7 +1939,7 @@
     color: var(--color-text-secondary);
     background: var(--color-surface-sunken);
     border: 1px solid var(--color-border);
-    border-radius: 999px;
+    border-radius: var(--radius-base);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -1956,6 +1965,10 @@
   }
 
   .sb-section-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-1);
     margin-bottom: 4px;
   }
   .sb-section-title {
@@ -1965,6 +1978,13 @@
     text-transform: uppercase;
     letter-spacing: 0.1em;
     color: var(--color-text-muted);
+  }
+  .sb-section-hint {
+    font-family: var(--font-ui);
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--color-text-muted);
+    opacity: 0.7;
   }
 
   .sb-row {
@@ -2025,28 +2045,6 @@
   .sb-input.input-warn:focus-visible {
     border-color: var(--color-warning, #f59e0b) !important;
     outline-color: var(--color-warning, #f59e0b);
-  }
-
-  .req-badge {
-    display: inline-flex;
-    align-items: center;
-    margin-left: 0;
-    padding: 1px 4px 0 4px;
-    font-size: 9px;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: var(--color-error);
-    opacity: 0.85;
-    transition:
-      color var(--transition-base),
-      border-color var(--transition-base);
-  }
-
-  .req-badge.req-done {
-    color: var(--color-text-muted);
-    border-color: var(--color-border);
-    opacity: 0.6;
   }
 
   .models-label {

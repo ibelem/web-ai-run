@@ -7,6 +7,7 @@
   import { autoTitle } from '$lib/utils/auto-title';
   import type { PageData } from './$types';
   import type { ResultsLlmRow } from '$lib/engine/types';
+  import { getBackendLabel } from '$lib/engine/backends';
 
   let { data }: { data: PageData } = $props();
 
@@ -58,7 +59,7 @@
 
   let cellCopiedMsg = $state('');
 
-  const filtered = $derived(() => {
+  const filtered = $derived.by(() => {
     let rows: ResultsLlmRow[] = data.results ?? [];
     if (filterModel)      rows = rows.filter(r => r.hf_model_id.toLowerCase().includes(filterModel.toLowerCase()));
     if (filterBackend)    rows = rows.filter(r => r.backend === filterBackend);
@@ -76,8 +77,70 @@
     return rows;
   });
 
-  const totalPages = $derived(Math.max(1, Math.ceil(filtered().length / pageSize)));
-  const paged      = $derived(filtered().slice((currentPage - 1) * pageSize, currentPage * pageSize));
+  // Any filter active — used by the sidebar's Clear button and the empty-state hint.
+  const anyFilterActive = $derived(
+    !!(filterModel || filterBackend || filterDtype || filterFramework || filterStatus ||
+       filterWebnnEp || filterOs || filterBrowser || filterBrowserVer ||
+       filterCpu || filterGpu || filterGpuDriver || filterNpuDriver)
+  );
+
+  function clearFilters() {
+    filterModel = ''; filterBackend = ''; filterDtype = ''; filterFramework = ''; filterStatus = '';
+    filterWebnnEp = ''; filterOs = ''; filterBrowser = ''; filterBrowserVer = '';
+    filterCpu = ''; filterGpu = ''; filterGpuDriver = ''; filterNpuDriver = '';
+  }
+
+  // ── Sorting ─────────────────────────────────────────────────────────
+  type SortCol =
+    | 'model' | 'dtype' | 'runtime' | 'backend' | 'status'
+    | 'prompt_tokens' | 'tokens' | 'max_new_tokens'
+    | 'ttft' | 'tps' | 'tpot' | 'e2e' | 'e2e_tps' | 'compile'
+    | 'completed_at';
+  let sortCol = $state<SortCol>('completed_at');
+  let sortAsc = $state(false);
+
+  function toggleSort(col: SortCol) {
+    if (sortCol === col) sortAsc = !sortAsc;
+    else { sortCol = col; sortAsc = col === 'model' || col === 'dtype' || col === 'runtime' || col === 'backend' || col === 'status'; }
+  }
+
+  function sortIndicator(col: SortCol): string {
+    if (sortCol !== col) return '';
+    return sortAsc ? ' ↑' : ' ↓';
+  }
+
+  const sorted = $derived(
+    [...filtered].sort((a, b) => {
+      let av: any, bv: any;
+      // For "higher-is-better" metrics (TPS, E2E TPS), nulls sink to bottom in descending sort.
+      // For "lower-is-better" metrics (TTFT, TPOT, E2E, compile), nulls sink to bottom in ascending sort.
+      switch (sortCol) {
+        case 'model':         av = a.hf_model_id.toLowerCase(); bv = b.hf_model_id.toLowerCase(); break;
+        case 'dtype':         av = a.data_type ?? ''; bv = b.data_type ?? ''; break;
+        case 'runtime':       av = frameworkLabel(a); bv = frameworkLabel(b); break;
+        case 'backend':       av = a.backend ?? ''; bv = b.backend ?? ''; break;
+        case 'status':        av = a.status ?? ''; bv = b.status ?? ''; break;
+        case 'prompt_tokens': av = a.prompt_tokens ?? Infinity; bv = b.prompt_tokens ?? Infinity; break;
+        case 'tokens':        av = a.output_tokens ?? Infinity; bv = b.output_tokens ?? Infinity; break;
+        case 'max_new_tokens':av = a.max_new_tokens ?? Infinity; bv = b.max_new_tokens ?? Infinity; break;
+        case 'ttft':          av = a.ttft_ms ?? Infinity; bv = b.ttft_ms ?? Infinity; break;
+        case 'tps':           av = a.tps ?? -Infinity; bv = b.tps ?? -Infinity; break;
+        case 'tpot':          av = a.tpot_ms ?? Infinity; bv = b.tpot_ms ?? Infinity; break;
+        case 'e2e':           av = a.e2e_ms ?? Infinity; bv = b.e2e_ms ?? Infinity; break;
+        case 'e2e_tps':       av = a.e2e_tps ?? -Infinity; bv = b.e2e_tps ?? -Infinity; break;
+        case 'compile':       av = a.compilation_ms ?? Infinity; bv = b.compilation_ms ?? Infinity; break;
+        case 'completed_at':  av = a.completed_at ?? ''; bv = b.completed_at ?? ''; break;
+      }
+      if (typeof av === 'string') {
+        const cmp = av.localeCompare(bv);
+        return sortAsc ? cmp : -cmp;
+      }
+      return sortAsc ? av - bv : bv - av;
+    })
+  );
+
+  const totalPages = $derived(Math.max(1, Math.ceil(sorted.length / pageSize)));
+  const paged      = $derived(sorted.slice((currentPage - 1) * pageSize, currentPage * pageSize));
 
   function toggleAll() {
     if (paged.every(r => selected.has(r.id))) {
@@ -119,6 +182,19 @@
   function fmtDate(s: string | null) {
     if (!s) return '—';
     return new Date(s).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+
+  const BACKEND_COLORS: Record<string, string> = {
+    wasm:      'backend-wasm',
+    wasm_1:    'backend-wasm',
+    wasm_n:    'backend-wasm',
+    webgpu:    'backend-webgpu',
+    webnn_cpu: 'backend-webnn-cpu',
+    webnn_gpu: 'backend-webnn-gpu',
+    webnn_npu: 'backend-webnn-npu',
+  };
+  function backendClass(id: string): string {
+    return BACKEND_COLORS[id] ?? 'backend-unknown';
   }
 
   const allChecked = $derived(paged.length > 0 && paged.every(r => selected.has(r.id)));
@@ -236,11 +312,11 @@
   function toMarkdown(): string {
     const cols = exportColumns();
     const sep = cols.map(() => '---');
-    const rows = filtered().map(r => cols.map(c => c.get(r)));
+    const rows = filtered.map(r => cols.map(c => c.get(r)));
     return [cols.map(c => c.label).join(' | '), sep.join(' | '), ...rows.map(r => r.join(' | '))].join('\n');
   }
   function toJSON(): string {
-    return JSON.stringify(filtered().map(r => {
+    return JSON.stringify(filtered.map(r => {
       const obj: Record<string, any> = { model: r.hf_model_id };
       if (isVisible('dtype'))           obj.data_type           = r.data_type;
       if (isVisible('runtime'))         obj.runtime             = r.runtime;
@@ -274,7 +350,7 @@
   function toCSV(): string {
     const cols = exportColumns();
     const escape = (s: string) => `"${s.replace(/"/g, '""')}"`;
-    const rows = filtered().map(r => cols.map(c => escape(c.get(r))));
+    const rows = filtered.map(r => cols.map(c => escape(c.get(r))));
     return [cols.map(c => escape(c.label)).join(','), ...rows.map(r => r.join(','))].join('\n');
   }
 
@@ -309,7 +385,12 @@
   <section class="rs-layout">
     <aside class="rs-sidebar" use:autoTitle>
       <div class="sb-section">
-        <div class="sb-section-head"><span class="sb-section-title">Search</span></div>
+        <div class="sb-section-head">
+          <span class="sb-section-title">Search</span>
+          {#if anyFilterActive}
+            <button type="button" class="sb-clear-btn" onclick={clearFilters} title="Reset all filters">Clear filters</button>
+          {/if}
+        </div>
         <input class="sb-input sb-input-text" type="search" placeholder="Model…" bind:value={filterModel} />
       </div>
 
@@ -326,7 +407,7 @@
           <span class="sb-label">Backend</span>
           <select class="sb-input" bind:value={filterBackend}>
             <option value="">All</option>
-            {#each (data.distinctBackends ?? []) as b}<option value={b}>{b}</option>{/each}
+            {#each (data.distinctBackends ?? []) as b}<option value={b}>{getBackendLabel(b)}</option>{/each}
           </select>
         </div>
         <div class="sb-row">
@@ -422,8 +503,11 @@
             <button class="delete-btn" onclick={deleteSelected} disabled={deleting}>
               {deleting ? 'Deleting…' : `Delete ${selected.size}`}
             </button>
+            {#if deleteError}
+              <span class="delete-error" role="alert">{deleteError}</span>
+            {/if}
           {/if}
-          {#if filtered().length > 0}
+          {#if filtered.length > 0}
             <div class="export-group">
               <span class="export-group-icon" title="Copy to clipboard">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
@@ -464,11 +548,7 @@
         </div>
       </header>
 
-      {#if deleteError}
-        <p class="delete-error">{deleteError}</p>
-      {/if}
-
-  {#if filtered().length > 0}
+  {#if filtered.length > 0}
     <div class="table-wrap">
       <table class="results-table">
         <thead>
@@ -476,20 +556,20 @@
             <th class="th-check">
               <input type="checkbox" class="row-check" checked={allChecked} onchange={toggleAll} />
             </th>
-            <th class="th-model">Model</th>
-            {#if isVisible('dtype')}<th>Dtype</th>{/if}
-            {#if isVisible('runtime')}<th>Runtime</th>{/if}
-            {#if isVisible('backend')}<th>Backend</th>{/if}
-            {#if isVisible('status')}<th>Status</th>{/if}
-            {#if isVisible('prompt_tokens')}<th title="Prompt Tokens (prompt_tokens) — number of input tokens fed to the model.">Prompt</th>{/if}
-            {#if isVisible('tokens')}<th title="Output Tokens (output_tokens) — actual tokens generated this run. Equals Max New unless an end-of-sequence token stopped generation early.">Output</th>{/if}
-            {#if isVisible('max_new_tokens')}<th title="Max New Tokens (max_new_tokens) — the cap passed to model.generate(). The model stops at this count, or earlier if EOS is emitted. The actual count is shown as 'Output'.">Max New</th>{/if}
-            {#if isVisible('ttft')}<th title="Time To First Token (prefill latency). Lower is better. Time from generate() call to the first decoded token, in ms.">TTFT</th>{/if}
-            {#if isVisible('tps')}<th title="Decode throughput = (output_tokens − 1) / (e2e − ttft). Higher is better. Steady-state token generation rate in tok/s.">TPS</th>{/if}
-            {#if isVisible('tpot')}<th title="Time Per Output Token = (e2e − ttft) / (output_tokens − 1). Lower is better. Average per-token decode latency in ms.">TPOT</th>{/if}
-            {#if isVisible('e2e')}<th title="End-to-End wall-clock time from generate() call to the last token. Lower is better. Includes prefill + decode, in ms.">E2E</th>{/if}
-            {#if isVisible('e2e_tps')}<th title="End-to-End throughput = output_tokens / e2e. Higher is better. Effective tok/s including prefill cost.">E2E TPS</th>{/if}
-            {#if isVisible('compile')}<th title="Initial model compilation/load-and-compile time, in ms. One-time cost per session.">Compile</th>{/if}
+            <th class="th-model sortable" onclick={() => toggleSort('model')}>Model{sortIndicator('model')}</th>
+            {#if isVisible('dtype')}<th class="sortable" onclick={() => toggleSort('dtype')}>Dtype{sortIndicator('dtype')}</th>{/if}
+            {#if isVisible('runtime')}<th class="sortable" onclick={() => toggleSort('runtime')}>Runtime{sortIndicator('runtime')}</th>{/if}
+            {#if isVisible('backend')}<th class="sortable" onclick={() => toggleSort('backend')}>Backend{sortIndicator('backend')}</th>{/if}
+            {#if isVisible('status')}<th class="sortable" onclick={() => toggleSort('status')}>Status{sortIndicator('status')}</th>{/if}
+            {#if isVisible('prompt_tokens')}<th class="sortable" onclick={() => toggleSort('prompt_tokens')} title="Prompt Tokens (prompt_tokens) — number of input tokens fed to the model.">Prompt{sortIndicator('prompt_tokens')}</th>{/if}
+            {#if isVisible('tokens')}<th class="sortable" onclick={() => toggleSort('tokens')} title="Output Tokens (output_tokens) — actual tokens generated this run. Equals Max New unless an end-of-sequence token stopped generation early.">Output{sortIndicator('tokens')}</th>{/if}
+            {#if isVisible('max_new_tokens')}<th class="sortable" onclick={() => toggleSort('max_new_tokens')} title="Max New Tokens (max_new_tokens) — the cap passed to model.generate(). The model stops at this count, or earlier if EOS is emitted. The actual count is shown as 'Output'.">Max New{sortIndicator('max_new_tokens')}</th>{/if}
+            {#if isVisible('ttft')}<th class="sortable" onclick={() => toggleSort('ttft')} title="Time To First Token (prefill latency). Lower is better. Time from generate() call to the first decoded token, in ms.">TTFT{sortIndicator('ttft')}</th>{/if}
+            {#if isVisible('tps')}<th class="sortable" onclick={() => toggleSort('tps')} title="Decode throughput = (output_tokens − 1) / (e2e − ttft). Higher is better. Steady-state token generation rate in tok/s.">TPS{sortIndicator('tps')}</th>{/if}
+            {#if isVisible('tpot')}<th class="sortable" onclick={() => toggleSort('tpot')} title="Time Per Output Token = (e2e − ttft) / (output_tokens − 1). Lower is better. Average per-token decode latency in ms.">TPOT{sortIndicator('tpot')}</th>{/if}
+            {#if isVisible('e2e')}<th class="sortable" onclick={() => toggleSort('e2e')} title="End-to-End wall-clock time from generate() call to the last token. Lower is better. Includes prefill + decode, in ms.">E2E{sortIndicator('e2e')}</th>{/if}
+            {#if isVisible('e2e_tps')}<th class="sortable" onclick={() => toggleSort('e2e_tps')} title="End-to-End throughput = output_tokens / e2e. Higher is better. Effective tok/s including prefill cost.">E2E TPS{sortIndicator('e2e_tps')}</th>{/if}
+            {#if isVisible('compile')}<th class="sortable" onclick={() => toggleSort('compile')} title="Initial model compilation/load-and-compile time, in ms. One-time cost per session.">Compile{sortIndicator('compile')}</th>{/if}
             {#if isVisible('webnn_ep')}<th>WebNN EP</th>{/if}
             {#if isVisible('runs')}<th>Runs</th>{/if}
             {#if isVisible('runtime_version')}<th>Runtime Ver</th>{/if}
@@ -500,8 +580,7 @@
             {#if isVisible('gpu')}<th>GPU</th>{/if}
             {#if isVisible('gpu_driver')}<th>GPU Driver</th>{/if}
             {#if isVisible('npu_driver')}<th>NPU Driver</th>{/if}
-            <th class="th-tested">By</th>
-            <th>Date</th>
+            <th class="sortable" onclick={() => toggleSort('completed_at')}>Date{sortIndicator('completed_at')}</th>
           </tr>
         </thead>
         <tbody>
@@ -513,9 +592,9 @@
               <td class="cell-model" title={r.hf_model_id}>
                 <button type="button" class="cell-copy" onclick={() => copyCell(r.hf_model_id)} title="Copy">{r.hf_model_id}</button>
               </td>
-              {#if isVisible('dtype')}<td><span class="dtype-chip" data-dtype={r.data_type}>{r.data_type}</span></td>{/if}
+              {#if isVisible('dtype')}<td><span class="dtype-chip" data-dtype={r.data_type}>{r.data_type === 'quantized' ? 'quant' : r.data_type}</span></td>{/if}
               {#if isVisible('runtime')}<td class="cell-opt">{r.runtime}</td>{/if}
-              {#if isVisible('backend')}<td class="cell-opt">{r.backend}</td>{/if}
+              {#if isVisible('backend')}<td><span class="badge-backend {backendClass(r.backend)}">{getBackendLabel(r.backend)}</span></td>{/if}
               {#if isVisible('status')}
                 <td class="cell-status" class:cell-error={r.status === 'error'} title={r.error_message ?? ''}>
                   {r.status}{r.error_phase ? ` [${r.error_phase}]` : ''}
@@ -540,18 +619,6 @@
               {#if isVisible('gpu')}<td class="cell-opt cell-opt-long" title={r.gpu ?? ''}>{r.gpu ?? '—'}</td>{/if}
               {#if isVisible('gpu_driver')}<td class="cell-opt">{r.gpu_driver_version ?? '—'}</td>{/if}
               {#if isVisible('npu_driver')}<td class="cell-opt">{r.npu_driver_version ?? '—'}</td>{/if}
-              <td class="cell-tested">
-                <div class="tested-avatar-wrap" title={data.profile?.display_name ?? 'You'}>
-                  {#if data.profile?.avatar_url}
-                    <img src={data.profile.avatar_url} alt="" class="tested-avatar" crossorigin="anonymous" />
-                  {:else}
-                    <span class="tested-avatar tested-avatar-placeholder">
-                      {(data.profile?.display_name ?? 'Y')[0].toUpperCase()}
-                    </span>
-                  {/if}
-                  <span class="tested-tooltip">{data.profile?.display_name ?? 'You'}</span>
-                </div>
-              </td>
               <td class="cell-date">{fmtDate(r.completed_at)}</td>
             </tr>
           {/each}
@@ -563,10 +630,10 @@
     <div class="empty"><p>{(data.results ?? []).length === 0 ? 'No LLM results yet. Run a benchmark from /run-llm to see results here.' : 'No results match the current filters.'}</p></div>
   {/if}
 
-  {#if filtered().length > 0}
+  {#if filtered.length > 0}
     <div class="table-footer">
       <div class="footer-left">
-        <span class="footer-count">{filtered().length} result{filtered().length !== 1 ? 's' : ''}</span>
+        <span class="footer-count">{filtered.length} result{filtered.length !== 1 ? 's' : ''}</span>
       </div>
       <div class="footer-center">
         {#if totalPages > 1}
@@ -628,7 +695,24 @@
     flex-direction: column;
     gap: 4px;
   }
-  .sb-section-head { margin-bottom: 4px; }
+  .sb-section-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-1);
+    margin-bottom: 4px;
+  }
+  .sb-clear-btn {
+    font-family: var(--font-ui);
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--color-primary);
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+  }
+  .sb-clear-btn:hover { text-decoration: underline; }
   .sb-section-title {
     font-family: var(--font-ui);
     font-size: 10px;
@@ -811,7 +895,7 @@
 
   .delete-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
-  .delete-error { font-size: var(--text-xs); color: var(--color-error); margin-bottom: var(--space-1); }
+  .delete-error { font-size: var(--text-xs); color: var(--color-error); align-self: center; }
 
   .table-wrap { overflow-x: auto; }
 
@@ -839,7 +923,7 @@
   .th-model { text-align: left; max-width: 12vw; width: 12vw; }
 
   .results-table td {
-    padding: 1px var(--space-1);
+    padding: 2px var(--space-1);
     border-bottom: 1px solid var(--color-border);
     text-align: center;
     white-space: nowrap;
@@ -855,6 +939,7 @@
     accent-color: var(--color-primary);
     width: 14px;
     height: 14px;
+    vertical-align: middle;
   }
 
   .cell-model {
@@ -973,68 +1058,32 @@
     .footer-right { min-width: 0; justify-content: flex-start; }
   }
 
-  /* ── Tested-by avatar ─────────────────────────────────── */
-  .th-tested {
-    width: 28px;
+  /* ── Dtype chip — table-scoped uniform width so q4 and q4f16 don't visually drift ── */
+  :global(.results-table .dtype-chip) {
+    min-width: 56px;
   }
 
-  .cell-tested {
-    width: 28px;
-    padding: var(--space-1) 4px;
-    vertical-align: middle;
-    line-height: 0;
-  }
-
-  .tested-avatar-wrap {
-    position: relative;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    line-height: 0;
-  }
-
-  .tested-avatar {
-    margin: 2px 0px;
-    width: 18px;
-    height: 18px;
-    border-radius: 50%;
-    display: block;
-    flex-shrink: 0;
-    border: 1px solid var(--color-border);
-    outline-offset: -1px;
-  }
-
-  .tested-avatar-placeholder {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--color-surface-sunken);
+  /* ── Backend badge — fixed width so the column doesn't jitter as labels change ── */
+  .badge-backend {
     font-family: var(--font-ui);
-    font-size: 9px;
-    font-weight: 700;
-    color: var(--color-text-secondary);
-  }
-
-  .tested-tooltip {
-    display: none;
-    position: absolute;
-    bottom: calc(100% + 5px);
-    left: 50%;
-    transform: translateX(-50%);
-    background: var(--color-surface-raised);
-    border: 1px solid var(--color-border);
+    font-size: 10px;
+    font-weight: 600;
+    padding: 1px 6px;
     border-radius: var(--radius-sm);
-    padding: 2px 8px;
-    font-family: var(--font-ui);
-    font-size: 11px;
-    color: var(--color-text-primary);
+    border: 1px solid;
     white-space: nowrap;
-    pointer-events: none;
-    box-shadow: var(--shadow-dropdown);
-    z-index: 10;
+    display: inline-block;
+    min-width: 72px;
+    text-align: center;
+    box-sizing: border-box;
+    transition: opacity var(--transition-base);
   }
+  .badge-backend:hover { opacity: 0.8; }
 
-  .tested-avatar-wrap:hover .tested-tooltip {
-    display: block;
-  }
+  .backend-wasm      { color: var(--color-backend-wasm-1);   border-color: var(--color-backend-wasm-1); }
+  .backend-webgpu    { color: var(--color-backend-webgpu);   border-color: var(--color-backend-webgpu); }
+  .backend-webnn-cpu { color: var(--color-backend-webnn-cpu);border-color: var(--color-backend-webnn-cpu); }
+  .backend-webnn-gpu { color: var(--color-backend-webnn-gpu);border-color: var(--color-backend-webnn-gpu); }
+  .backend-webnn-npu { color: var(--color-backend-webnn-npu);border-color: var(--color-backend-webnn-npu); }
+  .backend-unknown   { color: var(--color-text-muted);       border-color: var(--color-border); }
 </style>

@@ -95,14 +95,14 @@
   ]);
 
   const METRICS = [
-    { key: 'median_ms', label: 'Median (ms)' },
-    { key: 'average_ms', label: 'Average (ms)' },
-    { key: 'best_ms', label: 'Best (ms)' },
-    { key: 'p90_ms', label: 'P90 (ms)' },
-    { key: 'first_inference_ms', label: 'First Inference (ms)' },
-    { key: 'compilation_ms', label: 'Compilation (ms)' },
-    { key: 'load_and_compile_ms', label: 'Load + Compile (ms)' },
-    { key: 'throughput_fps', label: 'Throughput (fps)' },
+    { key: 'median_ms',           label: 'Median (ms)',           tooltip: 'Median per-iteration inference time. Robust to outliers. Lower is better.' },
+    { key: 'average_ms',          label: 'Average (ms)',          tooltip: 'Arithmetic mean across timed iterations (warm-up excluded). Lower is better.' },
+    { key: 'best_ms',             label: 'Best (ms)',             tooltip: 'Fastest single iteration. Best-case throughput on this hardware. Lower is better.' },
+    { key: 'p90_ms',              label: 'P90 (ms)',              tooltip: '90th percentile across timed iterations. Tail-latency / worst-case. Lower is better.' },
+    { key: 'first_inference_ms', label: 'First Inference (ms)',  tooltip: 'Wall time of the very first run() after compile. Includes JIT warm-up. Lower is better.' },
+    { key: 'compilation_ms',     label: 'Compilation (ms)',      tooltip: 'Time for the runtime to compile the model graph for the selected backend. One-time per session. Lower is better.' },
+    { key: 'load_and_compile_ms',label: 'Load + Compile (ms)',   tooltip: 'Fetch bytes + compile. One-time per session. Lower is better.' },
+    { key: 'throughput_fps',     label: 'Throughput (fps)',      tooltip: 'Frames/inferences per second = 1000 / median_ms. Higher is better.' },
   ] as const;
 
   // ─────── State (with URL hash sync) ───────
@@ -136,6 +136,29 @@
   const currentAxis = $derived(axisDefs.find(a => a.key === axis) ?? axisDefs[0]);
   const axisOptions = $derived(currentAxis.options);
 
+  // Swap A and B in one click — common power-user move when comparing.
+  function swapAB() {
+    const tmp = valueA;
+    valueA = valueB;
+    valueB = tmp;
+    // Flip baseline so the same row stays the reference after swap.
+    baseline = baseline === 'a' ? 'b' : 'a';
+  }
+
+  // Backend → color-token class for the .badge-backend pill in the table.
+  const BACKEND_COLORS: Record<string, string> = {
+    wasm:      'backend-wasm',
+    wasm_1:    'backend-wasm',
+    wasm_n:    'backend-wasm',
+    webgpu:    'backend-webgpu',
+    webnn_cpu: 'backend-webnn-cpu',
+    webnn_gpu: 'backend-webnn-gpu',
+    webnn_npu: 'backend-webnn-npu',
+  };
+  function backendClass(id: string): string {
+    return BACKEND_COLORS[id] ?? 'backend-unknown';
+  }
+
   // Auto-pick A/B when axis or options change and current selections are invalid
   $effect(() => {
     if (!axisOptions.length) return;
@@ -164,6 +187,7 @@
       if (p.npudrv !== undefined)   filterNpuDriver  = p.npudrv;
       if (p.metric !== undefined)   selectedMetric   = p.metric;
       if (p.ops !== undefined)      showUnsupportedOps = p.ops === '1';
+      if (p.bl !== undefined)       baseline         = p.bl === 'b' ? 'b' : 'a';
     }
     window.addEventListener('hashchange', onHashChange);
     return () => window.removeEventListener('hashchange', onHashChange);
@@ -188,12 +212,14 @@
     if (axis !== 'npu_driver_version' && filterNpuDriver) params.set('npudrv', filterNpuDriver);
     if (selectedMetric !== 'median_ms') params.set('metric', selectedMetric);
     if (showUnsupportedOps) params.set('ops', '1');
+    if (baseline === 'b') params.set('bl', 'b');
     history.replaceState(null, '', `#${params}`);
   });
 
   // ─────── Derived ───────
   const isThroughput = $derived(selectedMetric === 'throughput_fps');
   const metricLabel = $derived(METRICS.find(m => m.key === selectedMetric)?.label ?? 'Median (ms)');
+  const metricTooltip = $derived(METRICS.find(m => m.key === selectedMetric)?.tooltip ?? '');
 
   const backends = $derived(data.distinctBackends ?? []);
   const dataTypes = $derived(data.distinctDataTypes ?? []);
@@ -342,7 +368,7 @@
     return rows;
   });
 
-  let baseline = $state<'a' | 'b'>('a');
+  let baseline = $state<'a' | 'b'>(initial.bl === 'b' ? 'b' : 'a');
 
   function relPct(row: CompareRow): number | null {
     const base = baseline === 'a' ? row.valA : row.valB;
@@ -672,6 +698,11 @@
             {/each}
           </select>
         </div>
+        <div class="sb-row sb-row-swap">
+          <button type="button" class="sb-swap-btn" onclick={swapAB} disabled={!valueA || !valueB || valueA === valueB} title="Swap A and B (also flips the baseline)">
+            Swap A &harr; B
+          </button>
+        </div>
         <div class="sb-row">
           <span class="sb-label">Metric</span>
           <select class="sb-input" bind:value={selectedMetric}>
@@ -843,6 +874,9 @@
       {:else}
         <div class="table-wrapper">
           <table class="compare-table">
+            <caption class="sr-only">
+              Compare {currentAxis.titleNoun.toLowerCase()} {currentAxis.fmt ? currentAxis.fmt(valueA) : valueA} versus {currentAxis.fmt ? currentAxis.fmt(valueB) : valueB} on {metricLabel}. Baseline: column {baseline === 'a' ? 'A' : 'B'}.
+            </caption>
             <thead>
               <tr>
                 <th class="th-model sortable" onclick={() => toggleSort('model')}>Model{sortIndicator('model')}</th>
@@ -858,11 +892,11 @@
                 {#if isVisible('os')}<th class="sortable" onclick={() => toggleSort('os')}>OS{sortIndicator('os')}</th>{/if}
                 {#if isVisible('gpu_driver')}<th class="sortable" onclick={() => toggleSort('gpu_driver')}>GPU Driver{sortIndicator('gpu_driver')}</th>{/if}
                 {#if isVisible('npu_driver')}<th class="sortable" onclick={() => toggleSort('npu_driver')}>NPU Driver{sortIndicator('npu_driver')}</th>{/if}
-                <th class="th-metric sortable" onclick={() => toggleSort('valA')}>
+                <th class="th-metric sortable" onclick={() => toggleSort('valA')} title={metricTooltip}>
                   {currentAxis.fmt ? currentAxis.fmt(valueA) : valueA}{sortIndicator('valA')}
                   <br><span class="th-metric-label">{metricLabel}</span>
                 </th>
-                <th class="th-metric sortable" onclick={() => toggleSort('valB')}>
+                <th class="th-metric sortable" onclick={() => toggleSort('valB')} title={metricTooltip}>
                   {currentAxis.fmt ? currentAxis.fmt(valueB) : valueB}{sortIndicator('valB')}
                   <br><span class="th-metric-label">{metricLabel}</span>
                 </th>
@@ -891,7 +925,10 @@
                   <td class="cell-metric cell-geomean">{fmt(geomeanA)}</td>
                   <td class="cell-metric cell-geomean">{fmt(geomeanB)}</td>
                   {#if isVersionAxis}
-                    <td class="cell-change cell-geomean" class:improved={geomeanChange != null && geomeanChange < 0} class:regressed={geomeanChange != null && geomeanChange > 0}>
+                    {@const gImproved = geomeanChange != null && (isThroughput ? geomeanChange > 0 : geomeanChange < 0)}
+                    {@const gRegressed = geomeanChange != null && (isThroughput ? geomeanChange < 0 : geomeanChange > 0)}
+                    <td class="cell-change cell-geomean" class:improved={gImproved} class:regressed={gRegressed}>
+                      {#if gImproved}<span class="change-arrow" aria-hidden="true">▲</span>{:else if gRegressed}<span class="change-arrow" aria-hidden="true">▼</span>{/if}
                       {fmtChange(geomeanChange)}
                     </td>
                   {:else}
@@ -916,7 +953,7 @@
                   <td class="cell-model cell-copy" title="Click to copy: {row.model_id}" onclick={() => { navigator.clipboard.writeText(row.model_id); cellCopiedMsg = 'Copied!'; setTimeout(() => cellCopiedMsg = '', 1500); }}>{row.model_id}</td>
                   <td class="cell-file cell-copy" title="Click to copy: {row.file_path}" onclick={() => { navigator.clipboard.writeText(row.file_path); cellCopiedMsg = 'Copied!'; setTimeout(() => cellCopiedMsg = '', 1500); }}>{row.file_path}</td>
                   {#if isVisible('dtype')}<td><span>{row.data_type}</span></td>{/if}
-                  {#if isVisible('backend')}<td><span>{getBackendLabel(row.backend)}</span></td>{/if}
+                  {#if isVisible('backend')}<td><span class="badge-backend {backendClass(row.backend)}">{getBackendLabel(row.backend)}</span></td>{/if}
                   {#if isVisible('framework')}<td><span>{row.framework}</span></td>{/if}
                   {#if isVisible('webnn_ep')}<td><span>{row.webnn_ep ?? '—'}</span></td>{/if}
                   {#if isVisible('browser')}<td><span>{row.browser ?? '—'}</span></td>{/if}
@@ -941,8 +978,12 @@
                     {/if}
                   </td>
                   {#if isVersionAxis}
-                    <td class="cell-change" class:improved={changePct(row) != null && changePct(row)! < 0} class:regressed={changePct(row) != null && changePct(row)! > 0}>
-                      {fmtChange(changePct(row))}
+                    {@const rChange = changePct(row)}
+                    {@const rImproved = rChange != null && (isThroughput ? rChange > 0 : rChange < 0)}
+                    {@const rRegressed = rChange != null && (isThroughput ? rChange < 0 : rChange > 0)}
+                    <td class="cell-change" class:improved={rImproved} class:regressed={rRegressed}>
+                      {#if rImproved}<span class="change-arrow" aria-hidden="true">▲</span>{:else if rRegressed}<span class="change-arrow" aria-hidden="true">▼</span>{/if}
+                      {fmtChange(rChange)}
                     </td>
                   {:else}
                     <td class="cell-pct">
@@ -1240,7 +1281,7 @@
     text-transform: uppercase;
     letter-spacing: 0.5px;
     color: var(--color-text-muted);
-    padding: var(--space-1) var(--space-2);
+    padding: 2px var(--space-2);
     border-bottom: 1px solid var(--color-border);
     text-align: center;
     white-space: nowrap;
@@ -1258,9 +1299,19 @@
   .th-pct {
     cursor: pointer;
     user-select: none;
+    border-bottom: 2px dotted transparent;
+    transition: border-color var(--transition-base), color var(--transition-base);
+  }
+  .th-pct:hover {
+    color: var(--color-text-primary);
+    border-bottom-color: var(--color-border-strong);
   }
   .th-baseline {
     color: var(--color-primary);
+    border-bottom: 2px solid var(--color-primary);
+  }
+  .th-baseline:hover {
+    border-bottom-color: var(--color-primary);
   }
   .th-metric-label {
     font-weight: 400;
@@ -1271,7 +1322,7 @@
   }
 
   .compare-table td {
-    padding: var(--space-1) var(--space-2);
+    padding: 2px var(--space-2);
     border-bottom: 1px solid var(--color-border);
     text-align: center;
     white-space: nowrap;
@@ -1343,4 +1394,69 @@
       max-height: none;
     }
   }
+
+  /* ── Screen-reader-only caption for the comparison table ───────────── */
+  .sr-only {
+    position: absolute;
+    width: 1px; height: 1px;
+    padding: 0; margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  /* ── Swap A↔B ─────────────────────────────────────────────────────── */
+  .sb-row-swap .sb-swap-btn { grid-column: 2; }
+  .sb-swap-btn {
+    width: 100%;
+    height: 28px;
+    padding: 0 8px;
+    font-family: var(--font-ui);
+    font-size: var(--text-xs);
+    font-weight: 500;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-base);
+    background: none;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    transition: background var(--transition-base), color var(--transition-base), border-color var(--transition-base);
+  }
+  .sb-swap-btn:hover:not(:disabled) {
+    background: var(--color-accent-light);
+    color: var(--color-primary);
+    border-color: var(--color-primary);
+  }
+  .sb-swap-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* ── Improved/regressed arrow glyph ──────────────────────────────── */
+  .change-arrow {
+    display: inline-block;
+    font-size: 9px;
+    margin-right: 2px;
+    transform: translateY(-1px);
+  }
+
+  /* ── Backend badge — uniform width matches results pages ─────────── */
+  .badge-backend {
+    font-family: var(--font-ui);
+    font-size: 10px;
+    font-weight: 600;
+    padding: 1px 6px;
+    border-radius: var(--radius-sm);
+    border: 1px solid;
+    white-space: nowrap;
+    display: inline-block;
+    min-width: 72px;
+    text-align: center;
+    box-sizing: border-box;
+    transition: opacity var(--transition-base);
+  }
+  .badge-backend:hover { opacity: 0.8; }
+  .backend-wasm      { color: var(--color-backend-wasm-1);    border-color: var(--color-backend-wasm-1); }
+  .backend-webgpu    { color: var(--color-backend-webgpu);    border-color: var(--color-backend-webgpu); }
+  .backend-webnn-cpu { color: var(--color-backend-webnn-cpu); border-color: var(--color-backend-webnn-cpu); }
+  .backend-webnn-gpu { color: var(--color-backend-webnn-gpu); border-color: var(--color-backend-webnn-gpu); }
+  .backend-webnn-npu { color: var(--color-backend-webnn-npu); border-color: var(--color-backend-webnn-npu); }
+  .backend-unknown   { color: var(--color-text-muted);        border-color: var(--color-border); }
 </style>

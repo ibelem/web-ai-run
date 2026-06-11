@@ -2,10 +2,10 @@
   import { onMount, onDestroy } from 'svelte';
   import { browser } from '$app/environment';
   import { page } from '$app/stores';
-  import { replaceState } from '$app/navigation';
+  import { replaceState, beforeNavigate } from '$app/navigation';
   import { createClient } from '$lib/supabase/client';
   import { detectEnvironment } from '$lib/engine/environment';
-  import { detectAvailableBackends, BACKENDS } from '$lib/engine/backends';
+  import { detectAvailableBackends, BACKENDS, getBackendLabel } from '$lib/engine/backends';
   import { fetchRuntimeVersions } from '$lib/engine/runtime-versions';
   import { runLlmInWorker, terminateLlmWorker } from '$lib/engine/worker/llm-pool';
   import { isRunning as isRunningStore } from '$lib/stores/benchmark';
@@ -28,7 +28,7 @@
 
   interface ParsedHash {
     models: LLMRecipeModel[];
-    backend: LLMBackend;
+    backends: LLMBackend[];
     runs: number;
     promptTokens: number;
     maxNewTokens: number;
@@ -42,7 +42,7 @@
   }
 
   function parseHash(): ParsedHash {
-    const empty: ParsedHash = { models: [], backend: 'webgpu', runs: 3, promptTokens: 128, maxNewTokens: 128, tjs: '', webnnEp: '', cpu: '', os: '', gpuDrv: '', npuDrv: '', upload: false };
+    const empty: ParsedHash = { models: [], backends: ['webgpu'], runs: 3, promptTokens: 128, maxNewTokens: 128, tjs: '', webnnEp: '', cpu: '', os: '', gpuDrv: '', npuDrv: '', upload: false };
     if (!browser) return empty;
     const h = new URLSearchParams(location.hash.slice(1));
     const rawModels = (h.get('llm') ?? '')
@@ -53,9 +53,14 @@
         return hf_model_id && data_type ? { hf_model_id, data_type } as LLMRecipeModel : null;
       })
       .filter(Boolean) as LLMRecipeModel[];
-    const rawBackend = h.get('backend') ?? '';
+    // Accept `backends=a,b,c` (preferred) or `backend=a` (legacy single).
     const validBackends: LLMBackend[] = ['wasm', 'webgpu', 'webnn_cpu', 'webnn_gpu', 'webnn_npu'];
-    const parsedBackend = validBackends.includes(rawBackend as LLMBackend) ? rawBackend as LLMBackend : 'webgpu';
+    const rawBackends = (h.get('backends') ?? h.get('backend') ?? '')
+      .split(',')
+      .map(s => s.trim())
+      .filter(Boolean) as LLMBackend[];
+    const filtered = rawBackends.filter(b => validBackends.includes(b));
+    const parsedBackends: LLMBackend[] = filtered.length ? Array.from(new Set(filtered)) : ['webgpu'];
     const rawRuns = parseInt(h.get('runs') ?? '', 10);
     const parsedRuns = RUN_OPTIONS.includes(rawRuns) ? rawRuns : 3;
     const parseTokenOpt = (s: string | null, fallback: number, allowZero = false) => {
@@ -67,7 +72,7 @@
     const parsedOut = parseTokenOpt(h.get('out') ?? h.get('tokens'), 128);
     return {
       models: rawModels,
-      backend: parsedBackend,
+      backends: parsedBackends,
       runs: parsedRuns,
       promptTokens: parsedIn,
       maxNewTokens: parsedOut,
@@ -87,12 +92,12 @@
     if (models.length) {
       params.set('llm', models.map(m => `${m.hf_model_id}|${m.data_type}`).join(','));
     }
-    params.set('backend', backend);
+    params.set('backends', selectedBackends.map(b => toL(b)).join(','));
     params.set('runs', String(runs));
     params.set('in', String(promptTokens));
     params.set('out', String(maxNewTokens));
     if (transformersVersion) params.set('tjs', transformersVersion);
-    if (backend.startsWith('webnn_') && webnnEp) params.set('webnn_ep', webnnEp);
+    if (anyWebnn && webnnEp) params.set('webnn_ep', webnnEp);
     if (cpuModel.trim()) params.set('cpu', cpuModel.trim());
     if (osModel.trim()) params.set('os', osModel.trim());
     if (gpuDriverVersion.trim()) params.set('gpu_drv', gpuDriverVersion.trim());
@@ -142,20 +147,16 @@
     return b as LLMBackend;
   }
 
-  // Single backend for the LLM worker — last clicked (newest) entry, defaulting to wasm.
-  // BackendSelector is multi-select by default; we coerce it to single-select via the
-  // $effect below that trims selectedBackends to its newest entry after any change.
-  const backend = $derived<LLMBackend>(
-    selectedBackends.length > 0 ? toL(selectedBackends[selectedBackends.length - 1]) : 'wasm'
+  // Multi-backend: each (model, backend) pair is one run, executed sequentially.
+  // The result rows below carry their own backend field so the table can show
+  // each row's actual backend.
+  const llmBackends = $derived<LLMBackend[]>(
+    selectedBackends.length > 0
+      ? Array.from(new Set(selectedBackends.map(toL)))
+      : ['wasm']
   );
-
-  // Force single-select behavior on the BackendSelector — drop any prior entry once
-  // the user picks a new backend, so the displayed/used backend matches the click.
-  $effect(() => {
-    if (selectedBackends.length > 1) {
-      selectedBackends = [selectedBackends[selectedBackends.length - 1]];
-    }
-  });
+  const anyWebnn = $derived(llmBackends.some(b => b.startsWith('webnn_')));
+  const anyWebnnNpu = $derived(llmBackends.includes('webnn_npu'));
   let transformersVersion = $state('4.2.0');
   let transformersVersions = $state<string[]>([]);
   let prompt = $state(DEFAULT_PROMPT);
@@ -173,7 +174,7 @@
   let webnnEp = $state('');
   const webnnEpRequired = $derived(
     saveResults &&
-    backend.startsWith('webnn_') &&
+    anyWebnn &&
     isAtLeast($auth.role ?? 'anonymous', 'intel') &&
     !webnnEp
   );
@@ -223,7 +224,7 @@
     ...(!$isAuthenticated && saveResults && models.length <= 1 ? ['login_save' as const] : []),
     ...(!$isAuthenticated && !saveResults && models.length > 1 ? ['login_multi' as const] : []),
     ...(saveResults && $isAuthenticated && (!cpuModel.trim() || !osModel.trim()) ? ['cpu_os' as const] : []),
-    ...(saveResults && $isAuthenticated && isAtLeast($auth.role ?? 'anonymous', 'intel') && (!gpuDriverVersion.trim() || (backend === 'webnn_npu' && !npuDriverVersion.trim())) ? ['drivers' as const] : []),
+    ...(saveResults && $isAuthenticated && isAtLeast($auth.role ?? 'anonymous', 'intel') && (!gpuDriverVersion.trim() || (anyWebnnNpu && !npuDriverVersion.trim())) ? ['drivers' as const] : []),
     ...(webnnEpRequired ? ['webnn_ep' as const] : []),
     ...(models.length === 0 ? ['no_models' as const] : []),
   ]);
@@ -246,7 +247,7 @@
   let currentRun = $state(0);
   let tokenCount = $state(0);
 
-  let results = $state<{ model: LLMRecipeModel; result: LLMBenchmarkResult | null; error: string | null }[]>([]);
+  let results = $state<{ model: LLMRecipeModel; backend: LLMBackend; result: LLMBenchmarkResult | null; error: string | null }[]>([]);
   let runLogs = $state<string[]>([]);
   let logsEl = $state<HTMLDivElement | undefined>(undefined);
   let tokenStreamEl = $state<HTMLDivElement | undefined>(undefined);
@@ -275,7 +276,7 @@
   // Write hash whenever key state changes (but not while running, and only after mount)
   $effect(() => {
     if (mounted && !isRunning) {
-      void models; void backend; void runs; void promptTokens; void maxNewTokens;
+      void models; void selectedBackends; void runs; void promptTokens; void maxNewTokens;
       void transformersVersion; void webnnEp; void cpuModel; void osModel;
       void gpuDriverVersion; void npuDriverVersion; void saveResults;
       writeHash();
@@ -296,9 +297,9 @@
       runs = parsed.runs;
       promptTokens = parsed.promptTokens;
       maxNewTokens = parsed.maxNewTokens;
-      // map parsed backend back to a UI backend (wasm → wasm_1)
+      // map parsed backends back to UI backends (wasm → wasm_1)
       const backendToUi = (b: LLMBackend): Backend => b === 'wasm' ? 'wasm_1' : b as Backend;
-      selectedBackends = [backendToUi(parsed.backend)];
+      selectedBackends = parsed.backends.map(backendToUi);
     }
     // Priority: hash > localStorage prefs. Falls back to defaults if neither has a value.
     const prefs = loadPrefs();
@@ -356,14 +357,17 @@
               if (c.gpuDriverVersion) gpuDriverVersion = c.gpuDriverVersion;
               if (c.npuDriverVersion) npuDriverVersion = c.npuDriverVersion;
               if (c.models?.length) models = c.models;
-              if (c.backend) {
-                const backendToUi = (b: LLMBackend): Backend => b === 'wasm' ? 'wasm_1' : b as Backend;
-                selectedBackends = [backendToUi(c.backend)];
+              const backendToUi = (b: LLMBackend): Backend => b === 'wasm' ? 'wasm_1' : b as Backend;
+              if (Array.isArray(c.backends) && c.backends.length) {
+                selectedBackends = (c.backends as LLMBackend[]).map(backendToUi);
+              } else if (c.backend) {
+                selectedBackends = [backendToUi(c.backend as LLMBackend)];
               }
             }
             // Restore previous results (completed entries skip on resume)
             results = saved.state.map((s: any) => ({
               model: s.model,
+              backend: (s.backend as LLMBackend) ?? llmBackends[0],
               result: s.result ?? null,
               error: (s.status === 'completed') ? null : s.error,
             }));
@@ -394,17 +398,20 @@
   async function runAll(opts: { resume?: boolean } = {}) {
     if (models.length === 0 || isRunning) return;
     isRunning = true;
+    // Build the (backend, model) cartesian — outer loop is backends so all
+    // models share each backend's compiled state in cache where possible.
+    const plan = llmBackends.flatMap(b => models.map(m => ({ backend: b, model: m })));
     if (!opts.resume) {
-      results = models.map(m => ({ model: m, result: null, error: null }));
+      results = plan.map(({ model, backend: b }) => ({ model, backend: b, result: null, error: null }));
     }
     runLogs = [];
     phaseError = null;
     saveLlmRunState();
 
-    for (let i = 0; i < models.length; i++) {
+    for (let i = 0; i < plan.length; i++) {
+      const { model: m, backend: b } = plan[i];
       activeModelIdx = i;
-      const m = models[i];
-      // On resume, skip models that already have a successful result
+      // On resume, skip rows that already have a successful result
       if (opts.resume && results[i]?.result) continue;
       phase = 'download';
       downloadLoaded = 0; downloadTotal = 0; downloadCurrentFile = '';
@@ -415,18 +422,18 @@
           hfModelId: m.hf_model_id,
           dtype: m.data_type,
           runtime: 'transformers',
-          backend,
+          backend: b,
           runtimeVersion: transformersVersion,
           prompt,
           promptTokens,
           maxNewTokens,
           runs,
           warmupRuns: 1,
-          onDownloadStart:    (total, count, files) => { phase = 'download'; downloadTotal = total; runLogs = [...runLogs, `Downloading ${count} files (${(total / 1_073_741_824).toFixed(2)} GB)`]; },
+          onDownloadStart:    (total, count, files) => { phase = 'download'; downloadTotal = total; runLogs = [...runLogs, `[${getBackendLabel(b)}] Downloading ${count} files (${(total / 1_073_741_824).toFixed(2)} GB)`]; },
           onDownloadProgress: (loaded, total, file)  => { downloadLoaded = loaded; downloadTotal = total; downloadCurrentFile = file; },
-          onDownloadDone:     (hit, ms)               => { runLogs = [...runLogs, `Download ${hit ? '(cached)' : 'complete'} in ${(ms / 1000).toFixed(1)}s`]; },
+          onDownloadDone:     (hit, ms)               => { runLogs = [...runLogs, `[${getBackendLabel(b)}] Download ${hit ? '(cached)' : 'complete'} in ${(ms / 1000).toFixed(1)}s`]; },
           onCompileStart:     ()                      => { phase = 'compile'; startCompileTimer(); },
-          onCompileDone:      (ms)                    => { stopCompileTimer(); compileElapsedMs = ms; runLogs = [...runLogs, `Compiled in ${(ms / 1000).toFixed(1)}s`]; },
+          onCompileDone:      (ms)                    => { stopCompileTimer(); compileElapsedMs = ms; runLogs = [...runLogs, `[${getBackendLabel(b)}] Compiled in ${(ms / 1000).toFixed(1)}s`]; },
           onGenerateStart:    (ri)                    => { phase = 'generate'; currentRun = ri + 1; tokenStream = ''; liveTtft = null; liveTps = 0; tokenCount = 0; },
           onToken:            (ri, tok, idx, el, _tps) => {
             tokenStream += tok;
@@ -438,17 +445,17 @@
             }
           },
           onTtft:             (_ri, ttft)              => { liveTtft = ttft; },
-          onRunDone:          (ri, r)                 => { runLogs = [...runLogs, `Run ${ri + 1}: TTFT=${r.ttftMs.toFixed(0)}ms TPS=${r.tps.toFixed(1)}`]; },
+          onRunDone:          (ri, r)                 => { runLogs = [...runLogs, `[${getBackendLabel(b)}] Run ${ri + 1}: TTFT=${r.ttftMs.toFixed(0)}ms TPS=${r.tps.toFixed(1)}`]; },
           onLogs:             (ls)                    => { runLogs = [...runLogs, ...ls]; },
         });
 
-        results[i] = { model: m, result, error: null };
+        results[i] = { model: m, backend: b, result, error: null };
         saveLlmRunState();
-        if (saveResults && userId) await persistResult(m, result);
+        if (saveResults && userId) await persistResult(m, b, result);
       } catch (e: any) {
         const msg = e.message ?? String(e);
-        results[i] = { model: m, result: null, error: msg };
-        runLogs = [...runLogs, `Error: ${msg}`];
+        results[i] = { model: m, backend: b, result: null, error: msg };
+        runLogs = [...runLogs, `[${getBackendLabel(b)}] Error: ${msg}`];
         phaseError = { phase, message: msg.replace(/^\[[^\]]+\]\s*/, '') };
         saveLlmRunState();
       }
@@ -478,8 +485,9 @@
   function saveLlmRunState() {
     if (!browser) return;
     try {
-      const state = results.map((r, i) => ({
+      const state = results.map((r) => ({
         model: r.model,
+        backend: r.backend,
         // Keep completed/error entries; mark active/pending entries as pending so resume re-runs them
         status: r.result ? 'completed' : (r.error ? 'error' : 'pending'),
         error: r.error,
@@ -487,7 +495,7 @@
         result: r.result,
       }));
       const config = {
-        backend, runs, promptTokens, maxNewTokens, prompt,
+        backends: llmBackends, runs, promptTokens, maxNewTokens, prompt,
         transformersVersion, webnnEp, saveResults,
         cpuModel, osModel, gpuDriverVersion, npuDriverVersion,
         models,
@@ -509,14 +517,24 @@
     e.returnValue = '';
   }
 
-  async function persistResult(m: LLMRecipeModel, r: LLMBenchmarkResult) {
+  // SvelteKit in-app navigation: stop the user from clicking a nav link
+  // mid-run. Browser-level beforeunload covers tab close / external links.
+  beforeNavigate(({ cancel }) => {
+    if (!isRunning) return;
+    const ok = window.confirm(
+      'A benchmark is still running. Leave this page and abandon the run?'
+    );
+    if (!ok) cancel();
+  });
+
+  async function persistResult(m: LLMRecipeModel, b: LLMBackend, r: LLMBenchmarkResult) {
     if (!userId) return;
     await (supabase.from('results_llm') as any).insert({
       user_id: userId,
       run_id: crypto.randomUUID(),
       hf_model_id: m.hf_model_id,
       data_type: m.data_type,
-      backend,
+      backend: b,
       runtime: 'transformers',
       runtime_version: transformersVersion,
       prompt,
@@ -545,7 +563,7 @@
       browser_version: environment?.browser_version,
       gpu_driver_version: gpuDriverVersion.trim() || null,
       npu_driver_version: npuDriverVersion.trim() || null,
-      webnn_ep: backend.startsWith('webnn_') && webnnEp ? webnnEp : null,
+      webnn_ep: b.startsWith('webnn_') && webnnEp ? webnnEp : null,
       completed_at: new Date().toISOString(),
     });
   }
@@ -569,7 +587,7 @@
     return results
       .filter(r => r.result || r.error)
       .map(r => {
-        const base = { model: r.model.hf_model_id, dtype: r.model.data_type, backend };
+        const base = { model: r.model.hf_model_id, dtype: r.model.data_type, backend: r.backend };
         if (r.error) return { ...base, error: r.error };
         const x = r.result!;
         return {
@@ -595,7 +613,7 @@
   function buildJSON(): string {
     return JSON.stringify({
       generated_at: new Date().toISOString(),
-      backend, runs, prompt_tokens: promptTokens, max_new_tokens: maxNewTokens,
+      backends: llmBackends, runs, prompt_tokens: promptTokens, max_new_tokens: maxNewTokens,
       transformers_version: transformersVersion,
       environment,
       results: resultRows(),
@@ -617,7 +635,7 @@
   function buildMD(): string {
     const rows = resultRows();
     const lines: string[] = ['# LLM Benchmark Results', ''];
-    lines.push(`- Backend: \`${backend}\`  · Runs: ${runs}  · Prompt tokens: ${promptTokens || 'custom'}  · Max new tokens: ${maxNewTokens}`);
+    lines.push(`- Backends: ${llmBackends.map(b => `\`${b}\``).join(', ')}  · Runs: ${runs}  · Prompt tokens: ${promptTokens || 'custom'}  · Max new tokens: ${maxNewTokens}`);
     lines.push(`- Transformers.js: \`${transformersVersion}\``);
     if (environment) lines.push(`- Env: ${environment.browser} ${environment.browser_version} · ${environment.os} · ${environment.gpu}`);
     lines.push('');
@@ -684,22 +702,26 @@
   <div class="running-center" class:running-center-active={isRunning}>
 
   {#if isRunning}
+    {@const activeRow = results[activeModelIdx]}
     <section class="status-section">
       <div class="status-row status-row-top">
-        <span class="status-model" title={models[activeModelIdx]?.hf_model_id ?? ''}>
-          {models[activeModelIdx]?.hf_model_id ?? ''}
-          {#if models[activeModelIdx]?.data_type}
-            · {models[activeModelIdx].data_type}
+        <span class="status-model" title={activeRow?.model.hf_model_id ?? ''}>
+          {activeRow?.model.hf_model_id ?? ''}
+          {#if activeRow?.model.data_type}
+            · {activeRow.model.data_type}
+          {/if}
+          {#if activeRow?.backend}
+            · {getBackendLabel(activeRow.backend)}
           {/if}
         </span>
         <span class="progress-count">
-          {#if phase === 'generate'}Run {currentRun}/{runs}{/if}{#if models.length > 1}{#if phase === 'generate'}{' · '}{/if}LLM {activeModelIdx + 1}/{models.length}{/if}
+          {#if phase === 'generate'}Run {currentRun}/{runs}{/if}{#if results.length > 1}{#if phase === 'generate'}{' · '}{/if}{activeModelIdx + 1}/{results.length}{/if}
         </span>
       </div>
 
       <!-- Phase 1: Download -->
       {#if phase === 'download'}
-        <p class="status-text">Downloading model…</p>
+        <p class="status-text" aria-live="polite">Downloading model…</p>
         <div class="progress-bar-slot" class:progress-bar-hidden={downloadTotal === 0}>
           <ProgressBar
             percent={downloadTotal > 0 ? (downloadLoaded / downloadTotal) * 100 : 0}
@@ -715,7 +737,7 @@
 
       <!-- Phase 2: Compile -->
       {#if phase === 'compile'}
-        <p class="status-text">Compiling model… {(compileElapsedMs / 1000).toFixed(1)}s</p>
+        <p class="status-text" aria-live="polite">Compiling model… {(compileElapsedMs / 1000).toFixed(1)}s</p>
         <div class="progress-bar-slot">
           <div class="indeterminate-bar"><div class="indeterminate-inner"></div></div>
         </div>
@@ -724,7 +746,7 @@
       <!-- Phase 3: Generate -->
       {#if phase === 'generate'}
         <div class="status-row">
-          <span class="status-text">Generating…</span>
+          <span class="status-text" aria-live="polite">Generating…</span>
           <span class="status-badges">
             {#if liveTtft !== null}
               <span class="ttft-badge">TTFT {liveTtft.toFixed(0)} ms</span>
@@ -778,7 +800,7 @@
                     <td class="col-num">—</td>
                   {/if}
                   <td><span class="dtype-chip" data-dtype={r.model.data_type}>{r.model.data_type}</span></td>
-                  <td>{backend}</td>
+                  <td>{getBackendLabel(r.backend)}</td>
                   {#if r.result}
                     <td class="col-num">{fmt(r.result.compilationMs, 0, ' ms')}</td>
                     <td class="col-num">{fmtAvgStd(r.result.ttftMs, r.result.ttftStddevMs, 0, ' ms')}</td>
@@ -833,9 +855,12 @@
 
         {#if saveResults}
           <div class="sb-section">
-            <div class="sb-section-head"><span class="sb-section-title">Hardware</span></div>
+            <div class="sb-section-head">
+              <span class="sb-section-title">Hardware</span>
+              <span class="sb-section-hint">All fields required to upload</span>
+            </div>
             <div class="sb-row">
-              <span class="sb-label">CPU<span class="req-badge" class:req-done={cpuModel.trim()}>req</span></span>
+              <span class="sb-label">CPU</span>
               <input
                 class="sb-input"
                 class:input-warn={!cpuModel.trim()}
@@ -849,7 +874,7 @@
               </datalist>
             </div>
             <div class="sb-row">
-              <span class="sb-label">OS<span class="req-badge" class:req-done={osModel.trim()}>req</span></span>
+              <span class="sb-label">OS</span>
               <input
                 class="sb-input"
                 class:input-warn={!osModel.trim()}
@@ -863,7 +888,7 @@
               </datalist>
             </div>
             <div class="sb-row">
-              <span class="sb-label">GPU drv{#if isAtLeast($auth.role ?? 'anonymous', 'intel')}<span class="req-badge" class:req-done={gpuDriverVersion.trim()}>req</span>{/if}</span>
+              <span class="sb-label">GPU drv</span>
               <input
                 class="sb-input"
                 class:input-warn={isAtLeast($auth.role ?? 'anonymous', 'intel') && !gpuDriverVersion.trim()}
@@ -872,9 +897,9 @@
                 bind:value={gpuDriverVersion}
               />
             </div>
-            {#if backend === 'webnn_npu'}
+            {#if anyWebnnNpu}
               <div class="sb-row">
-                <span class="sb-label">NPU drv{#if isAtLeast($auth.role ?? 'anonymous', 'intel')}<span class="req-badge" class:req-done={npuDriverVersion.trim()}>req</span>{/if}</span>
+                <span class="sb-label">NPU drv</span>
                 <input
                   class="sb-input"
                   class:input-warn={isAtLeast($auth.role ?? 'anonymous', 'intel') && !npuDriverVersion.trim()}
@@ -898,12 +923,12 @@
               {/if}
             </select>
           </div>
-          {#if saveResults && backend.startsWith('webnn_')}
+          {#if saveResults && anyWebnn}
             <div class="sb-row">
               <span
                 class="sb-label"
                 title={'Not sure which EP to pick?\nOpen chrome://webnn-internals/ in a new tab, run the model once, then check the "Active Contexts" tab — the Runtime Backend and selected Execution Provider are listed there.'}
-                >WebNN EP{#if isAtLeast($auth.role ?? 'anonymous', 'intel')}<span class="req-badge" class:req-done={!!webnnEp}>req</span>{/if}</span>
+                >WebNN EP</span>
               <select class="sb-input" class:input-warn={webnnEpRequired} bind:value={webnnEp}>
                 {#each WEBNN_EP_OPTIONS as opt}
                   <option value={opt.value}>{opt.label}</option>
@@ -956,7 +981,7 @@
             <button
               class="btn-primary"
               onclick={runAll}
-              disabled={models.length === 0 || (!$isAuthenticated && models.length > 1) || (saveResults && (!$isAuthenticated || !cpuModel.trim() || !osModel.trim() || webnnEpRequired || (isAtLeast($auth.role ?? 'anonymous', 'intel') && (!gpuDriverVersion.trim() || (backend === 'webnn_npu' && !npuDriverVersion.trim())))))}
+              disabled={models.length === 0 || (!$isAuthenticated && models.length > 1) || (saveResults && (!$isAuthenticated || !cpuModel.trim() || !osModel.trim() || webnnEpRequired || (isAtLeast($auth.role ?? 'anonymous', 'intel') && (!gpuDriverVersion.trim() || (anyWebnnNpu && !npuDriverVersion.trim())))))}
               title="Ctrl+Enter"
             >
               Run Benchmark <kbd class="kbd-hint">Ctrl+Enter</kbd>
@@ -1044,7 +1069,7 @@
                           <td class="col-num">—</td>
                         {/if}
                         <td><span class="dtype-chip" data-dtype={r.model.data_type}>{r.model.data_type}</span></td>
-                        <td>{backend}</td>
+                        <td>{getBackendLabel(r.backend)}</td>
                         {#if r.result}
                           <td class="col-num">{fmt(r.result.compilationMs, 0, ' ms')}</td>
                           <td class="col-num">{fmtAvgStd(r.result.ttftMs, r.result.ttftStddevMs, 0, ' ms')}</td>
@@ -1294,6 +1319,10 @@
   .indeterminate-bar { height: 1px; border-radius: 2px; background: var(--color-surface-sunken); overflow: hidden; margin: 8px 0; }
   .indeterminate-inner { height: 100%; width: 40%; background: var(--color-primary); border-radius: 2px; animation: slide 1.4s ease-in-out infinite; }
   @keyframes slide { 0% { transform: translateX(-100%); } 100% { transform: translateX(350%); } }
+
+  @media (prefers-reduced-motion: reduce) {
+    .indeterminate-inner { animation: none; width: 100%; opacity: 0.6; }
+  }
 
   .status-badges { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
   .ttft-badge { font-family: var(--font-mono); font-size: 11px; font-weight: 600; padding: 1px 6px; border-radius: var(--radius-sm); background: var(--color-accent-light); color: var(--color-primary); }
@@ -1685,6 +1714,7 @@
   }
 
   .remove-btn:hover { color: var(--color-error); background: color-mix(in srgb, var(--color-error) 10%, transparent); }
+  .remove-btn:focus-visible { color: var(--color-error); outline: 2px solid var(--color-focus-ring); outline-offset: 2px; }
 
   .run-layout {
     display: grid;
@@ -1727,7 +1757,7 @@
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    max-width: 100%;
+    max-width: calc(50% - 3px);
     padding: 3px 8px;
     font-family: var(--font-ui);
     font-size: 11px;
@@ -1735,7 +1765,7 @@
     color: var(--color-text-secondary);
     background: var(--color-surface-sunken);
     border: 1px solid var(--color-border);
-    border-radius: 999px;
+    border-radius: var(--radius-base);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -1760,7 +1790,13 @@
     padding-top: 0;
   }
 
-  .sb-section-head { margin-bottom: 4px; }
+  .sb-section-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-1);
+    margin-bottom: 4px;
+  }
   .sb-section-title {
     font-family: var(--font-ui);
     font-size: 10px;
@@ -1768,6 +1804,13 @@
     text-transform: uppercase;
     letter-spacing: 0.1em;
     color: var(--color-text-muted);
+  }
+  .sb-section-hint {
+    font-family: var(--font-ui);
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--color-text-muted);
+    opacity: 0.7;
   }
 
   .sb-row {
@@ -1846,24 +1889,6 @@
     letter-spacing: 0.06em;
     color: var(--color-text-muted);
     white-space: nowrap;
-  }
-
-  .req-badge {
-    display: inline-flex;
-    align-items: center;
-    padding: 1px 4px 0;
-    font-size: 9px;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: var(--color-error);
-    opacity: 0.85;
-    transition: color var(--transition-base);
-  }
-
-  .req-badge.req-done {
-    color: var(--color-text-muted);
-    opacity: 0.6;
   }
 
   .action-hint {
@@ -2031,6 +2056,11 @@
     border-radius: 50%;
     cursor: pointer;
     transition: border-color var(--transition-base), background var(--transition-base);
+  }
+
+  .save-toggle input[type="checkbox"]:focus-visible {
+    outline: 2px solid var(--color-focus-ring);
+    outline-offset: 2px;
   }
 
   .save-toggle input[type="checkbox"]:hover {
