@@ -18,10 +18,12 @@
   let turnstileWidget: { reset: () => void } | undefined = $state();
 
   let resetCallback = $state('');
+  let expiredLink = $state(false);
 
   onMount(() => {
     if (!browser) return;
     resetCallback = `${window.location.origin}/auth/callback?next=/reset-password`;
+    expiredLink = new URL(window.location.href).searchParams.get('expired') === '1';
   });
 
   function requireToken(): string | null {
@@ -65,7 +67,11 @@
       <a href="/login" class="btn-link-block">Back to sign in</a>
     {:else}
       <h1 class="login-title">Reset your password</h1>
-      <p class="login-subtitle">Enter the email associated with your account.</p>
+      {#if expiredLink}
+        <p class="expired-banner">Your reset link has expired. Request a new one below.</p>
+      {:else}
+        <p class="login-subtitle">Enter the email associated with your account.</p>
+      {/if}
 
       <form onsubmit={handleSubmit}>
         <label class="field-label" for="reset-email">Email</label>
@@ -134,6 +140,17 @@
   .login-hint {
     font-size: var(--text-xs);
     color: var(--color-text-muted);
+    margin-bottom: var(--space-3);
+    text-align: center;
+  }
+
+  .expired-banner {
+    font-size: var(--text-sm);
+    color: var(--color-warning, #b45309);
+    background: var(--color-warning-bg, #fef3c7);
+    border: 1px solid var(--color-warning-border, #fde68a);
+    border-radius: var(--radius-base);
+    padding: var(--space-1) var(--space-2);
     margin-bottom: var(--space-3);
     text-align: center;
   }
