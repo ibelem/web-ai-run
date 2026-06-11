@@ -27,7 +27,7 @@ cp .env.example .env
 npm run dev
 ```
 
-The app runs at `https://localhost:5173` (HTTPS with local certs) or `http://localhost:5173`.
+The app runs at `https://localhost:5173` (or the next available port if 5173 is in use).
 
 ### Optional: HTTPS with local certificates
 
@@ -67,11 +67,15 @@ src/
     stores/       # Svelte stores (auth state)
     components/   # Reusable UI components
   routes/
-    /             # Homepage with hero + detected environment
-    /model        # Model browser with filters
-    /run          # Benchmark execution
-    /custom       # Upload custom model files
-    /recipe       # Saved benchmark configurations
-    /login        # Auth (GitHub, Google, Microsoft, email)
-    /admin        # User management (admin only)
+    /                    # Homepage with hero + detected environment
+    /inference/          # Inference benchmark (model browser, run, custom upload, recipes)
+    /llm/                # LLM benchmark (run, results, custom)
+    /login               # Sign in (password, magic link, GitHub OAuth)
+    /signup              # Create account
+    /forgot-password     # Request password reset
+    /reset-password      # Set new password (after email link)
+    /account             # User profile, recipes, shared links
+    /privacy             # Privacy policy
+    /terms               # Terms of service
+    /admin               # User management (admin only)
 ```
