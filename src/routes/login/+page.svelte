@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { browser } from '$app/environment';
+  import { PUBLIC_TURNSTILE_SITE_KEY } from '$env/static/public';
   import { createClient } from '$lib/supabase/client';
   import { safeNext, stashNext } from '$lib/utils/login-redirect';
 
@@ -21,12 +22,75 @@
   // and email-link flows can recover it on the callback.
   let nextDest = $state('/');
 
+  // Turnstile token: required for every Supabase auth call once Bot & Abuse
+  // Protection is on. Tokens are single-use, so we reset the widget after
+  // each call to mint a fresh one.
+  let turnstileToken = $state('');
+  let turnstileWidgetId: string | null = null;
+  let turnstileEl: HTMLDivElement | undefined = $state();
+
   onMount(() => {
     if (!browser) return;
     const url = new URL(window.location.href);
     nextDest = safeNext(url.searchParams.get('next'));
     if (nextDest !== '/') stashNext(nextDest);
+    loadTurnstile();
   });
+
+  function loadTurnstile() {
+    const SCRIPT_ID = 'cf-turnstile-script';
+    const render = () => {
+      const ts = (window as unknown as { turnstile?: TurnstileApi }).turnstile;
+      if (!ts || !turnstileEl) return;
+      turnstileWidgetId = ts.render(turnstileEl, {
+        sitekey: PUBLIC_TURNSTILE_SITE_KEY,
+        size: 'flexible',
+        callback: (token: string) => { turnstileToken = token; },
+        'error-callback': () => { turnstileToken = ''; },
+        'expired-callback': () => { turnstileToken = ''; },
+        'timeout-callback': () => { turnstileToken = ''; }
+      });
+    };
+    if (document.getElementById(SCRIPT_ID)) {
+      render();
+      return;
+    }
+    const s = document.createElement('script');
+    s.id = SCRIPT_ID;
+    s.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+    s.async = true;
+    s.defer = true;
+    s.crossOrigin = 'anonymous';
+    s.onload = render;
+    document.head.appendChild(s);
+  }
+
+  function resetTurnstile() {
+    turnstileToken = '';
+    const ts = (window as unknown as { turnstile?: TurnstileApi }).turnstile;
+    if (ts && turnstileWidgetId !== null) ts.reset(turnstileWidgetId);
+  }
+
+  function requireToken(): string | null {
+    if (!turnstileToken) {
+      error = 'Please complete the verification first.';
+      return null;
+    }
+    return turnstileToken;
+  }
+
+  interface TurnstileRenderOptions {
+    sitekey: string;
+    size?: 'normal' | 'compact' | 'flexible';
+    callback: (token: string) => void;
+    'error-callback'?: () => void;
+    'expired-callback'?: () => void;
+    'timeout-callback'?: () => void;
+  }
+  interface TurnstileApi {
+    render: (el: HTMLElement, opts: TurnstileRenderOptions) => string;
+    reset: (id?: string) => void;
+  }
 
   function navigateNext() {
     window.location.href = nextDest;
@@ -40,7 +104,13 @@
   const supabase = createClient();
 
   async function signInOAuth(provider: 'github' | 'google' | 'azure') {
+    // OAuth bounces through the provider, so Supabase doesn't run the captcha
+    // check on this call (it can't, the user leaves the page). The token gate
+    // we still want is "user proved they're human before initiating OAuth," so
+    // we require it here for the UX gate but don't pass it to Supabase.
     if (nextDest !== '/') stashNext(nextDest);
+    const ok = requireToken();
+    if (!ok) return;
     await supabase.auth.signInWithOAuth({
       provider,
       options: { redirectTo: callbackUrl() }
@@ -50,15 +120,21 @@
   async function handleEmailContinue(e: Event) {
     e.preventDefault();
     if (!email) return;
+    const captchaToken = requireToken();
+    if (!captchaToken) return;
     error = '';
     loading = true;
 
-    // Try signing in with a dummy password to check if user exists
+    // Try signing in with a dummy password to check if user exists.
+    // Supabase verifies the captcha token before checking credentials,
+    // so bots can't enumerate emails by hammering this call.
     const { error: authError } = await supabase.auth.signInWithPassword({
       email,
       password: '__probe__',
+      options: { captchaToken },
     });
 
+    resetTurnstile();
     loading = false;
 
     if (authError?.message?.toLowerCase().includes('invalid login credentials')) {
@@ -76,10 +152,17 @@
   async function signInPassword(e: Event) {
     e.preventDefault();
     if (!email || !password) return;
+    const captchaToken = requireToken();
+    if (!captchaToken) return;
     error = '';
     loading = true;
 
-    const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
+    const { error: authError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+      options: { captchaToken },
+    });
+    resetTurnstile();
     loading = false;
 
     if (authError) {
@@ -100,6 +183,8 @@
       error = 'Passwords do not match';
       return;
     }
+    const captchaToken = requireToken();
+    if (!captchaToken) return;
     error = '';
     loading = true;
 
@@ -108,9 +193,11 @@
       password,
       options: {
         emailRedirectTo: callbackUrl(),
+        captchaToken,
       },
     });
 
+    resetTurnstile();
     loading = false;
 
     if (signUpError) {
@@ -131,6 +218,8 @@
       error = 'Enter your email first';
       return;
     }
+    const captchaToken = requireToken();
+    if (!captchaToken) return;
     error = '';
     magicLinkLoading = true;
 
@@ -138,9 +227,11 @@
       email,
       options: {
         emailRedirectTo: callbackUrl(),
+        captchaToken,
       },
     });
 
+    resetTurnstile();
     magicLinkLoading = false;
 
     if (otpError) {
@@ -183,11 +274,16 @@
       error = 'Enter your email first';
       return;
     }
+    const captchaToken = requireToken();
+    if (!captchaToken) return;
     error = '';
 
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/auth/callback?next=/set-password`,
+      captchaToken,
     });
+
+    resetTurnstile();
 
     if (resetError) {
       error = resetError.message || 'Could not send reset link.';
@@ -328,7 +424,7 @@
     {:else}
       <!-- OAuth Providers -->
       <div class="oauth-section">
-        <button class="btn-oauth-github" onclick={() => signInOAuth('github')}>
+        <button class="btn-oauth-github" onclick={() => signInOAuth('github')} disabled={!turnstileToken}>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
             <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
           </svg>
@@ -376,11 +472,16 @@
           <p class="error-text">{error}</p>
         {/if}
 
-        <button type="submit" class="btn-primary" disabled={loading || !email}>
+        <button type="submit" class="btn-primary" disabled={loading || !email || !turnstileToken}>
           {loading ? 'Checking...' : 'Continue'}
         </button>
       </form>
     {/if}
+
+    <!-- Turnstile widget. Managed mode: invisible for most users, checkbox
+         when Cloudflare flags traffic as suspicious. Mounted on every view
+         since password/signup/otp each call Supabase auth. -->
+    <div class="turnstile-host" bind:this={turnstileEl}></div>
   </div>
 </div>
 
@@ -577,5 +678,11 @@
     font-size: var(--text-xs);
     color: var(--color-error);
     margin-bottom: var(--space-1);
+  }
+
+  .turnstile-host {
+    width: 100%;
+    margin-top: var(--space-2);
+    min-height: 65px;
   }
 </style>
