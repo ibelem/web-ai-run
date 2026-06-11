@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { createClient } from '$lib/supabase/client';
   import { inferFormat, stripExt } from '$lib/huggingface/parser';
+  import { getBackendLabel } from '$lib/engine/backends';
   import FormatIcon from '$lib/components/FormatIcon.svelte';
 
   interface RecentModel {
@@ -16,8 +17,20 @@
     last_synced: string;
   }
 
+  // Latest LLM runs, deduplicated by model — one row per distinct hf_model_id.
+  interface LatestRun {
+    backend: string;
+    tps: number;
+    hf_model_id: string;
+    data_type: string;
+    runtime: string;
+    started_at: string;
+  }
+
   let recentModels = $state<RecentModel[]>([]);
   let loadingModels = $state(true);
+  let latestRuns = $state<LatestRun[]>([]);
+  let loadingLatest = $state(true);
 
   onMount(async () => {
     const supabase = createClient();
@@ -31,6 +44,32 @@
       console.error('Failed to fetch models:', e);
     }
     loadingModels = false;
+
+    // Latest LLM runs, deduplicated by model — pulled client-side. We grab
+    // more rows than we need so we can keep only the newest run per
+    // hf_model_id, then surface the 5 most-recently-tested distinct models.
+    try {
+      const { data: rows } = await (supabase.from('results_llm') as any)
+        .select('backend, tps, hf_model_id, data_type, runtime, started_at')
+        .eq('status', 'completed')
+        .not('tps', 'is', null)
+        .order('started_at', { ascending: false })
+        .limit(100);
+      if (rows) {
+        const seen = new Set<string>();
+        const deduped: LatestRun[] = [];
+        for (const r of rows as LatestRun[]) {
+          if (!r.hf_model_id || seen.has(r.hf_model_id)) continue;
+          seen.add(r.hf_model_id);
+          deduped.push(r);
+          if (deduped.length === 5) break;
+        }
+        latestRuns = deduped;
+      }
+    } catch (e) {
+      console.error('Failed to fetch LLM hero data:', e);
+    }
+    loadingLatest = false;
   });
 
   function formatRelative(iso: string): string {
@@ -41,6 +80,27 @@
     if (hours < 24) return `${hours}h ago`;
     const days = Math.floor(hours / 24);
     return `${days}d ago`;
+  }
+
+  // Bar widths scale to the fastest TPS in the visible set so the leader
+  // hits ~95% and the tail stays proportional. With 1 row, leader fills.
+  function barWidth(tps: number, max: number): number {
+    if (max <= 0) return 0;
+    const pct = (tps / max) * 95;
+    return Math.max(8, Math.min(95, pct));
+  }
+
+  // Map a runtime backend ID to its design-token color variable.
+  function backendColorVar(backend: string): string {
+    switch (backend) {
+      case 'webnn_gpu': return 'var(--color-backend-webnn-gpu)';
+      case 'webnn_cpu': return 'var(--color-backend-webnn-cpu)';
+      case 'webnn_npu': return 'var(--color-backend-webnn-npu)';
+      case 'webgpu':    return 'var(--color-backend-webgpu)';
+      case 'wasm_n':    return 'var(--color-backend-wasm-4)';
+      case 'wasm_1':    return 'var(--color-backend-wasm-1)';
+      default:          return 'var(--color-primary)';
+    }
   }
 </script>
 
@@ -95,42 +155,56 @@
 
       <div class="hero-right">
         <div class="hero-card-mock">
-          <div class="mock-float-badge mock-float-top">Average: 2.1ms</div>
-          <div class="mock-float-badge mock-float-bottom">50 iterations</div>
-          <div class="mock-header">
-            <div>
-              <div class="mock-label">mobilenet_v2 · onnx</div>
-              <div class="mock-title">Image Classification</div>
-              <div class="mock-meta">fp32 · 13.5 MB · Xenova</div>
+          {#if loadingLatest}
+            <div class="mock-header">
+              <div>
+                <div class="mock-label">LLM Benchmark</div>
+                <div class="mock-title">Loading live results...</div>
+              </div>
             </div>
-            <span class="mock-badge">WebNN</span>
-          </div>
-          <div class="mock-results">
-            <div class="mock-row">
-              <span class="mock-backend">WebNN GPU</span>
-              <div class="mock-bar-wrap"><div class="mock-bar mock-bar-1"></div></div>
-              <span class="mock-ms">2.1 ms</span>
+            <div class="mock-results">
+              <div class="mock-row mock-row-empty"></div>
+              <div class="mock-row mock-row-empty"></div>
+              <div class="mock-row mock-row-empty"></div>
+              <div class="mock-row mock-row-empty"></div>
+              <div class="mock-row mock-row-empty"></div>
             </div>
-            <div class="mock-row">
-              <span class="mock-backend">WebGPU</span>
-              <div class="mock-bar-wrap"><div class="mock-bar mock-bar-2"></div></div>
-              <span class="mock-ms">4.8 ms</span>
+          {:else if latestRuns.length === 0}
+            <div class="mock-empty">
+              <div class="mock-empty-label">LLM Benchmark</div>
+              <div class="mock-empty-title">No runs yet</div>
+              <p class="mock-empty-body">Be the first to publish an LLM benchmark on this site. It takes about a minute.</p>
+              <a href="/llm" class="mock-empty-cta">Run a benchmark&nbsp;<span aria-hidden="true">&rarr;</span></a>
             </div>
-            <div class="mock-row">
-              <span class="mock-backend">Wasm x4</span>
-              <div class="mock-bar-wrap"><div class="mock-bar mock-bar-3"></div></div>
-              <span class="mock-ms">12.3 ms</span>
+          {:else}
+            {@const max = Math.max(...latestRuns.map((r) => r.tps))}
+            <div class="mock-header">
+              <div>
+                <div class="mock-label">LLM Benchmark · Latest runs</div>
+                <div class="mock-title">{latestRuns.length} models tested recently</div>
+                <div class="mock-meta">tokens / second · higher is better</div>
+              </div>
+              <a href="/llm" class="mock-badge" title="Run an LLM benchmark">Live</a>
             </div>
-            <div class="mock-row">
-              <span class="mock-backend">Wasm x1</span>
-              <div class="mock-bar-wrap"><div class="mock-bar mock-bar-4"></div></div>
-              <span class="mock-ms">31.7 ms</span>
+            <div class="mock-results">
+              {#each latestRuns as r (r.hf_model_id)}
+                <div class="mock-row">
+                  <span class="mock-model" title="{r.hf_model_id}">{r.hf_model_id.split('/').pop()}</span>
+                  <span class="mock-backend-chip" style:color={backendColorVar(r.backend)} style:border-color={backendColorVar(r.backend)}>
+                    {getBackendLabel(r.backend)}
+                  </span>
+                  <div class="mock-bar-wrap">
+                    <div
+                      class="mock-bar"
+                      style:width="{barWidth(r.tps, max)}%"
+                      style:background={backendColorVar(r.backend)}
+                    ></div>
+                  </div>
+                  <span class="mock-ms">{r.tps.toFixed(1)}</span>
+                </div>
+              {/each}
             </div>
-          </div>
-          <div class="mock-footer">
-            <span class="mock-footer-label">Fastest</span>
-            <span class="mock-footer-value">2.1 ms</span>
-          </div>
+          {/if}
         </div>
       </div>
     </div>
@@ -374,33 +448,6 @@
     animation: hero-float 6s ease-in-out infinite;
   }
 
-  .mock-float-badge {
-    position: absolute;
-    font-size: 11px;
-    font-family: var(--font-mono);
-    font-weight: 500;
-    padding: 4px 10px;
-    border-radius: var(--radius-sm);
-    background: var(--color-surface);
-    border: 1px solid;
-  }
-
-  .mock-float-top {
-    top: -12px;
-    left: -16px;
-    color: var(--color-backend-webnn-gpu);
-    border-color: var(--color-backend-webnn-gpu);
-    transform: rotate(-4deg);
-  }
-
-  .mock-float-bottom {
-    bottom: -12px;
-    right: -16px;
-    color: var(--color-accent);
-    border-color: var(--color-accent);
-    transform: rotate(3deg);
-  }
-
   .mock-header {
     display: flex;
     justify-content: space-between;
@@ -441,6 +488,12 @@
     color: var(--color-accent);
     border: 1px solid color-mix(in srgb, var(--color-accent) 35%, transparent);
     white-space: nowrap;
+    text-decoration: none;
+    transition: background var(--transition-base);
+  }
+
+  a.mock-badge:hover {
+    background: color-mix(in srgb, var(--color-accent) 22%, transparent);
   }
 
   .mock-results {
@@ -450,60 +503,107 @@
   }
 
   .mock-row {
-    display: flex;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto 60px auto;
     align-items: center;
-    gap: 12px;
+    gap: 8px;
+    min-width: 0;
   }
 
-  .mock-backend {
-    font-size: 13px;
-    color: var(--color-text-secondary);
-    min-width: 80px;
+  .mock-model {
+    font-size: 12px;
+    font-family: var(--font-mono);
+    color: var(--color-text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+  }
+
+  .mock-backend-chip {
+    font-size: 10px;
+    font-family: var(--font-mono);
+    font-weight: 600;
+    padding: 1px 5px;
+    border-radius: var(--radius-sm);
+    border: 1px solid;
+    line-height: 1.4;
+    white-space: nowrap;
   }
 
   .mock-bar-wrap {
-    flex: 1;
     height: 6px;
     border-radius: 3px;
     background: var(--color-surface-sunken);
     overflow: hidden;
+    width: 60px;
   }
 
   .mock-bar {
     height: 100%;
     border-radius: 3px;
+    transition: width 600ms cubic-bezier(0.16, 1, 0.3, 1);
   }
 
-  .mock-bar-1 { width: 95%; background: var(--color-backend-webnn-gpu); }
-  .mock-bar-2 { width: 72%; background: var(--color-backend-webgpu); }
-  .mock-bar-3 { width: 40%; background: var(--color-backend-wasm-4); }
-  .mock-bar-4 { width: 18%; background: var(--color-backend-wasm-1); }
+  .mock-row-empty {
+    height: 18px;
+    background: var(--color-surface-sunken);
+    border-radius: 3px;
+    opacity: 0.5;
+  }
 
   .mock-ms {
     font-size: 13px;
     font-family: var(--font-mono);
     font-weight: 600;
     color: var(--color-text-primary);
-    min-width: 52px;
+    min-width: 44px;
     text-align: right;
   }
 
-  .mock-footer {
-    margin-top: 16px;
-    padding-top: 12px;
-    border-top: 1px solid var(--color-border);
+  .mock-empty {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    padding: 8px 0;
   }
 
-  .mock-footer-label { font-size: 12px; color: var(--color-text-muted); }
-  .mock-footer-value {
+  .mock-empty-label {
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-text-muted);
+  }
+
+  .mock-empty-title {
     font-size: 16px;
-    font-weight: 700;
-    font-family: var(--font-mono);
+    font-weight: 600;
     color: var(--color-text-primary);
   }
+
+  .mock-empty-body {
+    font-size: 13px;
+    color: var(--color-text-secondary);
+    margin-bottom: 6px;
+  }
+
+  .mock-empty-cta {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 12px;
+    border-radius: var(--radius-base);
+    font-family: var(--font-ui);
+    font-size: 13px;
+    font-weight: 500;
+    text-decoration: none;
+    color: var(--color-text-on-primary);
+    background: var(--color-primary);
+    transition: background var(--transition-base);
+  }
+
+  .mock-empty-cta:hover { background: var(--color-primary-hover); }
 
   @keyframes hero-ping {
     75%, 100% { transform: scale(2.4); opacity: 0; }

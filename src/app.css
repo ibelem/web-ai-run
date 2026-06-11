@@ -102,7 +102,7 @@
   /* Backend colors */
   --color-backend-wasm-1: #38A169;
   --color-backend-wasm-4: #2e7d32;
-  --color-backend-webgpu: #D69E2E;
+  --color-backend-webgpu: #7C3AED;
   --color-backend-webnn-cpu: #00C7FD;
   --color-backend-webnn-gpu: #0953DE;
   --color-backend-webnn-npu: #002060;
@@ -188,7 +188,7 @@
   /* Backend dark */
   --color-backend-wasm-1: #68D391;
   --color-backend-wasm-4: #48BB78;
-  --color-backend-webgpu: #F6E05E;
+  --color-backend-webgpu: #A78BFA;
   --color-backend-webnn-cpu: #00C7FD;
   --color-backend-webnn-gpu: #63B3ED;
   --color-backend-webnn-npu: #A0C4FF;
