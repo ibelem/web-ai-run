@@ -326,8 +326,6 @@
                 <p class="avatar-error">{avatarError}</p>
               {/if}
             </div>
-
-            <span class="role-badge role-{data.profile.role}">{data.profile.role}</span>
           </div>
 
           <form
@@ -347,7 +345,10 @@
                 <input type="text" name="display_name" value={data.profile.display_name ?? ''} placeholder="Your name" />
               </label>
               <label class="field">
-                <span class="field-label">Email</span>
+                <span class="field-label-row">
+                  <span class="field-label">Email</span>
+                  <span class="role-badge role-{data.profile.role}">{data.profile.role}</span>
+                </span>
                 <input type="email" value={data.profile.email} disabled />
                 <span class="field-hint">Managed by your OAuth provider</span>
               </label>
@@ -640,7 +641,11 @@
 
   .avatar-actions {
     display: flex;
+    flex-wrap: wrap;
     gap: var(--space-1);
+  }
+  .avatar-actions .btn-sm {
+    white-space: nowrap;
   }
 
   .avatar-error {
@@ -680,6 +685,12 @@
     font-size: var(--text-sm);
     font-weight: 500;
     color: var(--color-text-secondary);
+  }
+
+  .field-label-row {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
   }
 
   .field-hint {
@@ -751,7 +762,9 @@
       width: 100%;
     }
 
-    .btn-sm {
+    /* In list-row contexts (recipes, results), buttons fill the row width.
+       Scoped so it doesn't leak to .avatar-actions, which has its own sizing. */
+    .item-actions .btn-sm {
       flex: 1;
       text-align: center;
     }

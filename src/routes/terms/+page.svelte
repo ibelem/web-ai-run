@@ -16,6 +16,25 @@
   <meta name="robots" content="noindex, nofollow" />
 </svelte:head>
 
+<div class="legal-layout">
+  <nav class="toc" aria-label="Table of contents">
+    <details class="toc-details" open>
+      <summary class="toc-summary">On this page</summary>
+      <ol class="toc-list">
+        <li><a href="#what-it-is">What this service is</a></li>
+        <li><a href="#you-bring">What you bring</a></li>
+        <li><a href="#acceptable-use">Acceptable use</a></li>
+        <li><a href="#accounts">Accounts</a></li>
+        <li><a href="#third-party">Third-party content</a></li>
+        <li><a href="#warranty">No warranty on benchmark numbers</a></li>
+        <li><a href="#availability">Service availability</a></li>
+        <li><a href="#liability">Limitation of liability</a></li>
+        <li><a href="#changes">Changes to these terms</a></li>
+        <li><a href="#contact">Contact</a></li>
+      </ol>
+    </details>
+  </nav>
+
 <article class="legal">
   <header class="legal-header">
     <h1>Terms of Use</h1>
@@ -29,8 +48,8 @@
     </p>
   </section>
 
-  <section>
-    <h2>What this service is</h2>
+  <section id="what-it-is">
+    <h2>What this service is <a class="anchor" href="#what-it-is" aria-label="Link to this section">§</a></h2>
     <p>
       Web AI Benchmark is a tool for measuring on-device AI inference 
       performance directly in your browser. You bring your own model
@@ -40,8 +59,8 @@
     </p>
   </section>
 
-  <section>
-    <h2>What you bring</h2>
+  <section id="you-bring">
+    <h2>What you bring <a class="anchor" href="#you-bring" aria-label="Link to this section">§</a></h2>
     <p>
       You are responsible for the model files, prompts, and configurations you
       use, including their licenses and any third-party rights. We don't
@@ -50,8 +69,8 @@
     </p>
   </section>
 
-  <section>
-    <h2>Acceptable use</h2>
+  <section id="acceptable-use">
+    <h2>Acceptable use <a class="anchor" href="#acceptable-use" aria-label="Link to this section">§</a></h2>
     <p>When you sign in and save data, don't:</p>
     <ul>
       <li>Submit content to public-facing fields (display name, model identifiers, recipe names) that is unlawful, harassing, deceptive, or designed to impersonate others.</li>
@@ -63,8 +82,8 @@
     <p>We may suspend accounts that breach these terms.</p>
   </section>
 
-  <section>
-    <h2>Accounts</h2>
+  <section id="accounts">
+    <h2>Accounts <a class="anchor" href="#accounts" aria-label="Link to this section">§</a></h2>
     <p>
       Sign-in is via GitHub or Google OAuth. You are responsible for keeping
       your provider account secure. Don't share credentials. You can delete
@@ -73,8 +92,8 @@
     </p>
   </section>
 
-  <section>
-    <h2>Third-party content</h2>
+  <section id="third-party">
+    <h2>Third-party content <a class="anchor" href="#third-party" aria-label="Link to this section">§</a></h2>
     <p>
       Nothing here grants you rights to third-party content (model weights,
       datasets, runtimes) you access through the app — those remain governed
@@ -82,8 +101,8 @@
     </p>
   </section>
 
-  <section>
-    <h2>No warranty on benchmark numbers</h2>
+  <section id="warranty">
+    <h2>No warranty on benchmark numbers <a class="anchor" href="#warranty" aria-label="Link to this section">§</a></h2>
     <p>
       Benchmarks run on your hardware in your browser using the runtimes you
       select. Numbers depend heavily on your CPU, GPU, drivers, browser
@@ -94,8 +113,8 @@
     </p>
   </section>
 
-  <section>
-    <h2>Service availability</h2>
+  <section id="availability">
+    <h2>Service availability <a class="anchor" href="#availability" aria-label="Link to this section">§</a></h2>
     <p>
       The service is provided as-is, with no uptime guarantee. We may change,
       pause, or shut down the service or any part of it at any time. We'll
@@ -103,8 +122,8 @@
     </p>
   </section>
 
-  <section>
-    <h2>Limitation of liability</h2>
+  <section id="liability">
+    <h2>Limitation of liability <a class="anchor" href="#liability" aria-label="Link to this section">§</a></h2>
     <p>
       To the fullest extent permitted by law, the service is provided
       <strong>"AS IS"</strong> and without warranties of any kind, express or
@@ -114,8 +133,8 @@
     </p>
   </section>
 
-  <section>
-    <h2>Changes to these terms</h2>
+  <section id="changes">
+    <h2>Changes to these terms <a class="anchor" href="#changes" aria-label="Link to this section">§</a></h2>
     <p>
       We may update these terms from time to time. The "Last updated" date
       reflects the most recent change. Continued use after a change means you
@@ -123,25 +142,82 @@
     </p>
   </section>
 
-  <section>
-    <h2>Contact</h2>
+  <section id="contact">
+    <h2>Contact <a class="anchor" href="#contact" aria-label="Link to this section">§</a></h2>
     <p>
       Questions or concerns: <RevealEmail user="contact" host="webai.run" />.
     </p>
   </section>
 </article>
+</div>
 
 <style>
-  .legal {
-    max-width: 720px;
-    margin: 0 auto;
+  /* Two-column layout at >=900px (TOC rail + article); single column below. */
+  .legal-layout {
+    max-width: 1100px;
+    margin-inline: auto;
     padding: var(--space-3) var(--space-2);
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    gap: var(--space-6);
+    align-items: start;
+  }
+
+  .toc {
+    position: sticky;
+    top: var(--space-3);
+    font-size: var(--text-xs);
+  }
+  .toc-summary {
+    font-family: var(--font-ui);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    list-style: none;
+    margin-bottom: var(--space-1);
+  }
+  .toc-summary::-webkit-details-marker { display: none; }
+  .toc-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    counter-reset: toc;
+  }
+  .toc-list li {
+    counter-increment: toc;
+    margin-bottom: 4px;
+  }
+  .toc-list a {
+    display: block;
+    padding: 2px 0;
+    color: var(--color-text-secondary);
+    text-decoration: none;
+    line-height: 1.4;
+  }
+  .toc-list a::before {
+    content: counter(toc, decimal-leading-zero) "  ";
+    color: var(--color-text-muted);
+    font-family: var(--font-mono);
+    font-size: 10px;
+  }
+  .toc-list a:hover {
+    color: var(--color-primary);
+  }
+
+  .legal {
     color: var(--color-text-primary);
-    font-size: var(--text-sm);
+    font-size: var(--text-base);
     line-height: 1.65;
+    max-width: 720px;
+    min-width: 0;
   }
   .legal-header {
-    margin-bottom: var(--space-4);
+    margin-bottom: var(--space-5);
+    padding-bottom: var(--space-3);
+    border-bottom: 1px solid var(--color-border);
   }
   .legal-header h1 {
     font-size: var(--text-xl);
@@ -154,13 +230,17 @@
     font-family: var(--font-mono);
   }
   .legal section {
-    margin-bottom: var(--space-3);
+    margin-bottom: var(--space-5);
+    scroll-margin-top: var(--space-4);
   }
   .legal h2 {
-    font-size: var(--text-base);
+    font-size: var(--text-lg);
     font-weight: 600;
-    margin: var(--space-2) 0 var(--space-1);
+    margin: var(--space-3) 0 var(--space-1);
     color: var(--color-text-primary);
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-1);
   }
   .legal p, .legal ul {
     margin: 0 0 var(--space-1);
@@ -171,7 +251,38 @@
   .legal li {
     margin-bottom: 4px;
   }
+  .legal a {
+    color: var(--color-primary);
+  }
+  .anchor {
+    font-family: var(--font-mono);
+    font-size: var(--text-base);
+    color: var(--color-text-muted);
+    text-decoration: none;
+    opacity: 0;
+    transition: opacity var(--transition-base);
+  }
+  .legal h2:hover .anchor,
+  .anchor:focus-visible {
+    opacity: 1;
+  }
+  .anchor:hover {
+    color: var(--color-primary);
+  }
   .muted {
     color: var(--color-text-muted);
+  }
+
+  @media (max-width: 900px) {
+    .legal-layout {
+      grid-template-columns: 1fr;
+      gap: var(--space-3);
+    }
+    .toc {
+      position: static;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-base);
+      padding: var(--space-2);
+    }
   }
 </style>

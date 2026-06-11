@@ -56,6 +56,12 @@
   --z-overlay: 200;
   --z-toast: 300;
 
+  /* Breakpoints (use as @media (max-width: var(...)) ... not portable but
+     documents the canonical values; per-page media queries should match) */
+  --bp-sm: 640px;
+  --bp-md: 900px;
+  --bp-lg: 1100px;
+
   /* Motion */
   --transition-base: 150ms ease;
   --transition-slow: 250ms ease;
@@ -146,7 +152,7 @@
   --color-runtime-litert: #0953DE;
 
   /* Semantic colors */
-  --color-success: #38A169;
+  --color-success: oklch(62.7% 0.194 149.214);
   --color-error: #ff0081;
   --color-warning: #ff0081;
   --color-info: #00C7FD;
@@ -225,7 +231,7 @@
   --color-runtime-litert: #63B3ED;
 
   /* Semantic dark */
-  --color-success: #68D391;
+  --color-success: oklch(62.7% 0.194 149.214);
   --color-error: #FC8181;
   --color-warning: #F6E05E;
   --color-info: #00C7FD;
@@ -253,6 +259,29 @@ select {
 input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
 select {
   height: 32px;
+}
+
+/* Custom chevron for <select> — gives us control over size, color, and gap
+   from the right border. The 24px right padding makes room for the SVG. */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  padding-right: 24px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%236B6B6B' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  background-size: 10px;
+}
+
+/* Dark-mode chevron — muted color matches text-secondary in dark theme */
+[data-theme="dark"] select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%238F8F8F' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+}
+
+/* Suppress the IE/Edge legacy expand arrow */
+select::-ms-expand {
+  display: none;
 }
 
 
@@ -318,13 +347,44 @@ body {
   font-size: var(--text-xl);
   color: var(--color-text-primary);
   letter-spacing: -0.01em;
-  line-height: normal;
+  line-height: 1.2;
 }
 
 .page-header p {
-  margin-top: -0.25em;
-  font-size: var(--text-base);
-  color: var(--color-text-secondary);
+  margin-top: 2px;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+/* Header with right-aligned actions (toolbar pattern) — used on results,
+   leaderboard, run, etc. when the title sits next to export/delete buttons.
+   The h1 is one step smaller here so the toolbar height stays compact. */
+.page-header-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-1);
+}
+.page-header-row h1 {
+  font-size: var(--text-lg);
+  font-weight: 700;
+  margin-bottom: var(--space-half);
+}
+.page-header-text { min-width: 0; }
+.page-header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-wrap: wrap;
+}
+
+/* Centered prose / form column — for /privacy, /terms, /profile, etc.
+   where content shouldn't stretch to full main width. */
+.page-narrow {
+  max-width: 720px;
+  margin-inline: auto;
 }
 
 /* ── Shared utilities ──────────────────────────────────────────────── */

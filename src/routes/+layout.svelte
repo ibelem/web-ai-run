@@ -424,16 +424,6 @@
 
 
 <footer class="site-footer" class:hidden={$isRunningStore}>
-  <span class="footer-copy">&copy; {new Date().getFullYear()} <a href="https://webai.run">Web AI Benchmark</a></span>
-  <span class="footer-sep">·</span>
-  <div class="footer-meta">
-    <a class="footer-link" href="/privacy">Privacy</a>
-    <span class="footer-sep footer-sep-meta">·</span>
-    <a class="footer-link" href="/terms">Terms</a>
-    <span class="footer-sep footer-sep-meta">·</span>
-    <a class="footer-link" href="https://2025.webai.run">2025</a>
-  </div>
-  <span class="footer-sep">·</span>
   <div class="footer-caps">
     <span class="footer-cap" class:cap-ok={isWebnnAvailable} class:cap-warn={!isWebnnAvailable}
       title="WebNN API availability - navigator.ml must be defined">
@@ -482,6 +472,15 @@
         Clear Model Cache
       {/if}
     </button>
+  </div>
+  <div class="footer-brand">
+    <span class="footer-copy">&copy; {new Date().getFullYear()} <a href="https://webai.run">Web AI Benchmark</a></span>
+    <span class="footer-sep">·</span>
+    <a class="footer-link" href="/privacy">Privacy</a>
+    <span class="footer-sep">·</span>
+    <a class="footer-link" href="/terms">Terms</a>
+    <span class="footer-sep">·</span>
+    <a class="footer-link" href="https://2025.webai.run">2025</a>
   </div>
 </footer>
 
@@ -817,10 +816,21 @@
     flex-wrap: wrap;
     align-items: center;
     justify-content: center;
-    gap: var(--space-2);
+    row-gap: 0;
+    column-gap: var(--space-3);
     padding: var(--space-2) var(--space-3) var(--space-6) var(--space-3);
     font-size: var(--text-xs);
     color: var(--color-text-muted);
+    margin-top: var(--space-4);
+  }
+
+  .footer-brand {
+    flex: 0 0 100%;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--space-2);
   }
 
   .footer-copy {
@@ -848,20 +858,13 @@
     color: var(--color-primary);
   }
 
-  .footer-meta {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-2);
-    flex-wrap: wrap;
-    justify-content: center;
-  }
-
   .footer-sep {
     color: var(--color-border-strong);
     user-select: none;
   }
 
   .footer-caps {
+    flex: 0 0 100%;
     display: flex;
     flex-wrap: wrap;
     align-items: center;
@@ -890,7 +893,7 @@
   }
 
   .cap-warn {
-    color: var(--color-text-muted);
+    color: var(--color-warning);
   }
 
   .footer-clear-cache {
@@ -909,20 +912,12 @@
   @media (max-width: 640px) {
     .site-footer {
       flex-direction: column;
+      align-items: center;
       gap: var(--space-1);
       padding: var(--space-2) var(--space-2) var(--space-4);
     }
 
-    /* Hide the separators that flank entire rows; keep the meta-row separators
-       (Privacy · Terms · 2025) since the row stays horizontal. */
-    .site-footer > .footer-sep {
-      display: none;
-    }
-
-    /* Top-down on mobile: meta links → caps → copyright. */
-    .footer-meta { order: 1; }
-    .footer-caps { order: 2; gap: var(--space-1) var(--space-2); }
-    .footer-copy { order: 3; opacity: 0.85; }
+    .footer-caps { gap: var(--space-1) var(--space-2); }
   }
 
   .interrupted-banner {

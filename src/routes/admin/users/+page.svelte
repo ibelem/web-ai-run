@@ -19,7 +19,7 @@
 </script>
 
 <div class="admin-page">
-  <header class="page-header">
+  <header class="page-header page-header-row">
     <div class="page-header-text">
       <h1>User Management</h1>
       <p>{data.users.length} registered users</p>
@@ -138,26 +138,6 @@
 <style>
   .admin-page {
     max-width: 100%;
-  }
-
-  .page-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-2);
-    margin-bottom: var(--space-3);
-  }
-
-  .page-header h1 {
-    font-size: var(--text-xl);
-    font-weight: 600;
-    margin: 0;
-  }
-
-  .page-header p {
-    font-size: var(--text-sm);
-    color: var(--color-text-muted);
-    margin: 2px 0 0;
   }
 
   .btn-export {

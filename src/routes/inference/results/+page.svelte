@@ -556,7 +556,7 @@
       </aside>
 
       <div class="rs-main">
-        <header class="page-header">
+        <header class="page-header page-header-row">
           <div class="page-header-text">
             <h1>My Results</h1>
             <p>Your benchmark history. {filtered.length} result{filtered.length !== 1 ? 's' : ''}.</p>
@@ -831,21 +831,6 @@
     font-size: var(--text-xs);
   }
 
-  .page-header {
-    display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
-    gap: var(--space-2);
-    margin-bottom: var(--space-1);
-    flex-wrap: wrap;
-  }
-  .page-header-text { min-width: 0; }
-  .page-header-actions {
-    display: flex;
-    align-items: center;
-    gap: var(--space-1);
-  }
-
   /* ── Export buttons ───────────────────────────────────── */
   .export-group {
     display: inline-flex;
@@ -927,18 +912,6 @@
   .col-picker-item:hover {
     background: var(--color-nav-item-hover);
     color: var(--color-text-primary);
-  }
-
-  .page-header h1 {
-    font-size: var(--text-lg);
-    font-weight: 700;
-    color: var(--color-text-primary);
-    margin-bottom: var(--space-half);
-  }
-
-  .page-header p {
-    font-size: var(--text-sm);
-    color: var(--color-text-muted);
   }
 
   .cell-opt-long {

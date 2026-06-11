@@ -488,7 +488,7 @@
       </aside>
 
       <div class="rs-main">
-        <header class="page-header">
+        <header class="page-header page-header-row">
           <div class="page-header-text">
             <h1>All LLM Results <span class="admin-badge">admin</span></h1>
             <p>{filtered.length} result{filtered.length !== 1 ? 's' : ''} across {users.length} user{users.length !== 1 ? 's' : ''}</p>
@@ -716,27 +716,8 @@
     font-size: var(--text-xs);
   }
 
-  .page-header {
-    display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
-    gap: var(--space-2);
-    margin-bottom: var(--space-1);
-    flex-wrap: wrap;
-  }
-  .page-header-text { min-width: 0; }
-  .page-header-actions {
-    display: flex;
-    align-items: center;
-    gap: var(--space-1);
-    flex-wrap: wrap;
-  }
-
+  /* h1 needs flex so the admin-badge sits inline next to the title text */
   .page-header h1 {
-    font-size: var(--text-lg);
-    font-weight: 700;
-    color: var(--color-text-primary);
-    margin-bottom: var(--space-half);
     display: flex;
     align-items: center;
     gap: var(--space-1);
@@ -754,8 +735,6 @@
     text-transform: uppercase;
     letter-spacing: 0.05em;
   }
-
-  .page-header p { font-size: var(--text-sm); color: var(--color-text-muted); }
 
   .empty { padding: var(--space-4); text-align: center; color: var(--color-text-muted); }
 

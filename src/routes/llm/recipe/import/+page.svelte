@@ -287,8 +287,6 @@ Optional description of what this recipe benchmarks.
     margin: 0;
   }
 
-  .page-header-text p { font-size: var(--text-sm); color: var(--color-text-muted); margin: 2px 0 0; }
-
   .btn-cancel {
     font-family: var(--font-ui);
     font-size: var(--text-base);

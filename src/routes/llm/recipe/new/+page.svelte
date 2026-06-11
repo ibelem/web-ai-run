@@ -378,13 +378,6 @@
     .sidebar-list { display: none; }
   }
 
-  .page-header h1 {
-    font-size: var(--text-xl);
-    font-weight: 600;
-    color: var(--color-text-primary);
-    margin: 0;
-  }
-
   .fork-notice {
     font-size: var(--text-sm);
     color: var(--color-text-muted);

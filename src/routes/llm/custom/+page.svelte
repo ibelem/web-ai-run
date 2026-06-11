@@ -823,20 +823,6 @@
     max-width: 100%;
   }
 
-  .page-header {
-    margin-bottom: var(--space-3);
-  }
-  .page-header h1 {
-    font-size: var(--text-lg);
-    font-weight: 700;
-    color: var(--color-text-primary);
-    margin-bottom: var(--space-half);
-  }
-  .page-header p {
-    font-size: var(--text-sm);
-    color: var(--color-text-muted);
-  }
-
   /* Dropzone */
   .dropzone {
     width: 100%;

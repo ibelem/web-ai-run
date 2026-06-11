@@ -340,13 +340,6 @@
     gap: var(--space-2);
   }
 
-  .page-header h1 {
-    font-size: var(--text-xl);
-    font-weight: 600;
-    color: var(--color-text-primary);
-    margin: 0;
-  }
-
   .btn-back {
     font-family: var(--font-ui);
     font-size: var(--text-sm);

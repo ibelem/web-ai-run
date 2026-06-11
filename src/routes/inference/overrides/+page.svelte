@@ -303,12 +303,6 @@
     margin: 0;
   }
 
-  .page-header-text p {
-    font-size: var(--text-sm);
-    color: var(--color-text-muted);
-    margin: 2px 0 0;
-  }
-
   .page-header-text code {
     font-size: var(--text-xs);
     background: var(--color-surface-sunken);

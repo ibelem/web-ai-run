@@ -220,12 +220,6 @@
     margin-bottom: var(--space-4);
   }
 
-  .page-header p {
-    margin-top: var(--space-1);
-    color: var(--color-text-secondary);
-    font-size: var(--text-sm);
-  }
-
   .page-header code {
     font-size: var(--text-xs);
     background: var(--color-surface-sunken);
