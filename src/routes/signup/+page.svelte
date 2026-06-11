@@ -3,6 +3,7 @@
   import { browser } from '$app/environment';
   import { createClient } from '$lib/supabase/client';
   import { safeNext, stashNext } from '$lib/utils/login-redirect';
+  import { meetsAllRules } from '$lib/utils/password-rules';
   import TurnstileWidget from '$lib/components/auth/TurnstileWidget.svelte';
   import OAuthButtons from '$lib/components/auth/OAuthButtons.svelte';
   import PasswordField from '$lib/components/auth/PasswordField.svelte';
@@ -14,17 +15,16 @@
   let password = $state('');
   let error = $state('');
   let loading = $state(false);
-  let magicLinkLoading = $state(false);
 
   let nextDest = $state('/');
   let callbackBase = $state('');
 
-  // Two states only: the form itself, or "waiting for OTP after magic link."
-  // Signup and forgot-password live on dedicated routes now.
-  let view = $state<'form' | 'magic-sent'>('form');
+  let view = $state<'form' | 'verify'>('form');
 
   let turnstileToken = $state('');
   let turnstileWidget: { reset: () => void } | undefined = $state();
+
+  const passwordOk = $derived(meetsAllRules(password));
 
   onMount(() => {
     if (!browser) return;
@@ -50,99 +50,67 @@
     return turnstileToken;
   }
 
-  async function handleSignIn(e: Event) {
+  async function handleSignUp(e: Event) {
     e.preventDefault();
     if (!email || !password) return;
+    if (!passwordOk) {
+      error = 'Password must meet all requirements.';
+      return;
+    }
     const captchaToken = requireToken();
     if (!captchaToken) return;
 
     error = '';
     loading = true;
 
-    const { error: authError } = await supabase.auth.signInWithPassword({
+    const { error: signUpError } = await supabase.auth.signUp({
       email: email.trim().toLowerCase(),
       password,
-      options: { captchaToken }
+      options: { emailRedirectTo: callbackUrl(), captchaToken }
     });
 
     turnstileWidget?.reset();
     loading = false;
 
-    if (!authError) {
-      navigateNext();
+    if (!signUpError) {
+      view = 'verify';
       return;
     }
 
-    const msg = authError.message?.toLowerCase() ?? '';
-    if (msg.includes('invalid login credentials')) {
-      // Same response Supabase returns for "wrong password" and "no such user."
-      // Don't try to disambiguate — just say so honestly.
-      error = "Incorrect email or password. If you don't have an account yet, sign up first.";
-    } else if (msg.includes('email not confirmed')) {
-      error = 'Please confirm your email first. Check your inbox for the link, or use a magic link below.';
+    const msg = signUpError.message?.toLowerCase() ?? '';
+    if (msg.includes('already registered') || msg.includes('already exists')) {
+      error = 'This email is already registered. Try signing in instead.';
     } else if (msg.includes('captcha')) {
       error = 'Verification expired. Please try again.';
-    } else if (authError.status === 429 || msg.includes('rate limit') || msg.includes('too many')) {
+    } else if (signUpError.status === 429 || msg.includes('rate limit')) {
       error = 'Too many attempts. Wait a minute and try again.';
     } else {
-      error = authError.message || 'Could not sign in. Please try again.';
+      error = signUpError.message || 'Could not create account. Please try again.';
     }
-  }
-
-  async function sendMagicLink() {
-    if (!email) {
-      error = 'Enter your email first.';
-      return;
-    }
-    const captchaToken = requireToken();
-    if (!captchaToken) return;
-
-    error = '';
-    magicLinkLoading = true;
-
-    const { error: otpError } = await supabase.auth.signInWithOtp({
-      email: email.trim().toLowerCase(),
-      options: { emailRedirectTo: callbackUrl(), captchaToken }
-    });
-
-    turnstileWidget?.reset();
-    magicLinkLoading = false;
-
-    if (otpError && otpError.status !== 429 && !otpError.message?.toLowerCase().includes('rate limit')) {
-      const msg = otpError.message?.toLowerCase() ?? '';
-      if (msg.includes('captcha')) {
-        error = 'Verification expired. Please try again.';
-      } else {
-        error = 'Could not send login link. Please try again.';
-      }
-      return;
-    }
-    // For 429 we still flip to the OTP view — Supabase's rate limit just means
-    // "you already requested one"; the link they just got still works.
-    view = 'magic-sent';
   }
 </script>
 
 <div class="login-page">
   <div class="login-card">
-    {#if view === 'magic-sent'}
-      <h1 class="login-title">Check your email</h1>
+    {#if view === 'verify'}
+      <h1 class="login-title">Confirm your email</h1>
       <OtpVerifyCard
         email={email.trim().toLowerCase()}
         onverified={navigateNext}
         onback={() => { view = 'form'; error = ''; }}
+        hint="Click the link in the email to confirm, or enter the code below."
       />
     {:else}
-      <h1 class="login-title">Sign in</h1>
+      <h1 class="login-title">Create your account</h1>
 
       <OAuthButtons {nextDest} {callbackBase} />
 
       <div class="divider"><span>or continue with email</span></div>
 
-      <form onsubmit={handleSignIn}>
-        <label class="field-label" for="email-input">Email</label>
+      <form onsubmit={handleSignUp}>
+        <label class="field-label" for="signup-email">Email</label>
         <input
-          id="email-input"
+          id="signup-email"
           type="email"
           class="field-input"
           placeholder="you@example.com"
@@ -153,29 +121,26 @@
 
         <PasswordField
           bind:value={password}
-          forgotHref="/forgot-password"
+          id="signup-password"
+          placeholder="Choose a password"
+          showRules
+          autocomplete="new-password"
         />
 
         {#if error}
           <p class="error-text">{error}</p>
         {/if}
 
-        <button type="submit" class="btn-primary" disabled={loading || !email || !password || !turnstileToken}>
-          {loading ? 'Signing in...' : 'Sign in'}
+        <button type="submit" class="btn-primary" disabled={loading || !email || !passwordOk || !turnstileToken}>
+          {loading ? 'Creating account...' : 'Create account'}
         </button>
       </form>
 
       <TurnstileWidget bind:token={turnstileToken} bind:this={turnstileWidget} />
 
-      <div class="alt-actions">
-        <button class="btn-magic" onclick={sendMagicLink} disabled={magicLinkLoading || !email || !turnstileToken}>
-          {magicLinkLoading ? 'Sending...' : 'Email me a magic link instead'}
-        </button>
-      </div>
-
       <p class="signup-prompt">
-        Don't have an account?
-        <a href={nextDest === '/' ? '/signup' : `/signup?next=${encodeURIComponent(nextDest)}`}>Sign up</a>
+        Already have an account?
+        <a href={nextDest === '/' ? '/login' : `/login?next=${encodeURIComponent(nextDest)}`}>Sign in</a>
       </p>
     {/if}
   </div>
@@ -242,33 +207,6 @@
   .btn-primary {
     width: 100%;
   }
-
-  .alt-actions {
-    margin-top: var(--space-2);
-    padding-top: var(--space-2);
-    border-top: 1px solid var(--color-border);
-  }
-
-  .btn-magic {
-    width: 100%;
-    font-family: var(--font-ui);
-    font-size: var(--text-base);
-    font-weight: 500;
-    padding: var(--space-1) var(--space-3);
-    min-height: 40px;
-    border: 1px solid var(--color-primary);
-    border-radius: var(--radius-base);
-    background: none;
-    color: var(--color-primary);
-    cursor: pointer;
-    transition: background var(--transition-base);
-  }
-
-  .btn-magic:hover:not(:disabled) {
-    background: var(--color-accent-light);
-  }
-
-  .btn-magic:disabled { opacity: 0.5; cursor: not-allowed; }
 
   .signup-prompt {
     font-size: var(--text-sm);

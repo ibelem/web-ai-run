@@ -211,18 +211,6 @@
 <a href="#main-content" class="skip-link">Skip to main content</a>
 <nav class="top-bar" class:hidden={$isRunningStore}>
   <div class="nav-left">
-    <button
-      class="hamburger"
-      onclick={() => showMobileMenu = !showMobileMenu}
-      aria-label="Toggle menu"
-      aria-expanded={showMobileMenu}
-    >
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-        <line x1="3" y1="6" x2="21" y2="6"/>
-        <line x1="3" y1="12" x2="21" y2="12"/>
-        <line x1="3" y1="18" x2="21" y2="18"/>
-      </svg>
-    </button>
     <a href="/" class="logo" aria-label="Web AI Benchmark home">
       <svg class="logo-icon" height="32" viewBox="0 0 642 160" fill="none" xmlns="http://www.w3.org/2000/svg">
         <path d="M15 80L33 59" stroke="none" stroke-width="6" stroke-linecap="round"/>
@@ -355,6 +343,18 @@
     {:else}
       <a href="/login" class="nav-item">Sign in</a>
     {/if}
+    <button
+      class="hamburger"
+      onclick={() => showMobileMenu = !showMobileMenu}
+      aria-label="Toggle menu"
+      aria-expanded={showMobileMenu}
+    >
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <line x1="3" y1="6" x2="21" y2="6"/>
+        <line x1="3" y1="12" x2="21" y2="12"/>
+        <line x1="3" y1="18" x2="21" y2="18"/>
+      </svg>
+    </button>
   </div>
 </nav>
 
@@ -685,7 +685,8 @@
     background: none;
     cursor: pointer;
     color: var(--color-text-secondary);
-    padding: var(--space-half) var(--space-half) var(--space-half) 0;
+    padding: var(--space-half);
+    margin-left: var(--space-half);
     border-radius: var(--radius-sm);
   }
 

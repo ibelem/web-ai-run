@@ -124,13 +124,13 @@
     });
   }
 
-  const TABS = ['results', 'recipes', 'shared', 'profile'] as const;
+  const TABS = ['profile', 'recipes', 'shared'] as const;
   type Tab = typeof TABS[number];
 
   function getTabFromHash(): Tab {
-    if (!browser) return 'results';
+    if (!browser) return 'profile';
     const hash = location.hash.slice(1);
-    return TABS.includes(hash as Tab) ? (hash as Tab) : 'results';
+    return TABS.includes(hash as Tab) ? (hash as Tab) : 'profile';
   }
 
   let activeTab = $state<Tab>(getTabFromHash());
@@ -195,6 +195,11 @@
   <nav class="tabs">
     <button
       class="tab"
+      class:active={activeTab === 'profile'}
+      onclick={() => setTab('profile')}
+    >Profile</button>
+    <button
+      class="tab"
       class:active={activeTab === 'recipes'}
       onclick={() => setTab('recipes')}
     >Recipes <span class="tab-count">{data.recipes.length}</span></button>
@@ -203,11 +208,6 @@
       class:active={activeTab === 'shared'}
       onclick={() => setTab('shared')}
     >Shared Links <span class="tab-count">{sharedConfigs.length}</span></button>
-    <button
-      class="tab"
-      class:active={activeTab === 'profile'}
-      onclick={() => setTab('profile')}
-    >Profile</button>
   </nav>
 
   <section class="tab-content">
