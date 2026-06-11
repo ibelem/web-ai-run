@@ -9,7 +9,7 @@
   import RevealEmail from '$lib/components/RevealEmail.svelte';
 
   // Last reviewed date — keep in sync with substantive edits to this page.
-  const updated = '2026-06-10';
+  const updated = '2026-06-11';
 </script>
 
 <svelte:head>
@@ -118,6 +118,12 @@
       <li>Delete recipes from <a href="/inference/recipe">/inference/recipe</a> or <a href="/llm/recipe">/llm/recipe</a>.</li>
       <li>To delete your account and all associated data, email <RevealEmail user="contact" host="webai.run" />.</li>
     </ul>
+    <p>
+      Site administrators may also delete any user data (accounts, results,
+      recipes, or shared links) at their discretion — for example to remove
+      spam, content that violates the terms of service, or at a user's
+      request.
+    </p>
   </section>
 
   <section>
