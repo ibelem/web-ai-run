@@ -425,7 +425,7 @@
 
 <footer class="site-footer" class:hidden={$isRunningStore}>
   <div class="footer-caps">
-    <span class="footer-cap" class:cap-ok={isWebnnAvailable} class:cap-warn={!isWebnnAvailable}
+    <span class="footer-cap webnn" class:cap-ok={isWebnnAvailable} class:cap-warn={!isWebnnAvailable}
       title="WebNN API availability - navigator.ml must be defined">
       {#if isWebnnAvailable}
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960"><path d="M420-340h120v-100h100v-120H540v-100H420v100H320v120h100v100Zm60 260q-139-35-229.5-159.5T160-516v-244l320-120 320 120v244q0 152-90.5 276.5T480-80Zm0-84q104-33 172-132t68-220v-189l-240-90-240 90v189q0 121 68 220t172 132Zm0-316Z"/></svg>
@@ -435,7 +435,7 @@
         WebNN Unavailable
       {/if}
     </span>
-    <span class="footer-cap" class:cap-ok={isCrossOriginIsolated} class:cap-warn={!isCrossOriginIsolated}
+    <span class="footer-cap cross-origin" class:cap-ok={isCrossOriginIsolated} class:cap-warn={!isCrossOriginIsolated}
       title="Cross Origin Isolated enables SharedArrayBuffer for multi-thread testing (COOP + COEP headers required)">
       {#if isCrossOriginIsolated}
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960"><path d="M420-340h120v-100h100v-120H540v-100H420v100H320v120h100v100Zm60 260q-139-35-229.5-159.5T160-516v-244l320-120 320 120v244q0 152-90.5 276.5T480-80Zm0-84q104-33 172-132t68-220v-189l-240-90-240 90v189q0 121 68 220t172 132Zm0-316Z"/></svg>
@@ -445,7 +445,7 @@
         Cross Origin Not Isolated
       {/if}
     </span>
-    <span class="footer-cap" class:cap-ok={isJspiSupported} class:cap-warn={!isJspiSupported}
+    <span class="footer-cap jspi" class:cap-ok={isJspiSupported} class:cap-warn={!isJspiSupported}
       title="JSPI (WebAssembly Promise Integration) is required for WebNN and WebGPU with LiteRT.js. Enable #enable-experimental-webassembly-features in chrome://flags">
       {#if isJspiSupported}
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960"><path d="M420-340h120v-100h100v-120H540v-100H420v100H320v120h100v100Zm60 260q-139-35-229.5-159.5T160-516v-244l320-120 320 120v244q0 152-90.5 276.5T480-80Zm0-84q104-33 172-132t68-220v-189l-240-90-240 90v189q0 121 68 220t172 132Zm0-316Z"/></svg>
@@ -917,7 +917,35 @@
       padding: var(--space-2) var(--space-2) var(--space-4);
     }
 
-    .footer-caps { gap: var(--space-1) var(--space-2); }
+    /* Force a clean 2x2 grid for the four caps on mobile.
+       Without this, flex-wrap produces 3+1 or 2+2 depending on label widths. */
+    .footer-caps {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-1) var(--space-2);
+      width: 100%;
+      max-width: 320px;
+    }
+    .footer-cap {
+      justify-content: center;
+    }
+
+    .footer-cap:nth-child(1) {
+      justify-self:flex-end;
+    }
+
+    .footer-cap:nth-child(2) {
+      justify-self:flex-start;
+    }
+
+    .footer-cap:nth-child(3) {
+      justify-self:flex-end;
+    }
+
+    .footer-cap:nth-child(4) {
+      justify-self:flex-start;
+    }
+
   }
 
   .interrupted-banner {

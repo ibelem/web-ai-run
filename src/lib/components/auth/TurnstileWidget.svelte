@@ -49,7 +49,14 @@
 <style>
   .turnstile-host {
     width: 100%;
+    max-width: 100%;
     margin-top: var(--space-2);
     min-height: 65px;
+    overflow: hidden;
+  }
+  /* Cloudflare injects an absolutely-sized iframe; clamp it so it cannot
+     push its parent card wider than the layout allows on narrow viewports. */
+  .turnstile-host :global(iframe) {
+    max-width: 100% !important;
   }
 </style>

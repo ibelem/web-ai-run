@@ -192,10 +192,12 @@
   .login-card {
     width: 100%;
     max-width: 380px;
+    min-width: 0;
     background: var(--color-surface-raised);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-lg);
     padding: var(--space-4);
+    box-sizing: border-box;
   }
 
   .login-title {
@@ -255,7 +257,6 @@
     font-size: var(--text-base);
     font-weight: 500;
     padding: var(--space-1) var(--space-3);
-    min-height: 40px;
     border: 1px solid var(--color-primary);
     border-radius: var(--radius-base);
     background: none;
