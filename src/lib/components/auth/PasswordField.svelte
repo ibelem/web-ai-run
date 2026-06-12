@@ -30,7 +30,7 @@
   <div class="field-label-row">
     <label class="field-label" for={id}>{label}</label>
     {#if forgotHref}
-      <a class="forgot-link" href={forgotHref}>Forgot?</a>
+      <a class="forgot-link" href={forgotHref}>Forgot</a>
     {/if}
   </div>
   <div class="input-wrapper">

@@ -382,6 +382,61 @@
     <p class="error-text">{data.error}</p>
   {/if}
 
+  <header class="page-header page-header-row">
+    <div class="page-header-text">
+      <h1>My Results</h1>
+      <p>Your LLM benchmark history. {(data.results ?? []).length} result{(data.results ?? []).length !== 1 ? 's' : ''}.</p>
+    </div>
+    <div class="page-header-actions">
+      {#if selected.size > 0}
+        <button class="delete-btn" onclick={deleteSelected} disabled={deleting}>
+          {deleting ? 'Deleting…' : `Delete ${selected.size}`}
+        </button>
+        {#if deleteError}
+          <span class="delete-error" role="alert">{deleteError}</span>
+        {/if}
+      {/if}
+      {#if filtered.length > 0}
+        <div class="export-group">
+          <span class="export-group-icon" title="Copy to clipboard">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          </span>
+          <button class="export-group-btn" onclick={() => copyAs('markdown')} title="Copy as Markdown" class:active={copyFeedback === 'markdown'}>MD</button>
+          <button class="export-group-btn" onclick={() => copyAs('json')} title="Copy as JSON" class:active={copyFeedback === 'json'}>JSON</button>
+          <button class="export-group-btn" onclick={() => copyAs('csv')} title="Copy as CSV" class:active={copyFeedback === 'csv'}>CSV</button>
+        </div>
+        <div class="export-group">
+          <span class="export-group-icon" title="Download">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          </span>
+          <button class="export-group-btn" onclick={saveMarkdown} title="Download Markdown">MD</button>
+          <button class="export-group-btn" onclick={saveJSON} title="Download JSON">JSON</button>
+          <button class="export-group-btn" onclick={saveCSV} title="Download CSV">CSV</button>
+        </div>
+      {/if}
+      <div class="col-picker-wrap" bind:this={colPickerEl}>
+        <button class="col-picker-btn" onclick={() => colPickerOpen = !colPickerOpen}>
+          Columns {visibleCols.size > 0 ? `(+${visibleCols.size})` : ''}
+        </button>
+        {#if colPickerOpen}
+          <div class="col-picker-dropdown">
+            {#each OPTIONAL_COLS as col}
+              <label class="col-picker-item">
+                <input
+                  type="checkbox"
+                  class="row-check"
+                  checked={isVisible(col.key)}
+                  onchange={() => toggleCol(col.key)}
+                />
+                {col.label}
+              </label>
+            {/each}
+          </div>
+        {/if}
+      </div>
+    </div>
+  </header>
+
   <section class="rs-layout">
     <aside class="rs-sidebar" use:autoTitle>
       <div class="sb-section">
@@ -493,61 +548,6 @@
     </aside>
 
     <div class="rs-main">
-      <header class="page-header page-header-row">
-        <div class="page-header-text">
-          <h1>My Results</h1>
-          <p>Your LLM benchmark history. {(data.results ?? []).length} result{(data.results ?? []).length !== 1 ? 's' : ''}.</p>
-        </div>
-        <div class="page-header-actions">
-          {#if selected.size > 0}
-            <button class="delete-btn" onclick={deleteSelected} disabled={deleting}>
-              {deleting ? 'Deleting…' : `Delete ${selected.size}`}
-            </button>
-            {#if deleteError}
-              <span class="delete-error" role="alert">{deleteError}</span>
-            {/if}
-          {/if}
-          {#if filtered.length > 0}
-            <div class="export-group">
-              <span class="export-group-icon" title="Copy to clipboard">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-              </span>
-              <button class="export-group-btn" onclick={() => copyAs('markdown')} title="Copy as Markdown" class:active={copyFeedback === 'markdown'}>MD</button>
-              <button class="export-group-btn" onclick={() => copyAs('json')} title="Copy as JSON" class:active={copyFeedback === 'json'}>JSON</button>
-              <button class="export-group-btn" onclick={() => copyAs('csv')} title="Copy as CSV" class:active={copyFeedback === 'csv'}>CSV</button>
-            </div>
-            <div class="export-group">
-              <span class="export-group-icon" title="Download">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-              </span>
-              <button class="export-group-btn" onclick={saveMarkdown} title="Download Markdown">MD</button>
-              <button class="export-group-btn" onclick={saveJSON} title="Download JSON">JSON</button>
-              <button class="export-group-btn" onclick={saveCSV} title="Download CSV">CSV</button>
-            </div>
-          {/if}
-          <div class="col-picker-wrap" bind:this={colPickerEl}>
-            <button class="col-picker-btn" onclick={() => colPickerOpen = !colPickerOpen}>
-              Columns {visibleCols.size > 0 ? `(+${visibleCols.size})` : ''}
-            </button>
-            {#if colPickerOpen}
-              <div class="col-picker-dropdown">
-                {#each OPTIONAL_COLS as col}
-                  <label class="col-picker-item">
-                    <input
-                      type="checkbox"
-                      class="row-check"
-                      checked={isVisible(col.key)}
-                      onchange={() => toggleCol(col.key)}
-                    />
-                    {col.label}
-                  </label>
-                {/each}
-              </div>
-            {/if}
-          </div>
-        </div>
-      </header>
-
   {#if filtered.length > 0}
     <div class="table-wrap">
       <table class="results-table">

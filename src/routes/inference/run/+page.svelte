@@ -1020,7 +1020,7 @@
 
 <div class="run-page" class:run-page-running={isRunning}>
   <header class="page-header page-header-row" class:hidden={isRunning}>
-    <div>
+    <div class="page-header-text">
       <h1>Benchmark</h1>
       <p>
         {#if totalModels > 0}
@@ -1031,6 +1031,7 @@
       </p>
     </div>
     {#if $isAuthenticated && totalModels > 0 && !isRunning}
+      <div class="page-header-actions">
       <div class="share-row">
         <button
           class="btn-share"
@@ -1053,6 +1054,7 @@
             title="Delete shared link">Delete</button
           >
         {/if}
+      </div>
       </div>
     {/if}
   </header>
@@ -1712,12 +1714,7 @@
     display: none !important;
   }
 
-  .page-header-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-2);
-  }
+
 
   .share-row {
     display: flex;
@@ -1926,6 +1923,7 @@
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
+    margin-bottom: var(--space-1);
   }
   .detected-chip {
     display: inline-flex;
@@ -2199,11 +2197,6 @@
   }
 
   @media (max-width: 640px) {
-    .page-header-row {
-      flex-direction: column;
-      align-items: flex-start;
-    }
-
     .share-row {
       width: 100%;
     }

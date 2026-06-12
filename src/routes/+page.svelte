@@ -3,6 +3,7 @@
   import { createClient } from '$lib/supabase/client';
   import { inferFormat, stripExt } from '$lib/huggingface/parser';
   import { getBackendLabel } from '$lib/engine/backends';
+  import { isAuthenticated } from '$lib/stores/auth';
   import FormatIcon from '$lib/components/FormatIcon.svelte';
 
   interface RecentModel {
@@ -17,8 +18,7 @@
     last_synced: string;
   }
 
-  // Latest LLM runs, deduplicated by model — one row per distinct hf_model_id.
-  interface LatestRun {
+  interface LatestLlmRun {
     backend: string;
     tps: number;
     hf_model_id: string;
@@ -27,9 +27,18 @@
     started_at: string;
   }
 
+  interface LatestInferenceRun {
+    model_id: string;
+    file_path: string;
+    backend: string;
+    average_ms: number;
+    started_at: string;
+  }
+
   let recentModels = $state<RecentModel[]>([]);
   let loadingModels = $state(true);
-  let latestRuns = $state<LatestRun[]>([]);
+  let latestLlmRuns = $state<LatestLlmRun[]>([]);
+  let latestInferenceRuns = $state<LatestInferenceRun[]>([]);
   let loadingLatest = $state(true);
 
   onMount(async () => {
@@ -45,26 +54,47 @@
     }
     loadingModels = false;
 
-    // Latest LLM runs, deduplicated by model — pulled client-side. We grab
-    // more rows than we need so we can keep only the newest run per
-    // hf_model_id, then surface the 5 most-recently-tested distinct models.
+    // Latest inference runs, deduplicated by model_id — top 3 distinct models.
+    try {
+      const { data: infRows } = await (supabase.from('results') as any)
+        .select('model_id, file_path, backend, average_ms, started_at')
+        .eq('status', 'completed')
+        .not('average_ms', 'is', null)
+        .order('started_at', { ascending: false })
+        .limit(50);
+      if (infRows) {
+        const seen = new Set<string>();
+        const deduped: LatestInferenceRun[] = [];
+        for (const r of infRows as LatestInferenceRun[]) {
+          if (!r.model_id || seen.has(r.model_id)) continue;
+          seen.add(r.model_id);
+          deduped.push(r);
+          if (deduped.length === 3) break;
+        }
+        latestInferenceRuns = deduped;
+      }
+    } catch (e) {
+      console.error('Failed to fetch inference hero data:', e);
+    }
+
+    // Latest LLM runs, deduplicated by model — top 2 distinct models.
     try {
       const { data: rows } = await (supabase.from('results_llm') as any)
         .select('backend, tps, hf_model_id, data_type, runtime, started_at')
         .eq('status', 'completed')
         .not('tps', 'is', null)
         .order('started_at', { ascending: false })
-        .limit(100);
+        .limit(50);
       if (rows) {
         const seen = new Set<string>();
-        const deduped: LatestRun[] = [];
-        for (const r of rows as LatestRun[]) {
+        const deduped: LatestLlmRun[] = [];
+        for (const r of rows as LatestLlmRun[]) {
           if (!r.hf_model_id || seen.has(r.hf_model_id)) continue;
           seen.add(r.hf_model_id);
           deduped.push(r);
-          if (deduped.length === 5) break;
+          if (deduped.length === 2) break;
         }
-        latestRuns = deduped;
+        latestLlmRuns = deduped;
       }
     } catch (e) {
       console.error('Failed to fetch LLM hero data:', e);
@@ -82,15 +112,23 @@
     return `${days}d ago`;
   }
 
-  // Bar widths scale to the fastest TPS in the visible set so the leader
-  // hits ~95% and the tail stays proportional. With 1 row, leader fills.
+  // Higher = longer bar. For LLM tps: directly proportional.
   function barWidth(tps: number, max: number): number {
     if (max <= 0) return 0;
-    const pct = (tps / max) * 95;
-    return Math.max(8, Math.min(95, pct));
+    return Math.max(8, Math.min(95, (tps / max) * 95));
   }
 
-  // Map a runtime backend ID to its design-token color variable.
+  // Lower ms = faster = longer bar (inverted scale).
+  function inferenceBarWidth(ms: number, minMs: number): number {
+    if (ms <= 0 || minMs <= 0) return 0;
+    return Math.max(8, Math.min(95, (minMs / ms) * 95));
+  }
+
+  function formatMs(ms: number): string {
+    if (ms < 1000) return `${ms.toFixed(0)}ms`;
+    return `${(ms / 1000).toFixed(1)}s`;
+  }
+
   function backendColorVar(backend: string): string {
     switch (backend) {
       case 'webnn_gpu': return 'var(--color-backend-webnn-gpu)';
@@ -122,8 +160,8 @@
         </div>
 
         <h1 class="hero-title">
-          <span class="hero-gradient">Benchmark on-device AI</span><br/>
-          <span>on the open web</span>
+          <span class="hero-gradient">On-Device AI Benchmarks</span><br/>
+          <span>for the Open Web</span>
         </h1>
 
         <p class="hero-subtitle">
@@ -157,10 +195,7 @@
         <div class="hero-card-mock">
           {#if loadingLatest}
             <div class="mock-header">
-              <div>
-                <div class="mock-label">LLM Benchmark</div>
-                <div class="mock-title">Loading live results...</div>
-              </div>
+              <div class="mock-label">Latest Results</div>
             </div>
             <div class="mock-results">
               <div class="mock-row mock-row-empty"></div>
@@ -168,41 +203,84 @@
               <div class="mock-row mock-row-empty"></div>
               <div class="mock-row mock-row-empty"></div>
               <div class="mock-row mock-row-empty"></div>
-            </div>
-          {:else if latestRuns.length === 0}
-            <div class="mock-empty">
-              <div class="mock-empty-label">LLM Benchmark</div>
-              <div class="mock-empty-title">No runs yet</div>
-              <p class="mock-empty-body">Be the first to publish an LLM benchmark on this site. It takes about a minute.</p>
-              <a href="/llm" class="mock-empty-cta">Run a benchmark&nbsp;<span aria-hidden="true">&rarr;</span></a>
             </div>
           {:else}
-            {@const max = Math.max(...latestRuns.map((r) => r.tps))}
+            <!-- Inference section -->
             <div class="mock-header">
-              <div>
-                <div class="mock-label">LLM Benchmark · Latest runs</div>
-                <div class="mock-title">{latestRuns.length} models tested recently</div>
-                <div class="mock-meta">tokens / second · higher is better</div>
-              </div>
-              <a href="/llm" class="mock-badge" title="Run an LLM benchmark">Live</a>
+              <div class="mock-label">Inference</div>
+              <a href="/inference" class="mock-badge">Live</a>
             </div>
             <div class="mock-results">
-              {#each latestRuns as r (r.hf_model_id)}
-                <div class="mock-row">
-                  <span class="mock-model" title="{r.hf_model_id}">{r.hf_model_id.split('/').pop()}</span>
-                  <span class="mock-backend-chip" style:color={backendColorVar(r.backend)} style:border-color={backendColorVar(r.backend)}>
-                    {getBackendLabel(r.backend)}
-                  </span>
-                  <div class="mock-bar-wrap">
-                    <div
-                      class="mock-bar"
-                      style:width="{barWidth(r.tps, max)}%"
-                      style:background={backendColorVar(r.backend)}
-                    ></div>
+              {#if $isAuthenticated && latestInferenceRuns.length > 0}
+                {@const minMs = Math.min(...latestInferenceRuns.map(r => r.average_ms))}
+                {#each latestInferenceRuns as r (r.model_id + r.backend)}
+                  <div class="mock-row">
+                    <span class="mock-model" title="{r.model_id}">{r.model_id.split('/').pop()}</span>
+                    <span class="mock-backend-chip" style:color={backendColorVar(r.backend)} style:border-color={backendColorVar(r.backend)}>
+                      {getBackendLabel(r.backend)}
+                    </span>
+                    <div class="mock-bar-wrap">
+                      <div class="mock-bar" style:width="{inferenceBarWidth(r.average_ms, minMs)}%" style:background={backendColorVar(r.backend)}></div>
+                    </div>
+                    <span class="mock-ms">{formatMs(r.average_ms)}</span>
                   </div>
-                  <span class="mock-ms">{r.tps.toFixed(1)}</span>
+                {/each}
+              {:else}
+                <div class="mock-row mock-row-placeholder">
+                  <span class="mock-model mock-ph-text">org/repo</span>
+                  <span class="mock-backend-chip mock-ph-chip">backend</span>
+                  <div class="mock-bar-wrap"><div class="mock-bar mock-ph-bar" style:width="60%"></div></div>
+                  <span class="mock-ms mock-ph-text">avg ms</span>
                 </div>
-              {/each}
+                <div class="mock-row mock-row-placeholder">
+                  <span class="mock-model mock-ph-text">org/repo</span>
+                  <span class="mock-backend-chip mock-ph-chip">backend</span>
+                  <div class="mock-bar-wrap"><div class="mock-bar mock-ph-bar" style:width="40%"></div></div>
+                  <span class="mock-ms mock-ph-text">avg ms</span>
+                </div>
+                <div class="mock-row mock-row-placeholder">
+                  <span class="mock-model mock-ph-text">org/repo</span>
+                  <span class="mock-backend-chip mock-ph-chip">backend</span>
+                  <div class="mock-bar-wrap"><div class="mock-bar mock-ph-bar" style:width="75%"></div></div>
+                  <span class="mock-ms mock-ph-text">avg ms</span>
+                </div>
+              {/if}
+            </div>
+
+            <!-- LLM section -->
+            <div class="mock-header mock-header-section">
+              <div class="mock-label">LLM</div>
+              <a href="/llm" class="mock-badge">Live</a>
+            </div>
+            <div class="mock-results">
+              {#if $isAuthenticated && latestLlmRuns.length > 0}
+                {@const max = Math.max(...latestLlmRuns.map(r => r.tps))}
+                {#each latestLlmRuns as r (r.hf_model_id)}
+                  <div class="mock-row">
+                    <span class="mock-model" title="{r.hf_model_id}">{r.hf_model_id.split('/').pop()}</span>
+                    <span class="mock-backend-chip" style:color={backendColorVar(r.backend)} style:border-color={backendColorVar(r.backend)}>
+                      {getBackendLabel(r.backend)}
+                    </span>
+                    <div class="mock-bar-wrap">
+                      <div class="mock-bar" style:width="{barWidth(r.tps, max)}%" style:background={backendColorVar(r.backend)}></div>
+                    </div>
+                    <span class="mock-ms">{r.tps.toFixed(1)}</span>
+                  </div>
+                {/each}
+              {:else}
+                <div class="mock-row mock-row-placeholder">
+                  <span class="mock-model mock-ph-text">org/repo</span>
+                  <span class="mock-backend-chip mock-ph-chip">backend</span>
+                  <div class="mock-bar-wrap"><div class="mock-bar mock-ph-bar" style:width="55%"></div></div>
+                  <span class="mock-ms mock-ph-text">tok/s</span>
+                </div>
+                <div class="mock-row mock-row-placeholder">
+                  <span class="mock-model mock-ph-text">org/repo</span>
+                  <span class="mock-backend-chip mock-ph-chip">backend</span>
+                  <div class="mock-bar-wrap"><div class="mock-bar mock-ph-bar" style:width="35%"></div></div>
+                  <span class="mock-ms mock-ph-text">tok/s</span>
+                </div>
+              {/if}
             </div>
           {/if}
         </div>
@@ -452,7 +530,7 @@
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    margin-bottom: 16px;
+    margin-bottom: 6px;
   }
 
   .mock-label {
@@ -504,7 +582,7 @@
 
   .mock-row {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto 60px auto;
+    grid-template-columns: minmax(0, 1fr) 64px 60px 52px;
     align-items: center;
     gap: 8px;
     min-width: 0;
@@ -529,6 +607,9 @@
     border: 1px solid;
     line-height: 1.4;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-align: center;
   }
 
   .mock-bar-wrap {
@@ -553,57 +634,34 @@
   }
 
   .mock-ms {
-    font-size: 13px;
+    font-size: 12px;
     font-family: var(--font-mono);
-    font-weight: 600;
-    color: var(--color-text-primary);
-    min-width: 44px;
     text-align: right;
+    white-space: nowrap;
   }
 
-  .mock-empty {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 6px;
-    padding: 8px 0;
+  .mock-header-section {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid var(--color-border);
   }
 
-  .mock-empty-label {
-    font-size: 11px;
-    font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+  .mock-row-placeholder {
+    opacity: 0.45;
+  }
+
+  .mock-ph-text {
     color: var(--color-text-muted);
   }
 
-  .mock-empty-title {
-    font-size: 16px;
-    font-weight: 600;
-    color: var(--color-text-primary);
+  .mock-ph-chip {
+    color: var(--color-text-muted) !important;
+    border-color: var(--color-border) !important;
   }
 
-  .mock-empty-body {
-    font-size: 13px;
-    color: var(--color-text-secondary);
-    margin-bottom: 6px;
+  .mock-ph-bar {
+    background: var(--color-border) !important;
   }
-
-  .mock-empty-cta {
-    display: inline-flex;
-    align-items: center;
-    padding: 6px 12px;
-    border-radius: var(--radius-base);
-    font-family: var(--font-ui);
-    font-size: 13px;
-    font-weight: 500;
-    text-decoration: none;
-    color: var(--color-text-on-primary);
-    background: var(--color-primary);
-    transition: background var(--transition-base);
-  }
-
-  .mock-empty-cta:hover { background: var(--color-primary-hover); }
 
   @keyframes hero-ping {
     75%, 100% { transform: scale(2.4); opacity: 0; }

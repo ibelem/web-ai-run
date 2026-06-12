@@ -687,7 +687,7 @@
 
 <div class="run-page" class:run-page-running={isRunning}>
   <header class="page-header page-header-row" class:hidden={isRunning}>
-    <div>
+    <div class="page-header-text">
       <h1>LLM Benchmark</h1>
       <p>
         {#if models.length > 0}
@@ -1239,25 +1239,7 @@
     width: 100%;
   }
 
-  .page-header-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-2);
-  }
 
-  .page-header-row h1 {
-    font-size: var(--text-xl);
-    font-weight: 600;
-    color: var(--color-text-primary);
-    margin: 0 0 2px;
-  }
-
-  .page-header-row p {
-    font-size: var(--text-sm);
-    color: var(--color-text-muted);
-    margin: 0;
-  }
 
   /* Status section — matches run/+page.svelte exactly */
   .status-section {
@@ -1752,6 +1734,7 @@
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
+    margin-bottom: var(--space-1);
   }
   .detected-chip {
     display: inline-flex;
