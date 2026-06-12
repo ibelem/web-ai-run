@@ -526,6 +526,14 @@
     animation: hero-float 6s ease-in-out infinite;
   }
 
+  @media (max-width: 640px) {
+    .hero-card-mock {
+      background: transparent;
+      border: 0px solid var(--color-border);
+      padding: 0;
+    }
+  }
+
   .mock-header {
     display: flex;
     justify-content: space-between;

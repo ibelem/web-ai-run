@@ -803,7 +803,7 @@
 
 
     main {
-      padding: var(--space-2);
+      padding: var(--space-4) var(--space-2) var(--space-2) var(--space-2);
     }
   }
 
@@ -821,7 +821,6 @@
     padding: var(--space-2) var(--space-3) var(--space-6) var(--space-3);
     font-size: var(--text-xs);
     color: var(--color-text-muted);
-    margin-top: var(--space-4);
   }
 
   .footer-brand {
@@ -830,7 +829,7 @@
     align-items: center;
     flex-wrap: wrap;
     justify-content: center;
-    gap: var(--space-2);
+    gap: var(--space-1);
   }
 
   .footer-copy {
