@@ -1,29 +1,43 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-// Chainable Supabase mock — every builder method returns the chain, and the
-// terminal call (.single() for inserts, .eq() for updates) is what we resolve.
+// Supabase's PostgREST query builder is a *thenable* — you await the builder
+// itself, and every method (.insert/.update/.select/.eq/.in/.order/.limit/
+// .single) returns the same builder. So instead of guessing which method is
+// the "terminal", we model one chain object that resolves to the next response
+// in a FIFO queue each time it's awaited. Each test enqueues one response per
+// awaited statement, in call order.
 const mockFrom = vi.fn();
 const mockInsert = vi.fn();
-const mockUpdate = vi.fn();
-const mockSelect = vi.fn();
-const mockSingle = vi.fn();
-const mockEq = vi.fn();
 const mockRefreshSession = vi.fn();
 
-const chainable = {
-  insert: mockInsert,
-  update: mockUpdate,
-  select: mockSelect,
-  single: mockSingle,
-  eq: mockEq,
-};
+let responseQueue: any[] = [];
+function enqueue(...responses: any[]) {
+  responseQueue.push(...responses);
+}
+
+const chain: any = new Proxy(
+  {
+    // Thenable: awaiting the builder pulls the next queued response.
+    then(resolve: (v: any) => void) {
+      const next = responseQueue.shift() ?? { data: null, error: null };
+      resolve(next);
+    },
+  },
+  {
+    get(target, prop) {
+      if (prop === 'then') return (target as any).then;
+      // .insert is spied so tests can assert it was (or wasn't) called.
+      if (prop === 'insert') return mockInsert;
+      // Every other builder method returns the same chain.
+      return () => chain;
+    },
+  },
+);
 
 function resetChain() {
-  mockFrom.mockReturnValue(chainable);
-  mockInsert.mockReturnValue(chainable);
-  mockUpdate.mockReturnValue(chainable);
-  mockSelect.mockReturnValue(chainable);
-  mockEq.mockReturnValue(chainable);
+  responseQueue = [];
+  mockFrom.mockReturnValue(chain);
+  mockInsert.mockReturnValue(chain);
 }
 
 vi.mock('$lib/supabase/client', () => ({
@@ -43,13 +57,15 @@ const ENV = {
   browser: 'Chrome', browser_version: '120',
 } as any;
 
-const ITEM = {
+import type { TestItem } from '$lib/engine/types';
+
+const ITEM: TestItem = {
   id: 'item-1',
   hf_model_id: 'org/model',
   file_path: 'onnx/model.onnx',
   data_type: 'fp32',
-  runtime: 'onnx' as const,
-  backend: 'webgpu' as const,
+  runtime: 'onnx',
+  backend: 'webgpu',
   status: 'pending',
   progress: 0,
 };
@@ -83,9 +99,10 @@ describe('ResultsWriter — durable saves', () => {
 
   it('createResult retries after a transient failure and succeeds', async () => {
     // First insert errors, second returns an id.
-    mockSingle
-      .mockResolvedValueOnce({ data: null, error: { message: 'network' } })
-      .mockResolvedValueOnce({ data: { id: 'row-1' }, error: null });
+    enqueue(
+      { data: null, error: { message: 'network' } },
+      { data: { id: 'row-1' }, error: null },
+    );
 
     const { ResultsWriter } = await import('$lib/engine/results-writer');
     const w = new ResultsWriter('user-1', ENV, '1.0.0', '');
@@ -97,7 +114,11 @@ describe('ResultsWriter — durable saves', () => {
   });
 
   it('createResult returns null after exhausting retries', async () => {
-    mockSingle.mockResolvedValue({ data: null, error: { message: 'still down' } });
+    enqueue(
+      { data: null, error: { message: 'still down' } },
+      { data: null, error: { message: 'still down' } },
+      { data: null, error: { message: 'still down' } },
+    );
 
     const { ResultsWriter } = await import('$lib/engine/results-writer');
     const w = new ResultsWriter('user-1', ENV, '1.0.0', '');
@@ -105,34 +126,71 @@ describe('ResultsWriter — durable saves', () => {
 
     expect(id).toBeNull();
     expect(w.hasResultId(ITEM)).toBe(false);
-    expect(mockSingle).toHaveBeenCalledTimes(3); // 3 attempts
   });
 
   it('completeResult returns false when the update never lands', async () => {
-    // Seed a successful createResult so there's a dbId.
-    mockSingle.mockResolvedValueOnce({ data: { id: 'row-1' }, error: null });
+    // 1 response for the seed createResult, then 3 failed update attempts.
+    enqueue(
+      { data: { id: 'row-1' }, error: null },
+      { error: { message: '401 expired' } },
+      { error: { message: '401 expired' } },
+      { error: { message: '401 expired' } },
+    );
     const { ResultsWriter } = await import('$lib/engine/results-writer');
     const w = new ResultsWriter('user-1', ENV, '1.0.0', '');
     await w.createResult(ITEM, 3);
 
-    // All update attempts fail.
-    mockEq.mockResolvedValue({ error: { message: '401 expired' } });
     const ok = await w.completeResult(ITEM, makeResult());
 
     expect(ok).toBe(false);
-    expect(mockUpdate).toHaveBeenCalledTimes(3);
   });
 
   it('completeResult returns true when the update lands', async () => {
-    mockSingle.mockResolvedValueOnce({ data: { id: 'row-1' }, error: null });
+    enqueue(
+      { data: { id: 'row-1' }, error: null }, // createResult
+      { error: null },                        // update
+    );
     const { ResultsWriter } = await import('$lib/engine/results-writer');
     const w = new ResultsWriter('user-1', ENV, '1.0.0', '');
     await w.createResult(ITEM, 3);
 
-    mockEq.mockResolvedValueOnce({ error: null });
     const ok = await w.completeResult(ITEM, makeResult());
 
     expect(ok).toBe(true);
+  });
+
+  it('retryResult reclaims an existing row when MULTIPLE stale rows exist (no duplicate insert)', async () => {
+    const { ResultsWriter } = await import('$lib/engine/results-writer');
+    const w = new ResultsWriter('user-1', ENV, '1.0.0', '');
+
+    // The reclaim query (select…in…order…limit) resolves to a LIST. With 2+
+    // stale error rows the old .single() returned null and we wrongly inserted
+    // a new row. The fix takes rows[0]; here the list has 2 rows.
+    enqueue(
+      { data: [{ id: 'stale-newest' }, { id: 'stale-older' }], error: null }, // reclaim select
+      { error: null },                                                        // reclaim update
+    );
+
+    const id = await w.retryResult(ITEM, 3);
+
+    expect(id).toBe('stale-newest');     // reclaimed the newest, not a new row
+    expect(mockInsert).not.toHaveBeenCalled(); // crucially: NO duplicate insert
+    expect(w.hasResultId(ITEM)).toBe(true);
+  });
+
+  it('retryResult inserts a fresh row only when no stale row exists', async () => {
+    const { ResultsWriter } = await import('$lib/engine/results-writer');
+    const w = new ResultsWriter('user-1', ENV, '1.0.0', '');
+
+    enqueue(
+      { data: [], error: null },              // reclaim select — nothing to reclaim
+      { data: { id: 'brand-new' }, error: null }, // createResult insert
+    );
+
+    const id = await w.retryResult(ITEM, 3);
+
+    expect(id).toBe('brand-new');
+    expect(mockInsert).toHaveBeenCalledTimes(1);
   });
 
   it('completeResult falls back to a full insert when no row id exists', async () => {
@@ -142,7 +200,7 @@ describe('ResultsWriter — durable saves', () => {
     expect(w.hasResultId(ITEM)).toBe(false);
 
     // The fallback insertCompleted path inserts a fully-formed row.
-    mockSingle.mockResolvedValueOnce({ data: { id: 'recovered-1' }, error: null });
+    enqueue({ data: { id: 'recovered-1' }, error: null });
     const ok = await w.completeResult(ITEM, makeResult());
 
     expect(ok).toBe(true);

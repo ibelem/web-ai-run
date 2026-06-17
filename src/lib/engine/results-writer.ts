@@ -221,7 +221,13 @@ export class ResultsWriter {
   }
 
   async retryResult(item: TestItem, iterations: number): Promise<string | null> {
-    const { data: existing } = await (this.supabase.from('results') as any)
+    // Reclaim the most recent non-completed row for this exact (model, file,
+    // backend). Use a plain list + take [0] — NOT .single(), which returns
+    // null whenever the match count isn't exactly 1 (including 2+ rows). With
+    // several stale error rows around, .single() silently missed and we
+    // inserted a fresh row, leaving the old error row behind → duplicate
+    // (one error + one success) on every retry.
+    const { data: rows } = await (this.supabase.from('results') as any)
       .select('id')
       .eq('user_id', this.userId)
       .eq('model_id', item.hf_model_id)
@@ -229,8 +235,9 @@ export class ResultsWriter {
       .eq('backend', item.backend)
       .in('status', ['error', 'timeout', 'running', 'crashed'])
       .order('started_at', { ascending: false })
-      .limit(1)
-      .single();
+      .limit(1);
+
+    const existing = Array.isArray(rows) ? rows[0] : null;
 
     if (existing?.id) {
       const update = {
