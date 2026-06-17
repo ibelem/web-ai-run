@@ -451,7 +451,16 @@
 
         results[i] = { model: m, backend: b, result, error: null };
         saveLlmRunState();
-        if (saveResults && userId) await persistResult(m, b, result);
+        if (saveResults && userId) {
+          // Persist OUTSIDE the result assignment's fate: a failed upload must
+          // not look like a failed benchmark (the result is valid and shown).
+          const ok = await persistResult(m, b, result);
+          if (ok) {
+            runLogs = [...runLogs, `[${getBackendLabel(b)}] Saved ${m.hf_model_id}`];
+          } else {
+            runLogs = [...runLogs, `[${getBackendLabel(b)}] Upload FAILED for ${m.hf_model_id} — not saved`];
+          }
+        }
       } catch (e: any) {
         const msg = e.message ?? String(e);
         results[i] = { model: m, backend: b, result: null, error: msg };
@@ -527,9 +536,13 @@
     if (!ok) cancel();
   });
 
-  async function persistResult(m: LLMRecipeModel, b: LLMBackend, r: LLMBenchmarkResult) {
-    if (!userId) return;
-    await (supabase.from('results_llm') as any).insert({
+  // Returns true only if the row actually landed in Supabase. Retries with a
+  // session refresh between attempts — the common silent-loss cause on a long
+  // multi-model run is an expired access token (401) or a transient network
+  // blip. Never throws, so a failed upload can't be mistaken for a failed run.
+  async function persistResult(m: LLMRecipeModel, b: LLMBackend, r: LLMBenchmarkResult): Promise<boolean> {
+    if (!userId) return false;
+    const row = {
       user_id: userId,
       run_id: crypto.randomUUID(),
       hf_model_id: m.hf_model_id,
@@ -565,7 +578,25 @@
       npu_driver_version: npuDriverVersion.trim() || null,
       webnn_ep: b.startsWith('webnn_') && webnnEp ? webnnEp : null,
       completed_at: new Date().toISOString(),
-    });
+    };
+
+    const attempts = 3;
+    let lastError: any = null;
+    for (let i = 0; i < attempts; i++) {
+      try {
+        const { error } = await (supabase.from('results_llm') as any).insert(row);
+        if (!error) return true;
+        lastError = error;
+      } catch (e) {
+        lastError = e;
+      }
+      if (i < attempts - 1) {
+        try { await supabase.auth.refreshSession(); } catch {}
+        await new Promise((res) => setTimeout(res, 400 * (i + 1)));
+      }
+    }
+    console.error('[llm persistResult] failed after retries:', lastError?.message ?? lastError);
+    return false;
   }
 
   function fmt(n: number | null | undefined, digits = 0, unit = '') {

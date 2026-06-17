@@ -624,9 +624,20 @@
       saveRunState();
 
       if (writer) {
-        await writer.completeResult(item, result);
-        item.status = "completed";
-        runLogs = [...runLogs, `Saved ${item.hf_model_id} · ${getBackendLabel(item.backend)}`];
+        const saved = await writer.completeResult(item, result);
+        if (result.error_message) {
+          // Error row already persisted; keep it flagged as an error.
+          item.status = "error";
+        } else if (saved) {
+          item.status = "completed";
+          runLogs = [...runLogs, `Saved ${item.hf_model_id} · ${getBackendLabel(item.backend)}`];
+        } else {
+          // The run succeeded but the upload didn't land. Don't claim "Saved" —
+          // surface it as a retryable failure so the result isn't silently lost.
+          item.status = "error";
+          item.error = "Upload failed — result not saved. Retry to upload.";
+          runLogs = [...runLogs, `Upload FAILED for ${item.hf_model_id} · ${getBackendLabel(item.backend)} — not saved`];
+        }
         queue = [...queue];
         saveRunState();
       }
@@ -783,9 +794,17 @@
       saveRunState();
 
       if (writer) {
-        await writer.completeResult(item, result);
-        item.status = 'completed';
-        runLogs = [...runLogs, `Saved ${item.hf_model_id} · ${getBackendLabel(item.backend)}`];
+        const saved = await writer.completeResult(item, result);
+        if (result.error_message) {
+          item.status = 'error';
+        } else if (saved) {
+          item.status = 'completed';
+          runLogs = [...runLogs, `Saved ${item.hf_model_id} · ${getBackendLabel(item.backend)}`];
+        } else {
+          item.status = 'error';
+          item.error = 'Upload failed — result not saved. Retry to upload.';
+          runLogs = [...runLogs, `Upload FAILED for ${item.hf_model_id} · ${getBackendLabel(item.backend)} — not saved`];
+        }
         queue = [...queue];
         saveRunState();
       }
@@ -1002,10 +1021,20 @@
     downloadPercent = 0;
 
     if (writer) {
-      await writer.completeResult(item, result);
-      item.status = "completed";
-      item.error = undefined;
-      runLogs = [...runLogs, `Saved ${item.hf_model_id} · ${getBackendLabel(item.backend)}`];
+      // Always flush to the DB (writes the error status too, so a failed retry
+      // doesn't strand the row at 'running'). Only claim "Saved" on a clean run.
+      const saved = await writer.completeResult(item, result);
+      if (result.error_message) {
+        item.status = "error";
+      } else if (saved) {
+        item.status = "completed";
+        item.error = undefined;
+        runLogs = [...runLogs, `Saved ${item.hf_model_id} · ${getBackendLabel(item.backend)}`];
+      } else {
+        item.status = "error";
+        item.error = "Upload failed — result not saved. Retry to upload.";
+        runLogs = [...runLogs, `Upload FAILED for ${item.hf_model_id} · ${getBackendLabel(item.backend)} — not saved`];
+      }
       queue = [...queue];
     }
 
@@ -1014,7 +1043,9 @@
     currentRunItem = null;
     statusText = result.error_message
       ? `Retry failed: ${result.error_message}`
-      : "Retry complete.";
+      : item.status === "error"
+        ? "Retry succeeded but upload failed — not saved."
+        : "Retry complete.";
   }
 </script>
 

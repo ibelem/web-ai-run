@@ -25,6 +25,37 @@ export class ResultsWriter {
     this.npuDriverVersion = npuDriverVersion;
   }
 
+  /**
+   * Run a Supabase write with bounded retries. The dominant failure mode on a
+   * long multi-model run is an expired access token (silent 401) or a transient
+   * network blip — both swallowed by the old code, which is how passing tests
+   * went missing. We refresh the session before retrying so the next attempt
+   * carries a fresh token, and surface the final outcome to the caller.
+   */
+  private async withRetry<T extends { error: any }>(
+    label: string,
+    op: () => Promise<T>,
+    attempts = 3,
+  ): Promise<{ ok: boolean; error: any }> {
+    let lastError: any = null;
+    for (let i = 0; i < attempts; i++) {
+      try {
+        const res = await op();
+        if (!res.error) return { ok: true, error: null };
+        lastError = res.error;
+      } catch (e) {
+        lastError = e;
+      }
+      // Refresh the token before the next try — covers the expired-session case.
+      if (i < attempts - 1) {
+        try { await this.supabase.auth.refreshSession(); } catch {}
+        await new Promise((r) => setTimeout(r, 400 * (i + 1)));
+      }
+    }
+    console.error(`[ResultsWriter] ${label} failed after ${attempts} attempts:`, lastError?.message ?? lastError);
+    return { ok: false, error: lastError };
+  }
+
   async createResult(item: TestItem, iterations: number): Promise<string | null> {
     const row = {
       run_id: this.runId,
@@ -48,24 +79,37 @@ export class ResultsWriter {
       started_at: new Date().toISOString(),
     };
 
-    const { data, error } = await (this.supabase
-      .from('results') as any)
-      .insert(row)
-      .select('id')
-      .single();
+    let insertedId: string | null = null;
+    const { ok } = await this.withRetry('createResult', async () => {
+      const res = await (this.supabase
+        .from('results') as any)
+        .insert(row)
+        .select('id')
+        .single();
+      if (!res.error && res.data) insertedId = (res.data as { id: string }).id;
+      // Treat a missing id as an error so withRetry retries it.
+      return { error: res.error ?? (res.data ? null : new Error('no id returned')) };
+    });
 
-    if (error || !data) {
-      console.error('[ResultsWriter] createResult failed:', error?.message);
-      return null;
-    }
+    if (!ok || !insertedId) return null;
 
-    this.resultIds.set(item.id, (data as { id: string }).id);
-    return (data as { id: string }).id;
+    this.resultIds.set(item.id, insertedId);
+    return insertedId;
   }
 
-  async completeResult(item: TestItem, result: TestResult): Promise<void> {
+  /**
+   * Writes the final metrics for a completed/errored run.
+   * Returns true only if the row was actually persisted — callers must not
+   * report "Saved" unless this returns true.
+   */
+  async completeResult(item: TestItem, result: TestResult): Promise<boolean> {
     const dbId = this.resultIds.get(item.id);
-    if (!dbId) return;
+    // No row id means createResult never landed. Try once to insert a fresh,
+    // already-complete row so a passing test isn't lost just because the
+    // initial 'running' insert failed.
+    if (!dbId) {
+      return this.insertCompleted(item, result);
+    }
 
     const m = result.metrics;
     const update = {
@@ -87,10 +131,64 @@ export class ResultsWriter {
       webnn_capability:   result.webnn_capability ?? null,
     };
 
-    console.log('[ResultsWriter] completeResult update payload:', { dbId, webnn_capability: update.webnn_capability });
+    const { ok } = await this.withRetry('completeResult', () =>
+      (this.supabase.from('results') as any).update(update).eq('id', dbId),
+    );
+    return ok;
+  }
 
-    const { error } = await (this.supabase.from('results') as any).update(update).eq('id', dbId);
-    if (error) console.error('[ResultsWriter] completeResult failed:', error.message, { dbId, status: update.status });
+  /**
+   * Fallback path: insert a row that's already in its final state. Used when
+   * the initial 'running' insert failed but the run itself succeeded, so the
+   * metrics still get persisted instead of silently dropped.
+   */
+  private async insertCompleted(item: TestItem, result: TestResult): Promise<boolean> {
+    const m = result.metrics;
+    const row = {
+      run_id: this.runId,
+      user_id: this.userId,
+      model_id: item.hf_model_id,
+      file_path: item.file_path,
+      backend: item.backend,
+      data_type: item.data_type,
+      status: result.error_message ? 'error' : 'completed',
+      error_message: result.error_message,
+      cpu: this.environment.cpu,
+      gpu: this.environment.gpu,
+      os: this.environment.os,
+      browser: this.environment.browser,
+      browser_version: this.environment.browser_version,
+      ort_version: item.runtime === 'onnx' ? this.ortVersion : '',
+      litert_version: item.runtime === 'litert' ? this.litertVersion : '',
+      webnn_ep: this.webnnEp || null,
+      gpu_driver_version: this.gpuDriverVersion || null,
+      npu_driver_version: this.npuDriverVersion || null,
+      iterations: result.iterations,
+      iterations_completed: result.iterations_completed,
+      started_at: result.started_at ?? new Date().toISOString(),
+      completed_at: result.completed_at ?? new Date().toISOString(),
+      compilation_ms:        m?.compilation_ms        ?? null,
+      load_and_compile_ms:   m?.load_and_compile_ms   ?? null,
+      first_inference_ms:    m?.first_inference_ms    ?? null,
+      time_to_first_ms:      m?.time_to_first_ms      ?? null,
+      average_ms:            m?.average_ms            ?? null,
+      median_ms:             m?.median_ms             ?? null,
+      best_ms:               m?.best_ms               ?? null,
+      p90_ms:                m?.p90_ms                ?? null,
+      throughput_fps:        m?.throughput_fps        ?? null,
+      inference_times:       result.inference_times ?? [],
+      logs:                  result.logs ?? [],
+      webnn_capability:      result.webnn_capability ?? null,
+    };
+
+    let insertedId: string | null = null;
+    const { ok } = await this.withRetry('insertCompleted', async () => {
+      const res = await (this.supabase.from('results') as any).insert(row).select('id').single();
+      if (!res.error && res.data) insertedId = (res.data as { id: string }).id;
+      return { error: res.error ?? (res.data ? null : new Error('no id returned')) };
+    });
+    if (ok && insertedId) this.resultIds.set(item.id, insertedId);
+    return ok;
   }
 
   async markTimeout(item: TestItem, phase: 'download' | 'compilation' | 'inference'): Promise<void> {
@@ -129,7 +227,7 @@ export class ResultsWriter {
       .eq('model_id', item.hf_model_id)
       .eq('file_path', item.file_path)
       .eq('backend', item.backend)
-      .in('status', ['error', 'timeout'])
+      .in('status', ['error', 'timeout', 'running', 'crashed'])
       .order('started_at', { ascending: false })
       .limit(1)
       .single();

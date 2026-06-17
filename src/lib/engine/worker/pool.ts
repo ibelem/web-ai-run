@@ -10,6 +10,7 @@ export interface WorkerRunOptions {
   runtimeVersion: string;
   freeDimensionOverrides?: Record<string, number>;
   timeoutMs?: number;
+  idleTimeoutMs?: number;
   onProgress?: (progress: DownloadProgress) => void;
   onStatus?: (status: string) => void;
   onLogs?: (logs: string[]) => void;
@@ -27,22 +28,50 @@ function getWorker(): Worker {
   return workerInstance;
 }
 
+// Absolute ceiling for a single (model, backend) run. A run that legitimately
+// takes longer than this is pathological; bail rather than hang forever.
 const DEFAULT_TIMEOUT_MS = 10 * 60 * 1000;
+// The worker posts status/progress/logs messages constantly while it's alive
+// (download chunks, per-iteration "Inferencing X/N", compile status). If we go
+// this long with NO message, the worker is wedged — a WebGPU/WebNN OOM or a
+// stuck compile that never throws. Surface it fast instead of waiting out the
+// full absolute timeout, which reads to the user as a frozen page.
+const DEFAULT_IDLE_TIMEOUT_MS = 2 * 60 * 1000;
 
 export function runInWorker(options: WorkerRunOptions): Promise<TestResult> {
   return new Promise((resolve, reject) => {
     const id = crypto.randomUUID();
     const worker = getWorker();
     let settled = false;
+    // Tracks the latest phase the worker reported, so a hang message can say
+    // *where* it hung (download / compile / inference) instead of a generic stall.
+    let lastPhase = 'startup';
 
-    const timeoutId = setTimeout(() => {
+    const idleMs = options.idleTimeoutMs ?? DEFAULT_IDLE_TIMEOUT_MS;
+    let idleTimer: ReturnType<typeof setTimeout> | null = null;
+
+    function bail(message: string) {
       if (settled) return;
       settled = true;
+      clearTimeout(timeoutId);
+      if (idleTimer) clearTimeout(idleTimer);
       worker.removeEventListener('message', handleMessage);
       worker.removeEventListener('error', handleError);
       terminateWorker();
-      reject(new Error('Timed out after 10 minutes'));
+      reject(new Error(message));
+    }
+
+    function resetIdleTimer() {
+      if (idleTimer) clearTimeout(idleTimer);
+      idleTimer = setTimeout(() => {
+        bail(`Stalled during ${lastPhase} — no response for ${Math.round(idleMs / 1000)}s (likely out of memory or an unsupported model for this backend)`);
+      }, idleMs);
+    }
+
+    const timeoutId = setTimeout(() => {
+      bail('Timed out after 10 minutes');
     }, options.timeoutMs ?? DEFAULT_TIMEOUT_MS);
+    resetIdleTimer();
 
     const request: WorkerRequest = {
       type: 'run',
@@ -60,11 +89,17 @@ export function runInWorker(options: WorkerRunOptions): Promise<TestResult> {
       const msg = event.data;
       if (msg.id !== id) return;
 
+      // Any message means the worker is still alive — kick the inactivity timer.
+      if (!settled) resetIdleTimer();
+
       switch (msg.type) {
         case 'progress':
+          lastPhase = 'download';
           options.onProgress?.(msg.progress);
           break;
         case 'status':
+          if (/compil|session|creating/i.test(msg.status)) lastPhase = 'compilation';
+          else if (/inferenc|warm/i.test(msg.status)) lastPhase = 'inference';
           options.onStatus?.(msg.status);
           break;
         case 'logs':
@@ -74,6 +109,7 @@ export function runInWorker(options: WorkerRunOptions): Promise<TestResult> {
           if (settled) return;
           settled = true;
           clearTimeout(timeoutId);
+          if (idleTimer) clearTimeout(idleTimer);
           worker.removeEventListener('message', handleMessage);
           worker.removeEventListener('error', handleError);
           resolve(msg.result as TestResult);
@@ -85,6 +121,7 @@ export function runInWorker(options: WorkerRunOptions): Promise<TestResult> {
       if (settled) return;
       settled = true;
       clearTimeout(timeoutId);
+      if (idleTimer) clearTimeout(idleTimer);
       worker.removeEventListener('message', handleMessage);
       worker.removeEventListener('error', handleError);
       const msg = event.message || event.filename
