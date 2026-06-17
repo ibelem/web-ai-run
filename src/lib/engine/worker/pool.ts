@@ -105,15 +105,25 @@ export function runInWorker(options: WorkerRunOptions): Promise<TestResult> {
         case 'logs':
           options.onLogs?.(msg.logs);
           break;
-        case 'result':
+        case 'result': {
           if (settled) return;
           settled = true;
           clearTimeout(timeoutId);
           if (idleTimer) clearTimeout(idleTimer);
           worker.removeEventListener('message', handleMessage);
           worker.removeEventListener('error', handleError);
-          resolve(msg.result as TestResult);
+          const res = msg.result as TestResult;
+          // A model that errored inside the worker (e.g. LiteRT WASM "Aborted()"
+          // or "memory access out of bounds") posts a normal result with an
+          // error_message rather than throwing — so the page's try/catch never
+          // fires and never recycles the worker. But a fatal WASM abort poisons
+          // the shared Emscripten heap, so EVERY subsequent model on the reused
+          // worker fails instantly. Terminate here so the next run starts from a
+          // clean worker + fresh WASM module.
+          if (res.error_message) terminateWorker();
+          resolve(res);
           break;
+        }
       }
     }
 
