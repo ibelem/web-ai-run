@@ -174,8 +174,10 @@
   ];
 
   const leaderboardGroups: NavGroup[] = [
-    { links: [{ href: '/inference/leaderboard', label: 'Inference', title: 'Compare inference benchmark results across any axis (WebNN EP, version, backend, hardware, browser, etc.).' }] },
-    { links: [{ href: '/llm/leaderboard',       label: 'LLM',       title: 'Compare LLM benchmark results across any axis (runtime version, backend, hardware, browser, etc.).' }] },
+    { links: [{ href: '/inference/leaderboard', label: 'Inference · Compare', title: 'Compare inference benchmark results across any axis (WebNN EP, version, backend, hardware, browser, etc.).' }] },
+    { links: [{ href: '/inference/trend',       label: 'Inference · Trends', title: 'Plot inference performance trends over time or across versions/iterations, one line per compared axis value.' }] },
+    { links: [{ href: '/llm/leaderboard',       label: 'LLM · Compare',      title: 'Compare LLM benchmark results across any axis (runtime version, backend, hardware, browser, etc.).' }] },
+    { links: [{ href: '/llm/trend',             label: 'LLM · Trends',       title: 'Plot LLM performance trends over time or across versions/token counts, one line per compared axis value.' }] },
   ];
 
   const adminGroups: NavGroup[] = [
@@ -197,7 +199,11 @@
     path === '/inference/leaderboard' ||
     path.startsWith('/inference/leaderboard/') ||
     path === '/llm/leaderboard' ||
-    path.startsWith('/llm/leaderboard/')
+    path.startsWith('/llm/leaderboard/') ||
+    path === '/inference/trend' ||
+    path.startsWith('/inference/trend/') ||
+    path === '/llm/trend' ||
+    path.startsWith('/llm/trend/')
   );
   const inferenceActive = $derived(
     !leaderboardActive && (path === '/inference' || path.startsWith('/inference/'))
