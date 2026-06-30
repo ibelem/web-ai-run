@@ -145,6 +145,72 @@ export interface Database {
           completed_at?: string;
         };
       };
+      conversations: {
+        Row: {
+          id: string;
+          user_id: string;
+          category: 'bug' | 'feature' | 'howto' | 'other';
+          subject: string | null;
+          status: 'open' | 'resolved';
+          is_public: boolean;
+          assigned_to: string | null;
+          last_message_at: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          category: 'bug' | 'feature' | 'howto' | 'other';
+          subject?: string | null;
+          status?: 'open' | 'resolved';
+          is_public?: boolean;
+          assigned_to?: string | null;
+        };
+        Update: {
+          subject?: string | null;
+          status?: 'open' | 'resolved';
+          is_public?: boolean;
+          assigned_to?: string | null;
+        };
+      };
+      messages: {
+        Row: {
+          id: string;
+          conversation_id: string;
+          sender_id: string;
+          body: string;
+          attachments: unknown;
+          is_internal: boolean;
+          created_at: string;
+        };
+        Insert: {
+          conversation_id: string;
+          sender_id: string;
+          body: string;
+          attachments?: unknown;
+          is_internal?: boolean;
+        };
+        Update: {
+          body?: string;
+          attachments?: unknown;
+          is_internal?: boolean;
+        };
+      };
+      conversation_reads: {
+        Row: {
+          conversation_id: string;
+          user_id: string;
+          last_read_at: string;
+        };
+        Insert: {
+          conversation_id: string;
+          user_id: string;
+          last_read_at?: string;
+        };
+        Update: {
+          last_read_at?: string;
+        };
+      };
     };
   };
 }

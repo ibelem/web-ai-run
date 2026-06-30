@@ -15,6 +15,8 @@
   import { gravatarUrl } from '$lib/utils/gravatar';
   import { clearModelCache } from '$lib/engine/model-cache';
   import { isRunning as isRunningStore } from '$lib/stores/benchmark';
+  import SupportWidget from '$lib/components/support/SupportWidget.svelte';
+  import { initSupport, teardownSupport } from '$lib/stores/support';
 
   let { data, children } = $props();
   let cacheClearState = $state<'idle' | 'done'>('idle');
@@ -115,6 +117,10 @@
       loading: false
     });
 
+    if (data.session?.user) {
+      initSupport(data.session.user.id, role === 'admin');
+    }
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'INITIAL_SESSION') return;
       const newRole: Role = session?.user?.app_metadata?.role ?? 'anonymous';
@@ -124,10 +130,19 @@
         role: session ? newRole : 'anonymous',
         loading: false
       });
+      // Keep the support channel in sync with auth changes that happen
+      // after initial load (login/logout don't remount the layout).
+      teardownSupport();
+      if (session?.user) {
+        initSupport(session.user.id, newRole === 'admin');
+      }
       invalidateAll();
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+      teardownSupport();
+    };
   });
 
   async function signIn(provider: 'github' | 'google') {
@@ -188,6 +203,7 @@
     { links: [{ href: '/admin/llm/recipes',        label: 'Recipes · LLM',       title: 'Admin: feature, order, and audit LLM recipes.' }] },
     { links: [{ href: '/admin/inference/results',  label: 'Results · Inference', title: 'Admin: all inference benchmark results across users.' }] },
     { links: [{ href: '/admin/llm/results',        label: 'Results · LLM',       title: 'Admin: all LLM benchmark results across users.' }] },
+    { links: [{ href: '/admin/support',            label: 'Support',             title: 'Admin: all user support conversations.' }] },
   ];
 
   // Active-state checks for triggers. Leaderboard wins over its parent domain so the
@@ -271,6 +287,10 @@
     </div>
   </div>
   <div class="nav-right">
+    <a href="/faq" class="nav-item">FAQ</a>
+    {#if $isAuthenticated}
+      <a href="/support" class="nav-item">Support</a>
+    {/if}
     {#if $cartCount > 0}
       <button
         class="nav-item nav-cart"
@@ -427,6 +447,10 @@
   ondeselect={(id) => cart.removeById(id)}
   ondeselecthf={(hf_model_id, file_path) => cart.remove(hf_model_id, file_path)}
 />
+
+{#if $isAuthenticated && !$isRunningStore}
+  <SupportWidget />
+{/if}
 
 
 <footer class="site-footer" class:hidden={$isRunningStore}>
