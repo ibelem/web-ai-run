@@ -40,7 +40,13 @@
   <textarea bind:value={body} placeholder="Type your message…" rows="3"></textarea>
   <AttachmentUploader bind:files />
   {#if error}<p class="err">{error}</p>{/if}
-  <button class="send" onclick={submit} disabled={sending || !body.trim()}>
+  <button
+    class="send"
+    class:btn-primary={!!body.trim()}
+    class:btn-ghost={!body.trim()}
+    onclick={submit}
+    disabled={sending || !body.trim()}
+  >
     {sending ? 'Sending…' : 'Send'}
   </button>
 </div>

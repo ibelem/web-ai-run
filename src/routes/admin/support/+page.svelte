@@ -55,7 +55,13 @@
       <ConversationThread conversation={active} {viewerId} isAdminViewer={true} />
       <div class="internal">
         <textarea bind:value={internalNote} rows="2" placeholder="Internal note (only admins see this)"></textarea>
-        <button class="btn-primary note-btn" onclick={addInternalNote} disabled={!internalNote.trim()}>Add internal note</button>
+        <button
+          class="note-btn"
+          class:btn-primary={!!internalNote.trim()}
+          class:btn-ghost={!internalNote.trim()}
+          onclick={addInternalNote}
+          disabled={!internalNote.trim()}
+        >Add internal note</button>
       </div>
     {:else}
       <p class="empty">Select a conversation.</p>

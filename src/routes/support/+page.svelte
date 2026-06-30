@@ -74,7 +74,7 @@
   }
   .new {
     width: 100%;
-    margin-bottom: var(--space-2);
+    margin: 0 var(--space-1) var(--space-2) var(--space-1);
     text-align: center;
   }
   .empty {

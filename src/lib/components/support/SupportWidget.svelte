@@ -22,8 +22,8 @@
 </script>
 
 <button class="fab" onclick={() => (open = !open)} aria-label="Support messages">
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-    <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M4 4h16a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H8l-4 4V5a1 1 0 0 1 1-1z"/>
   </svg>
   {#if $unreadCount > 0}<span class="badge">{$unreadCount}</span>{/if}
 </button>
@@ -71,8 +71,8 @@
     position: fixed;
     right: var(--space-3);
     bottom: var(--space-3);
-    width: 52px;
-    height: 52px;
+    width: 44px;
+    height: 44px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -110,7 +110,7 @@
   .panel {
     position: fixed;
     right: var(--space-3);
-    bottom: calc(var(--space-3) + 64px);
+    bottom: calc(var(--space-3) + 56px);
     width: min(360px, calc(100vw - var(--space-3) * 2));
     max-height: 70vh;
     display: flex;

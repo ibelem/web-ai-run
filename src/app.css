@@ -434,7 +434,8 @@ body {
   text-decoration: none;
 }
 
-.btn-ghost:hover { background: var(--color-nav-item-hover); }
+.btn-ghost:hover:not(:disabled) { background: var(--color-nav-item-hover); }
+.btn-ghost:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* Dialog */
 .dialog-backdrop {
