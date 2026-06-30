@@ -31,6 +31,13 @@ export async function getMessages(conversationId: string): Promise<Message[]> {
   return (data ?? []) as Message[];
 }
 
+// Derive a short subject from the first message when the user didn't set one.
+export function deriveSubject(body: string, max = 60): string {
+  const clean = body.trim().replace(/\s+/g, ' ');
+  if (clean.length <= max) return clean;
+  return clean.slice(0, max).trimEnd() + '…';
+}
+
 export async function createConversation(input: {
   userId: string;
   category: Category;
@@ -39,8 +46,9 @@ export async function createConversation(input: {
   attachments?: Attachment[];
 }): Promise<Conversation> {
   const db = createClient();
+  const subject = input.subject?.trim() || deriveSubject(input.body);
   const { data: conv, error: cErr } = await (db.from('conversations') as any)
-    .insert({ user_id: input.userId, category: input.category, subject: input.subject ?? null })
+    .insert({ user_id: input.userId, category: input.category, subject })
     .select('*')
     .single();
   if (cErr) throw cErr;

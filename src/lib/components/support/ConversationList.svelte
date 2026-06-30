@@ -17,7 +17,7 @@
     <li>
       <button class="row" class:active={c.id === activeId} class:unread={unread(c)} onclick={() => onselect(c)}>
         <span class="cat">{c.category}</span>
-        <span class="subj">{c.subject ?? '(no subject)'}</span>
+        <span class="subj">{c.subject || 'Untitled conversation'}</span>
         {#if c.is_public}<span class="pub">FAQ</span>{/if}
         {#if unread(c)}<span class="dot" aria-label="unread"></span>{/if}
       </button>

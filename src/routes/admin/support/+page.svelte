@@ -52,7 +52,9 @@
   </aside>
   <section>
     {#if active}
-      <ConversationThread conversation={active} {viewerId} isAdminViewer={true} />
+      <div class="thread-wrap">
+        <ConversationThread conversation={active} {viewerId} isAdminViewer={true} />
+      </div>
       <div class="internal">
         <textarea bind:value={internalNote} rows="2" placeholder="Internal note (only admins see this)"></textarea>
         <button
@@ -80,17 +82,32 @@
     grid-template-columns: 340px 1fr;
     gap: var(--space-3);
     min-height: 60vh;
+    margin-bottom: var(--space-6);
   }
   aside {
     border-right: 1px solid var(--color-border);
   }
-  .internal {
-    margin-top: var(--space-2);
+  section {
     display: flex;
     flex-direction: column;
-    gap: var(--space-1);
+    min-width: 0;
+    max-height: calc(100vh - 220px);
+  }
+  .thread-wrap {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .thread-wrap :global(.thread) {
+    height: 100%;
+  }
+  .internal {
+    margin-top: var(--space-3);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
     border-top: 1px dashed var(--color-warning);
-    padding-top: var(--space-2);
+    padding-top: var(--space-3);
   }
   .internal textarea {
     width: 100%;

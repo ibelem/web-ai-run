@@ -38,6 +38,11 @@ let currentUserId: string | null = null;
 let isAdmin = false;
 let unsubRunning: (() => void) | null = null;
 
+export async function refreshSupport(): Promise<void> {
+  if (!currentUserId) return;
+  await refresh();
+}
+
 async function refresh() {
   support.update((s) => ({ ...s, loading: true }));
   const db = createClient();

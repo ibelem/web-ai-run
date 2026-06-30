@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { support } from '$lib/stores/support';
+  import { support, refreshSupport } from '$lib/stores/support';
   import { auth, isAuthenticated } from '$lib/stores/auth';
   import ConversationList from '$lib/components/support/ConversationList.svelte';
   import ConversationThread from '$lib/components/support/ConversationThread.svelte';
@@ -16,6 +16,7 @@
     const c = await createConversation({ userId: viewerId, category: p.category ?? 'other', body: p.body });
     composingNew = false;
     active = c;
+    await refreshSupport();
   }
 </script>
 
@@ -73,8 +74,7 @@
     border-right: 1px solid var(--color-border);
   }
   .new {
-    width: 100%;
-    margin: 0 var(--space-1) var(--space-2) var(--space-1);
+    margin: 0 0 var(--space-2) 0;
     text-align: center;
   }
   .empty {

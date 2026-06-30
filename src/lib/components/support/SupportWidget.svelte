@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { support, unreadCount } from '$lib/stores/support';
+  import { support, unreadCount, refreshSupport } from '$lib/stores/support';
   import { auth } from '$lib/stores/auth';
   import ConversationList from './ConversationList.svelte';
   import ConversationThread from './ConversationThread.svelte';
@@ -18,6 +18,7 @@
     const c = await createConversation({ userId: viewerId, category: p.category ?? 'other', body: p.body });
     composingNew = false;
     active = c;
+    await refreshSupport();
   }
 </script>
 
