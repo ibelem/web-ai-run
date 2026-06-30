@@ -23,12 +23,16 @@
   <div class="gate">
     <h1>Sign in to ask a question</h1>
     <p>Support conversations are private to your account.</p>
-    <a class="btn" href="/login">Sign in</a>
+    <a class="btn-primary" href="/login">Sign in</a>
   </div>
 {:else}
+  <header class="page-header">
+    <h1>Support</h1>
+    <p>Ask a question and we'll reply here. Mark a thread public to add it to the FAQ.</p>
+  </header>
   <div class="layout">
     <aside>
-      <button class="new" onclick={() => { composingNew = true; active = null; }}>New conversation</button>
+      <button class="btn-primary new" onclick={() => { composingNew = true; active = null; }}>New conversation</button>
       <ConversationList
         conversations={$support.conversations}
         reads={$support.reads}
@@ -54,13 +58,9 @@
     margin: var(--space-6) auto;
     text-align: center;
   }
-  .btn {
+  .gate .btn-primary {
     display: inline-block;
     margin-top: var(--space-2);
-    padding: var(--space-1) var(--space-3);
-    background: var(--color-primary);
-    color: var(--color-text-on-primary);
-    border-radius: var(--radius-base);
     text-decoration: none;
   }
   .layout {
@@ -75,6 +75,7 @@
   .new {
     width: 100%;
     margin-bottom: var(--space-2);
+    text-align: center;
   }
   .empty {
     color: var(--color-text-muted);

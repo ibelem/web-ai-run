@@ -27,7 +27,10 @@
   }
 </script>
 
-<h1>Support inbox</h1>
+<header class="page-header">
+  <h1>Support inbox</h1>
+  <p>All user conversations. Reply, resolve, and add internal notes.</p>
+</header>
 <div class="filters">
   <select bind:value={categoryFilter}>
     <option value="all">All categories</option>
@@ -52,7 +55,7 @@
       <ConversationThread conversation={active} {viewerId} isAdminViewer={true} />
       <div class="internal">
         <textarea bind:value={internalNote} rows="2" placeholder="Internal note (only admins see this)"></textarea>
-        <button onclick={addInternalNote} disabled={!internalNote.trim()}>Add internal note</button>
+        <button class="btn-primary note-btn" onclick={addInternalNote} disabled={!internalNote.trim()}>Add internal note</button>
       </div>
     {:else}
       <p class="empty">Select a conversation.</p>
@@ -88,6 +91,9 @@
     padding: var(--space-1);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-base);
+  }
+  .note-btn {
+    align-self: flex-start;
   }
   .empty {
     color: var(--color-text-muted);
