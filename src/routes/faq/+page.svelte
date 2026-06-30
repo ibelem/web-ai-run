@@ -30,10 +30,9 @@
   <p>Answers from real support conversations. Search or browse below.</p>
 </header>
 
-<FaqSearch bind:value={query} onsearch={(q) => load(q)} />
-
 <div class="layout">
   <aside class:has-active={active}>
+    <FaqSearch bind:value={query} onsearch={(q) => load(q)} />
     {#if loading}
       <p class="hint">Loading…</p>
     {:else if convs.length === 0}
