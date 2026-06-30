@@ -11,6 +11,7 @@
   let composingNew = $state(false);
   const viewerId = $derived($auth.user?.id ?? '');
   const isAdminViewer = $derived($auth.role === 'admin');
+  const paneOpen = $derived(!!active || composingNew);
 
   async function startNew(p: { body: string; category?: Category; files: { blob: Blob; name: string; w: number; h: number }[] }) {
     const c = await createConversation({ userId: viewerId, category: p.category ?? 'other', body: p.body });
@@ -32,7 +33,7 @@
     <p>Ask a question and we'll reply here. Mark a thread public to add it to the FAQ.</p>
   </header>
   <div class="layout">
-    <aside>
+    <aside class:has-active={paneOpen}>
       <button class="btn-primary new" onclick={() => { composingNew = true; active = null; }}>New conversation</button>
       <ConversationList
         conversations={$support.conversations}
@@ -41,10 +42,18 @@
         onselect={(c) => { active = c; composingNew = false; }}
       />
     </aside>
-    <section>
+    <section class:has-active={paneOpen}>
       {#if composingNew}
+        <button class="back" onclick={() => (composingNew = false)}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          All conversations
+        </button>
         <MessageComposer showCategory onsend={startNew} />
       {:else if active}
+        <button class="back" onclick={() => (active = null)}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          All conversations
+        </button>
         <ConversationThread conversation={active} {viewerId} {isAdminViewer} />
       {:else}
         <p class="empty">Select a conversation or start a new one.</p>
@@ -80,12 +89,41 @@
   .empty {
     color: var(--color-text-muted);
   }
+  .back {
+    display: none;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: var(--space-2);
+    padding: 4px 8px 4px 4px;
+    font-family: var(--font-ui);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    border: none;
+    border-radius: var(--radius-base);
+    background: none;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+  }
+  .back:hover {
+    background: var(--color-nav-item-hover);
+    color: var(--color-text-primary);
+  }
   @media (max-width: 640px) {
     .layout {
       grid-template-columns: 1fr;
     }
     aside {
       border-right: none;
+    }
+    /* One pane at a time on mobile. */
+    aside.has-active {
+      display: none;
+    }
+    section:not(.has-active) {
+      display: none;
+    }
+    .back {
+      display: inline-flex;
     }
   }
 </style>

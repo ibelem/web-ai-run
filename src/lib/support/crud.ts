@@ -12,10 +12,25 @@ export async function listConversations(opts: { userId?: string; admin?: boolean
   return (data ?? []) as Conversation[];
 }
 
+// Build a prefix tsquery so live typing matches partial words:
+// "web gpu" -> "web:* & gpu:*" (matches "webgpu", "gpus", etc.)
+export function toPrefixQuery(search: string): string {
+  return search
+    .trim()
+    .split(/\s+/)
+    .map((term) => term.replace(/[^\p{L}\p{N}]/gu, ''))
+    .filter((term) => term.length > 2)
+    .map((term) => term + ':*')
+    .join(' & ');
+}
+
 export async function listPublicConversations(search?: string): Promise<Conversation[]> {
   const db = createClient();
   let q = (db.from('conversations') as any).select('*').eq('is_public', true);
-  if (search && search.trim()) q = q.textSearch('search_tsv', search.trim());
+  if (search && search.trim()) {
+    const tsquery = toPrefixQuery(search);
+    if (tsquery) q = q.textSearch('search_tsv', tsquery);
+  }
   const { data, error } = await q.order('last_message_at', { ascending: false });
   if (error) throw error;
   return (data ?? []) as Conversation[];

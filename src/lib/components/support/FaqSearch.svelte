@@ -13,6 +13,7 @@
     placeholder="Search the FAQ…"
     aria-label="Search FAQ"
     bind:value
+    oninput={() => onsearch(value)}
     autocomplete="off"
     spellcheck="false"
   />

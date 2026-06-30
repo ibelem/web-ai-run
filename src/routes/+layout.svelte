@@ -287,10 +287,6 @@
     </div>
   </div>
   <div class="nav-right">
-    <a href="/faq" class="nav-item">FAQ</a>
-    {#if $isAuthenticated}
-      <a href="/support" class="nav-item">Support</a>
-    {/if}
     {#if $cartCount > 0}
       <button
         class="nav-item nav-cart"
@@ -509,6 +505,12 @@
     <a class="footer-link" href="/privacy">Privacy</a>
     <span class="footer-sep">·</span>
     <a class="footer-link" href="/terms">Terms</a>
+    <span class="footer-sep">·</span>
+    <a class="footer-link" href="/faq">FAQ</a>
+    {#if $isAuthenticated}
+      <span class="footer-sep">·</span>
+      <a class="footer-link" href="/support">Support</a>
+    {/if}
     <span class="footer-sep">·</span>
     <a class="footer-link" href="https://2025.webai.run">2025</a>
   </div>

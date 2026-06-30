@@ -54,7 +54,7 @@ describe('support/crud', () => {
     const { listPublicConversations } = await import('$lib/support/crud');
     await listPublicConversations('webgpu');
     expect(mockEq).toHaveBeenCalledWith('is_public', true);
-    expect(mockTextSearch).toHaveBeenCalledWith('search_tsv', 'webgpu');
+    expect(mockTextSearch).toHaveBeenCalledWith('search_tsv', 'webgpu:*');
   });
 
   it('createConversation inserts conversation then first message', async () => {
@@ -73,6 +73,13 @@ describe('support/crud', () => {
     await setPublic('c1', true);
     expect(mockUpdate).toHaveBeenCalledWith({ is_public: true });
     expect(mockEq).toHaveBeenCalledWith('id', 'c1');
+  });
+
+  it('toPrefixQuery builds an AND prefix tsquery and drops short terms', async () => {
+    const { toPrefixQuery } = await import('$lib/support/crud');
+    expect(toPrefixQuery('web gpu')).toBe('web:* & gpu:*');
+    expect(toPrefixQuery('a webgpu')).toBe('webgpu:*'); // 1-2 char terms dropped
+    expect(toPrefixQuery('   ')).toBe('');
   });
 
   it('markRead upserts a read row', async () => {

@@ -47,11 +47,15 @@
 </div>
 
 <div class="layout">
-  <aside>
+  <aside class:has-active={!!active}>
     <ConversationList conversations={filtered} reads={$support.reads} activeId={active?.id} onselect={(c) => (active = c)} />
   </aside>
-  <section>
+  <section class:has-active={!!active}>
     {#if active}
+      <button class="back" onclick={() => (active = null)}>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        All conversations
+      </button>
       <div class="thread-wrap">
         <ConversationThread conversation={active} {viewerId} isAdminViewer={true} />
       </div>
@@ -106,7 +110,7 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-2);
-    border-top: 1px dashed var(--color-warning);
+    border-top: 1px solid var(--color-warning);
     padding-top: var(--space-3);
   }
   .internal textarea {
@@ -121,9 +125,41 @@
   .empty {
     color: var(--color-text-muted);
   }
+  .back {
+    display: none;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: var(--space-2);
+    padding: 4px 8px 4px 4px;
+    font-family: var(--font-ui);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    border: none;
+    border-radius: var(--radius-base);
+    background: none;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+  }
+  .back:hover {
+    background: var(--color-nav-item-hover);
+    color: var(--color-text-primary);
+  }
   @media (max-width: 640px) {
     .layout {
       grid-template-columns: 1fr;
+    }
+    aside.has-active {
+      display: none;
+    }
+    section:not(.has-active) {
+      display: none;
+    }
+    .back {
+      display: inline-flex;
+    }
+    /* Free height on mobile so the internal note isn't cramped. */
+    section {
+      max-height: none;
     }
   }
 </style>

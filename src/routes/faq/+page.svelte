@@ -10,11 +10,23 @@
   let query = $state('');
   let loading = $state(true);
 
+  let reqId = 0;
   async function load(q = '') {
+    const id = ++reqId;
     loading = true;
-    convs = await listPublicConversations(q);
+    const results = await listPublicConversations(q);
+    // Ignore stale responses if a newer query started while this was in flight.
+    if (id !== reqId) return;
+    convs = results;
     loading = false;
   }
+
+  let debounceTimer: ReturnType<typeof setTimeout> | undefined;
+  function onSearch(q: string) {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => load(q), 250);
+  }
+
   $effect(() => {
     load();
   });
@@ -32,7 +44,7 @@
 
 <div class="layout">
   <aside class:has-active={active}>
-    <FaqSearch bind:value={query} onsearch={(q) => load(q)} />
+    <FaqSearch bind:value={query} onsearch={onSearch} />
     {#if loading}
       <p class="hint">Loading…</p>
     {:else if convs.length === 0}
