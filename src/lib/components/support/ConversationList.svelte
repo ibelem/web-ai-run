@@ -47,7 +47,7 @@
     background: var(--color-nav-item-active);
   }
   .row.unread .subj {
-    font-weight: 700;
+    color: var(--color-primary);
   }
   .cat {
     font-size: var(--text-xs);
@@ -56,6 +56,7 @@
   }
   .subj {
     flex: 1;
+    color: var(--color-text-muted);
   }
   .pub {
     font-size: var(--text-xs);

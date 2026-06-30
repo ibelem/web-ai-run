@@ -5,12 +5,27 @@ export function computeTargetSize(w: number, h: number, max = 1920): { w: number
   return { w: Math.round(w * scale), h: Math.round(h * scale) };
 }
 
+export const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024; // 5MB before compression
+
+export class ImageValidationError extends Error {}
+
 export async function compressImage(
   file: File,
-  opts: { maxEdge?: number; quality?: number } = {}
+  opts: { maxEdge?: number; quality?: number; maxBytes?: number } = {}
 ): Promise<{ blob: Blob; w: number; h: number }> {
-  const { maxEdge = 1920, quality = 0.85 } = opts;
-  const bitmap = await createImageBitmap(file);
+  const { maxEdge = 1920, quality = 0.85, maxBytes = MAX_ATTACHMENT_BYTES } = opts;
+  if (!file.type.startsWith('image/')) {
+    throw new ImageValidationError('Only image files can be attached.');
+  }
+  if (file.size > maxBytes) {
+    throw new ImageValidationError(`Image is too large (max ${Math.round(maxBytes / (1024 * 1024))}MB).`);
+  }
+  let bitmap: ImageBitmap;
+  try {
+    bitmap = await createImageBitmap(file);
+  } catch {
+    throw new ImageValidationError('That image format could not be read by your browser.');
+  }
   const { w, h } = computeTargetSize(bitmap.width, bitmap.height, maxEdge);
   const canvas = document.createElement('canvas');
   canvas.width = w;

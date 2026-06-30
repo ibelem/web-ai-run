@@ -1,5 +1,16 @@
 import { describe, it, expect } from 'vitest';
-import { computeTargetSize } from '$lib/utils/image-compress';
+import { computeTargetSize, compressImage, ImageValidationError, MAX_ATTACHMENT_BYTES } from '$lib/utils/image-compress';
+
+describe('compressImage validation', () => {
+  it('rejects non-image files', async () => {
+    const file = new File(['hello'], 'note.txt', { type: 'text/plain' });
+    await expect(compressImage(file)).rejects.toBeInstanceOf(ImageValidationError);
+  });
+  it('rejects images over the size cap', async () => {
+    const big = new File([new Uint8Array(MAX_ATTACHMENT_BYTES + 1)], 'huge.png', { type: 'image/png' });
+    await expect(compressImage(big)).rejects.toBeInstanceOf(ImageValidationError);
+  });
+});
 
 describe('computeTargetSize', () => {
   it('leaves small images unchanged', () => {
