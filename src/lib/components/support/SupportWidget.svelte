@@ -79,7 +79,7 @@
     justify-content: center;
     border-radius: 50%;
     background: var(--color-surface);
-    color: var(--color-text-secondary);
+    color: var(--color-border);
     border: 1px solid var(--color-border);
     cursor: pointer;
     z-index: var(--z-overlay);

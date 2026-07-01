@@ -43,7 +43,7 @@
   .faq-search-icon {
     color: var(--color-text-muted);
     flex-shrink: 0;
-    margin-right: 10px;
+    margin-right: 0px;
   }
 
   .faq-search-input {
