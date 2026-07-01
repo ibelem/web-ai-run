@@ -20,6 +20,7 @@
 
   let revealed = $state(false);
   let address = $state('');
+  let copied = $state(false);
 
   function reveal() {
     // Defer the join until click — keeps the unjoined string out of state
@@ -32,13 +33,15 @@
     if (!revealed) reveal();
     try {
       await navigator.clipboard.writeText(`${user}@${host}`);
+      copied = true;
+      setTimeout(() => { copied = false; }, 2000);
     } catch {}
   }
 </script>
 
 {#if revealed}
   <a class="reveal-email-link" href={`mailto:${address}`}>{address}</a>
-  <button type="button" class="reveal-email-copy" onclick={copy} title="Copy address">copy</button>
+  <button type="button" class="reveal-email-copy" onclick={copy} title="Copy address">{copied ? 'copied' : 'copy'}</button>
 {:else}
   <button type="button" class="reveal-email-btn" onclick={reveal} aria-label={label ?? 'Reveal contact email'}>
     {label ?? 'Show email'}

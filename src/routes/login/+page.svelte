@@ -59,7 +59,7 @@
     error = '';
     loading = true;
 
-    const { error: authError } = await supabase.auth.signInWithPassword({
+    const { data, error: authError } = await supabase.auth.signInWithPassword({
       email: email.trim().toLowerCase(),
       password,
       options: { captchaToken }
@@ -69,6 +69,11 @@
     loading = false;
 
     if (!authError) {
+      if (data.user) {
+        // Awaited (not fire-and-forget) — navigateNext() does a full page
+        // navigation next, which would otherwise cancel an in-flight insert.
+        await (supabase.from('account_events') as any).insert({ user_id: data.user.id, event_type: 'sign_in' });
+      }
       navigateNext();
       return;
     }

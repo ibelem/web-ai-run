@@ -50,6 +50,7 @@
           <th>Title</th>
           <th>Role</th>
           <th>Joined</th>
+          <th></th>
         </tr>
       </thead>
       <tbody>
@@ -77,6 +78,7 @@
               </form>
             </td>
             <td class="mono">{new Date(user.created_at).toLocaleDateString()}</td>
+            <td><a class="investigate-link" href={`/admin/users/${user.id}`}>Investigate</a></td>
           </tr>
         {/each}
       </tbody>
@@ -118,6 +120,7 @@
             </dd>
           </div>
         </dl>
+        <a class="investigate-link" href={`/admin/users/${user.id}`}>Investigate</a>
       </li>
     {/each}
   </ul>
@@ -231,6 +234,25 @@
 
   .mono {
     font-family: var(--font-mono);
+  }
+
+  .investigate-link {
+    font-family: var(--font-ui);
+    font-size: var(--text-xs);
+    font-weight: 500;
+    padding: 3px 10px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--color-border);
+    background: none;
+    color: var(--color-text-secondary);
+    text-decoration: none;
+    white-space: nowrap;
+    transition: color var(--transition-base), border-color var(--transition-base);
+  }
+
+  .investigate-link:hover {
+    color: var(--color-primary);
+    border-color: var(--color-primary);
   }
 
   select {

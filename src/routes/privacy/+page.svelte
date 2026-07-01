@@ -9,7 +9,7 @@
   import RevealEmail from '$lib/components/RevealEmail.svelte';
 
   // Last reviewed date — keep in sync with substantive edits to this page.
-  const updated = '2026-06-11';
+  const updated = '2026-07-01';
 </script>
 
 <svelte:head>
@@ -28,6 +28,7 @@
       <ol class="toc-list">
         <li><a href="#never-collect">What we never collect</a></li>
         <li><a href="#sign-in">What we collect when you sign in</a></li>
+        <li><a href="#activity">Account event logging</a></li>
         <li><a href="#upload">What we collect on upload</a></li>
         <li><a href="#storage">Where saved data lives</a></li>
         <li><a href="#browser-only">Data that stays in your browser</a></li>
@@ -59,7 +60,7 @@
     <h2>What we never collect <a class="anchor" href="#never-collect" aria-label="Link to this section">§</a></h2>
     <ul>
       <li><strong>Model weights, prompts, and generated text never leave your browser.</strong> Benchmarks run locally via WebGPU, WebNN, or WebAssembly. The runtime fetches model files directly from HuggingFace into your browser; we don't proxy or copy them.</li>
-      <li><strong>No analytics, ads, or behavioral tracking.</strong> No third-party SDKs.</li>
+      <li><strong>No third-party analytics, ads, or SDKs.</strong> Any activity logging we do is first-party and described below — we don't share it with advertisers or data brokers.</li>
     </ul>
   </section>
 
@@ -75,6 +76,31 @@
       We use this to scope your benchmark history and recipes to your account.
       You can update your display name and upload a custom avatar from
       <a href="/account">Account</a>.
+    </p>
+  </section>
+
+  <section id="activity">
+    <h2>Account event logging <a class="anchor" href="#activity" aria-label="Link to this section">§</a></h2>
+    <p>
+      We log a small set of security- and account-relevant events, not the
+      pages you browse. Specifically: signing in, your role changing,
+      uploading or deleting a benchmark result, and deleting a recipe —
+      each with a timestamp. We don't log page visits, query parameters, or
+      anything else you do on the site.
+    </p>
+    <p>
+      Unlike your profile or benchmark results, you can't read or delete
+      this log yourself — it's only readable by site administrators, and
+      only to investigate a specific support request, abuse report, or
+      account issue. It isn't shared with third parties, and it isn't used
+      for analytics, ads, or general browsing of user activity.
+    </p>
+    <p>
+      Our legal basis for this (for EU/EEA users) is legitimate interest in
+      keeping the service secure and able to support you (GDPR Art.
+      6(1)(f)). You can object to this processing at any time — contact us
+      under <a href="#rights">Your rights</a> and we'll stop unless we have
+      a compelling reason tied to an active abuse or security investigation.
     </p>
   </section>
 
@@ -136,6 +162,7 @@
     <ul>
       <li>Delete individual results from <a href="/inference/results">/inference/results</a> or <a href="/llm/results">/llm/results</a>.</li>
       <li>Delete recipes from <a href="/inference/recipe">/inference/recipe</a> or <a href="/llm/recipe">/llm/recipe</a>.</li>
+      <li>Account event logs (see <a href="#activity">Account event logging</a>) are kept for as long as your account exists and are removed when your account is deleted.</li>
       <li>To delete your account and all associated data, email <RevealEmail user="contact" host="webai.run" />.</li>
     </ul>
     <p>

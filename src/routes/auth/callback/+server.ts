@@ -9,6 +9,9 @@ export const GET: RequestHandler = async ({ url, locals }) => {
   if (code) {
     const { data, error } = await locals.supabase.auth.exchangeCodeForSession(code);
     if (!error) {
+      if (data.user) {
+        await (locals.supabase.from('account_events') as any).insert({ user_id: data.user.id, event_type: 'sign_in' });
+      }
       if (data.user?.user_metadata?.needs_password) {
         redirect(303, '/set-password');
       }

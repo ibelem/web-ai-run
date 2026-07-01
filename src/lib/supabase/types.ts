@@ -211,6 +211,20 @@ export interface Database {
           last_read_at?: string;
         };
       };
+      account_events: {
+        Row: {
+          id: number;
+          user_id: string;
+          event_type: 'sign_in' | 'role_changed' | 'result_uploaded' | 'result_deleted' | 'recipe_deleted';
+          metadata: Record<string, unknown> | null;
+          created_at: string;
+        };
+        Insert: {
+          user_id: string;
+          event_type: 'sign_in';
+        };
+        Update: never;
+      };
     };
   };
 }
