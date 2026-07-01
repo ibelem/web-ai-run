@@ -844,7 +844,6 @@
   @media (prefers-reduced-motion: reduce) {
     .spin { animation: none; }
     .status-downloading,
-    .status-compiling,
     .status-running { animation: none; opacity: 0.7; }
   }
 </style>

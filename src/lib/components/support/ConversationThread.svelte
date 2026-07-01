@@ -6,8 +6,13 @@
 
   let { conversation, viewerId, isAdminViewer }: { conversation: Conversation; viewerId: string; isAdminViewer: boolean } = $props();
   let messages = $state<Message[]>([]);
-  let isPublic = $state(conversation.is_public);
-  let status = $state(conversation.status);
+  let isPublic = $state(false);
+  let status = $state<Conversation['status']>('open');
+
+  $effect(() => {
+    isPublic = conversation.is_public;
+    status = conversation.status;
+  });
 
   $effect(() => {
     let cancelled = false;

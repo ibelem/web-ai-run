@@ -550,20 +550,6 @@
     margin-bottom: 4px;
   }
 
-  .mock-title {
-    font-size: 15px;
-    font-weight: 600;
-    color: var(--color-text-primary);
-    line-height: 1.3;
-  }
-
-  .mock-meta {
-    font-size: 12px;
-    font-family: var(--font-mono);
-    color: var(--color-text-muted);
-    margin-top: 4px;
-  }
-
   .mock-badge {
     font-size: 11px;
     font-family: var(--font-mono);
@@ -692,7 +678,6 @@
     .hero-left { padding-bottom: 16px; }
     .hero-right { display: flex; justify-content: center; padding-bottom: 16px; }
     .hero-card-mock { max-width: 100%; margin: 8px 0; }
-    .mock-float-top, .mock-float-bottom { display: none; }
   }
 
   @media (max-width: 500px) {
