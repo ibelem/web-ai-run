@@ -50,6 +50,7 @@
           <th>Title</th>
           <th>Role</th>
           <th>Joined</th>
+          <th>Last visited</th>
           <th></th>
         </tr>
       </thead>
@@ -78,6 +79,7 @@
               </form>
             </td>
             <td class="mono">{new Date(user.created_at).toLocaleDateString()}</td>
+            <td class="mono">{user.last_sign_in_at ? new Date(user.last_sign_in_at).toLocaleDateString() : '—'}</td>
             <td><a class="investigate-link" href={`/admin/users/${user.id}`}>Investigate</a></td>
           </tr>
         {/each}
@@ -106,6 +108,7 @@
             <div class="user-card-row"><dt>Title</dt><dd>{user.job_title}</dd></div>
           {/if}
           <div class="user-card-row"><dt>Joined</dt><dd class="mono">{new Date(user.created_at).toLocaleDateString()}</dd></div>
+          <div class="user-card-row"><dt>Last visited</dt><dd class="mono">{user.last_sign_in_at ? new Date(user.last_sign_in_at).toLocaleDateString() : '—'}</dd></div>
           <div class="user-card-row user-card-row-role">
             <dt>Role</dt>
             <dd>

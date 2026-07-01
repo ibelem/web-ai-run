@@ -12,6 +12,7 @@ export interface Database {
           job_title: string | null;
           created_at: string;
           updated_at: string;
+          last_sign_in_at: string | null;
         };
         Insert: {
           id: string;
