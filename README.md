@@ -79,3 +79,11 @@ src/
     /terms               # Terms of service
     /admin               # User management (admin only)
 ```
+
+## License
+
+Licensed under the [GNU Affero General Public License v3.0 or later](LICENSE) (AGPL-3.0-or-later).
+
+This is a strong copyleft license: you are free to use, modify, and redistribute this software, but any modified version you run as a network service (e.g. host publicly) must make its complete corresponding source code available to that service's users under the same license. See the [LICENSE](LICENSE) file for the full terms.
+
+Copyright © 2026 Web AI Benchmark contributors.
