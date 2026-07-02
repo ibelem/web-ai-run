@@ -56,6 +56,29 @@ export interface DownloadProgress {
   percent: number;
 }
 
+// Message contract between pool.ts and the inference worker. The worker
+// (a classic worker that cannot use import/export) keeps its own inlined
+// copies of these; these are the canonical defs pool.ts imports as types.
+export interface WorkerRequest {
+  type: 'run';
+  id: string;
+  modelSource:
+    | { kind: 'url'; hfModelId: string; filePath: string }
+    | { kind: 'buffer'; fileName: string; buffer: ArrayBuffer; externalData?: { path: string; data: ArrayBuffer }[] };
+  runtime: 'onnx' | 'litert';
+  backend: Backend;
+  iterations: number;
+  warmupRuns: number;
+  runtimeVersion: string;
+  freeDimensionOverrides?: Record<string, number>;
+}
+
+export type WorkerResponse =
+  | { type: 'progress'; id: string; progress: DownloadProgress }
+  | { type: 'status'; id: string; status: string }
+  | { type: 'logs'; id: string; logs: string[] }
+  | { type: 'result'; id: string; result: TestResult };
+
 export interface EnvironmentInfo {
   cpu: string;
   gpu: string;

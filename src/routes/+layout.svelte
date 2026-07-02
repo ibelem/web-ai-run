@@ -11,6 +11,7 @@
   import CartPanel from '$lib/components/CartPanel.svelte';
   import NavDropdown, { type NavGroup } from '$lib/components/NavDropdown.svelte';
   import { createClient } from '$lib/supabase/client';
+  import { env } from '$env/dynamic/public';
   import { isAtLeast, type Role } from '$lib/types/roles';
   import { gravatarUrl } from '$lib/utils/gravatar';
   import { clearModelCache } from '$lib/engine/model-cache';
@@ -109,11 +110,18 @@
       checkInterruptedRun();
     }
 
+    // DEV-only: force a role via PUBLIC_DEV_ROLE (in .env.local) to test
+    // role-gated UI (e.g. the custom-ORT dropdown) without logging in —
+    // bypasses Turnstile/Supabase entirely. `import.meta.env.DEV` makes Vite
+    // strip this whole branch from production builds, so it can never ship.
+    const devRole: Role | '' = import.meta.env.DEV
+      ? ((env.PUBLIC_DEV_ROLE ?? '') as Role | '')
+      : '';
     const role: Role = data.session?.user?.app_metadata?.role ?? 'anonymous';
     auth.set({
       session: data.session,
       user: data.session?.user ?? null,
-      role: data.session ? role : 'anonymous',
+      role: devRole || (data.session ? role : 'anonymous'),
       loading: false
     });
 

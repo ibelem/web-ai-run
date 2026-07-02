@@ -1,5 +1,4 @@
-import type { Backend, TestResult, DownloadProgress } from '../types';
-import type { WorkerRequest, WorkerResponse } from './inference.worker';
+import type { Backend, TestResult, DownloadProgress, WorkerRequest, WorkerResponse } from '../types';
 
 export interface WorkerRunOptions {
   modelSource: WorkerRequest['modelSource'];

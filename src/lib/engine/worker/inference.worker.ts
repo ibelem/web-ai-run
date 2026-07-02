@@ -272,7 +272,7 @@ async function downloadModel(hfModelId: string, filePath: string, id: string): P
 
 // ── Worker types ──────────────────────────────────────────────────────────
 
-export interface WorkerRequest {
+interface WorkerRequest {
   type: 'run';
   id: string;
   modelSource:
@@ -286,7 +286,7 @@ export interface WorkerRequest {
   freeDimensionOverrides?: Record<string, number>;
 }
 
-export type WorkerResponse =
+type WorkerResponse =
   | { type: 'progress'; id: string; progress: DownloadProgress }
   | { type: 'status'; id: string; status: string }
   | { type: 'logs'; id: string; logs: string[] }
@@ -336,7 +336,7 @@ function log(id: string, msg: string) {
   logBuffer.push(`${ts()} ${msg}`);
 }
 
-function status(id: string, msg: string) {
+function sendStatus(id: string, msg: string) {
   const line = `${ts()} ${msg}`;
   logBuffer.push(line);
   post({ type: 'status', id, status: line });
@@ -355,7 +355,7 @@ async function runOrt(req: WorkerRequest, bundle: DownloadedBundle): Promise<Tes
   const fileName = req.modelSource.kind === 'buffer' ? req.modelSource.fileName : req.modelSource.filePath;
   const hfModelId = req.modelSource.kind === 'buffer' ? 'local' : req.modelSource.hfModelId;
 
-  status(id, `Loading ONNX Runtime Web v${runtimeVersion}...`);
+  sendStatus(id, `Loading ONNX Runtime Web v${runtimeVersion}...`);
   const { moduleUrl, wasmBase } = getOrtDistUrls(runtimeVersion);
   const ort = await import(/* @vite-ignore */ moduleUrl);
   ort.env.wasm.wasmPaths = wasmBase;
@@ -371,7 +371,7 @@ async function runOrt(req: WorkerRequest, bundle: DownloadedBundle): Promise<Tes
 
   const enableMLTensor = false;
 
-  status(id, `Creating inference session with ${backend} backend`);
+  sendStatus(id, `Creating inference session with ${backend} backend`);
   const compilationStart = performance.now();
   const executionProvider = getOrtExecutionProvider(backend);
   const sessionOptions: any = {
@@ -494,9 +494,9 @@ async function runOrt(req: WorkerRequest, bundle: DownloadedBundle): Promise<Tes
   const progressStep = Math.max(1, Math.floor(iterations / 10));
 
   if (warmupRuns > 0) {
-    status(id, `Warming up (${warmupRuns} run${warmupRuns !== 1 ? 's' : ''})...`);
+    sendStatus(id, `Warming up (${warmupRuns} run${warmupRuns !== 1 ? 's' : ''})...`);
   } else {
-    status(id, `Inferencing 0/${iterations}...`);
+    sendStatus(id, `Inferencing 0/${iterations}...`);
   }
 
   try {
@@ -522,13 +522,13 @@ async function runOrt(req: WorkerRequest, bundle: DownloadedBundle): Promise<Tes
         warmupTimes.push(elapsed);
         // Switch to "Inferencing" status when warmup finishes
         if (i === warmupRuns - 1 && iterations > 0) {
-          status(id, `Inferencing 0/${iterations}...`);
+          sendStatus(id, `Inferencing 0/${iterations}...`);
         }
       } else {
         inferenceTimes.push(elapsed);
         const benchI = i - warmupRuns;
         if ((benchI + 1) % progressStep === 0 || benchI === iterations - 1) {
-          status(id, `Inferencing ${benchI + 1}/${iterations}...`);
+          sendStatus(id, `Inferencing ${benchI + 1}/${iterations}...`);
         }
       }
     }
@@ -579,7 +579,7 @@ async function runLiteRt(req: WorkerRequest, bundle: DownloadedBundle): Promise<
   const fileName = req.modelSource.kind === 'buffer' ? req.modelSource.fileName : req.modelSource.filePath;
   const hfModelId = req.modelSource.kind === 'buffer' ? 'local' : req.modelSource.hfModelId;
 
-  status(id, `Loading LiteRT.js v${runtimeVersion}...`);
+  sendStatus(id, `Loading LiteRT.js v${runtimeVersion}...`);
   const url = getLiteRtCdnUrl(runtimeVersion);
   const litert = await import(/* @vite-ignore */ url);
 
@@ -647,7 +647,7 @@ async function runLiteRt(req: WorkerRequest, bundle: DownloadedBundle): Promise<
     }
   }
 
-  status(id, `Compiling model with ${backend} backend...`);
+  sendStatus(id, `Compiling model with ${backend} backend...`);
   const compilationStart = performance.now();
   const compileOpts: any = { accelerator: 'wasm' };
   if (isWebGPU) {
@@ -742,9 +742,9 @@ async function runLiteRt(req: WorkerRequest, bundle: DownloadedBundle): Promise<
   const progressStep2 = Math.max(1, Math.floor(iterations / 10));
 
   if (warmupRuns > 0) {
-    status(id, `Warming up (${warmupRuns} run${warmupRuns !== 1 ? 's' : ''})...`);
+    sendStatus(id, `Warming up (${warmupRuns} run${warmupRuns !== 1 ? 's' : ''})...`);
   } else {
-    status(id, `Inferencing 0/${iterations}...`);
+    sendStatus(id, `Inferencing 0/${iterations}...`);
   }
 
   try {
@@ -788,13 +788,13 @@ async function runLiteRt(req: WorkerRequest, bundle: DownloadedBundle): Promise<
       if (i < warmupRuns) {
         warmupTimes.push(elapsed);
         if (i === warmupRuns - 1 && iterations > 0) {
-          status(id, `Inferencing 0/${iterations}...`);
+          sendStatus(id, `Inferencing 0/${iterations}...`);
         }
       } else {
         inferenceTimes.push(elapsed);
         const benchI = i - warmupRuns;
         if ((benchI + 1) % progressStep2 === 0 || benchI === iterations - 1) {
-          status(id, `Inferencing ${benchI + 1}/${iterations}...`);
+          sendStatus(id, `Inferencing ${benchI + 1}/${iterations}...`);
         }
       }
 
