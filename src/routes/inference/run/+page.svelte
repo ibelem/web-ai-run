@@ -203,6 +203,20 @@
   const usesLitert = $derived(hashModels.some((m) => m.runtime === "litert"));
   const usesWebnn = $derived(selectedBackends.some((b) => b.startsWith("webnn_")));
   const usesWebnnNpu = $derived(selectedBackends.includes("webnn_npu"));
+  const isCustomOrt = $derived(ortVersion.startsWith("http"));
+  // Custom build entry point is partner/intel/admin only; member and
+  // logged-out users never see the option or the URL input (see Global
+  // Constraints). This mirrors the existing isAtLeast(...,'intel') gate
+  // used for GPU/NPU driver fields further down this same file.
+  const canUseCustomOrt = $derived(isAtLeast($auth.role ?? "anonymous", "partner"));
+
+  function handleOrtSelect(e: Event) {
+    const value = (e.currentTarget as HTMLSelectElement).value;
+    // Seed with "https://" rather than "" so the row's existing
+    // `usesOnnx && ortVersion` guard (further down) stays truthy and the
+    // custom-URL input doesn't disappear the instant it's selected.
+    ortVersion = value === "__custom__" ? "https://" : value;
+  }
   const webnnEpRequired = $derived(
     saveResults &&
     usesWebnn &&
@@ -1236,7 +1250,14 @@
           {#if usesOnnx && ortVersion}
             <div class="sb-row">
               <span class="sb-label">ORT Web</span>
-              <select class="sb-input" bind:value={ortVersion}>
+              <select
+                class="sb-input"
+                value={isCustomOrt && canUseCustomOrt ? "__custom__" : ortVersion}
+                onchange={handleOrtSelect}
+              >
+                {#if canUseCustomOrt}
+                  <option value="__custom__">Custom build…</option>
+                {/if}
                 {#if ortDevVersions.length}
                   <optgroup label="Dev">
                     {#each ortDevVersions as v}
@@ -1253,6 +1274,17 @@
                 {/if}
               </select>
             </div>
+            {#if isCustomOrt && canUseCustomOrt}
+              <div class="sb-row">
+                <span class="sb-label">Dist URL</span>
+                <input
+                  class="sb-input"
+                  type="text"
+                  placeholder="https://.../ort.*.mjs"
+                  bind:value={ortVersion}
+                />
+              </div>
+            {/if}
           {/if}
           {#if usesLitert && litertVersion}
             <div class="sb-row">

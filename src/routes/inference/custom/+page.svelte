@@ -8,6 +8,8 @@
   import { fetchRuntimeVersions } from '$lib/engine/runtime-versions';
   import { inferRuntime } from '$lib/huggingface/parser';
   import { isRunning as isRunningStore } from '$lib/stores/benchmark';
+  import { auth } from '$lib/stores/auth';
+  import { isAtLeast } from '$lib/types/roles';
   import BackendSelector from '$lib/components/BackendSelector.svelte';
   import FormatIcon from '$lib/components/FormatIcon.svelte';
   import RunConfigCmp from '$lib/components/RunConfig.svelte';
@@ -79,6 +81,13 @@
   const runtime = $derived(file ? inferRuntime(file.name) : null);
   const usesOnnx = $derived(runtime === 'onnx');
   const usesLitert = $derived(runtime === 'litert');
+  const isCustomOrt = $derived(ortVersion.startsWith('http'));
+  const canUseCustomOrt = $derived(isAtLeast($auth.role ?? 'anonymous', 'partner'));
+
+  function handleOrtSelect(e: Event) {
+    const value = (e.currentTarget as HTMLSelectElement).value;
+    ortVersion = value === '__custom__' ? 'https://' : value;
+  }
 
   const completedCount = $derived(
     queue.filter((i) => i.status === 'completed' || i.status === 'error').length
@@ -543,7 +552,14 @@
           {#if usesOnnx && ortVersion}
             <div class="sb-row">
               <span class="sb-label">ORT Web</span>
-              <select class="sb-input" bind:value={ortVersion}>
+              <select
+                class="sb-input"
+                value={isCustomOrt && canUseCustomOrt ? '__custom__' : ortVersion}
+                onchange={handleOrtSelect}
+              >
+                {#if canUseCustomOrt}
+                  <option value="__custom__">Custom build…</option>
+                {/if}
                 {#if ortDevVersions.length}
                   <optgroup label="Dev">
                     {#each ortDevVersions as v}<option value={v}>{v}</option>{/each}
@@ -556,6 +572,17 @@
                 {/if}
               </select>
             </div>
+            {#if isCustomOrt && canUseCustomOrt}
+              <div class="sb-row">
+                <span class="sb-label">Dist URL</span>
+                <input
+                  class="sb-input"
+                  type="text"
+                  placeholder="https://.../ort.*.mjs"
+                  bind:value={ortVersion}
+                />
+              </div>
+            {/if}
           {/if}
           {#if usesLitert && litertVersion}
             <div class="sb-row">

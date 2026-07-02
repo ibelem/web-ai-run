@@ -296,8 +296,14 @@ let litertLoaded = false;
 let litertMode: string | null = null;
 let litertLoadedVersion: string | null = null;
 
-function getOrtCdnUrl(version: string): string {
-  return `https://cdn.jsdelivr.net/npm/onnxruntime-web@${version}/dist/ort.jspi.min.mjs`;
+function getOrtDistUrls(runtimeVersion: string): { moduleUrl: string; wasmBase: string } {
+  if (/^https?:\/\//i.test(runtimeVersion)) {
+    const moduleUrl = runtimeVersion;
+    const wasmBase = moduleUrl.slice(0, moduleUrl.lastIndexOf('/') + 1);
+    return { moduleUrl, wasmBase };
+  }
+  const wasmBase = `https://cdn.jsdelivr.net/npm/onnxruntime-web@${runtimeVersion}/dist/`;
+  return { moduleUrl: `${wasmBase}ort.jspi.min.mjs`, wasmBase };
 }
 
 function getLiteRtCdnUrl(version: string): string {
@@ -350,10 +356,9 @@ async function runOrt(req: WorkerRequest, bundle: DownloadedBundle): Promise<Tes
   const hfModelId = req.modelSource.kind === 'buffer' ? 'local' : req.modelSource.hfModelId;
 
   status(id, `Loading ONNX Runtime Web v${runtimeVersion}...`);
-  const url = getOrtCdnUrl(runtimeVersion);
-  const ort = await import(/* @vite-ignore */ url);
-  const cdnBase = `https://cdn.jsdelivr.net/npm/onnxruntime-web@${runtimeVersion}/dist/`;
-  ort.env.wasm.wasmPaths = cdnBase;
+  const { moduleUrl, wasmBase } = getOrtDistUrls(runtimeVersion);
+  const ort = await import(/* @vite-ignore */ moduleUrl);
+  ort.env.wasm.wasmPaths = wasmBase;
   ort.env.logLevel = 'verbose';
   ort.env.debug = false;
 
