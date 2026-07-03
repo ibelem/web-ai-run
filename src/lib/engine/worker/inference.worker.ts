@@ -290,6 +290,7 @@ type WorkerResponse =
   | { type: 'progress'; id: string; progress: DownloadProgress }
   | { type: 'status'; id: string; status: string }
   | { type: 'logs'; id: string; logs: string[] }
+  | { type: 'session-options'; id: string; sessionOptions: unknown }
   | { type: 'result'; id: string; result: TestResult };
 
 let litertLoaded = false;
@@ -399,6 +400,16 @@ async function runOrt(req: WorkerRequest, bundle: DownloadedBundle): Promise<Tes
     sessionOptions.externalData = externalData;
     log(id, `External data: ${externalData.map(e => e.path).join(', ')}`);
   }
+
+  // Report the exact sessionOptions passed to InferenceSession.create() so the
+  // page can surface them. Swap the externalData ArrayBuffers for their path
+  // strings — the buffers aren't meaningfully displayable and bloat the message.
+  // Log level fields are noise for display, so omit them.
+  const { logSeverityLevel: _lsl, logVerbosityLevel: _lvl, ...displaySessionOptions } = sessionOptions as any;
+  if (sessionOptions.externalData) {
+    displaySessionOptions.externalData = sessionOptions.externalData.map((e: any) => e.path);
+  }
+  post({ type: 'session-options', id, sessionOptions: displaySessionOptions });
 
   const captureWebnn = backend.startsWith('webnn_');
   const cap = captureWebnn ? startWebNNCapture() : null;

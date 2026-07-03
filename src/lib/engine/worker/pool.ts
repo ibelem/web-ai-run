@@ -13,6 +13,7 @@ export interface WorkerRunOptions {
   onProgress?: (progress: DownloadProgress) => void;
   onStatus?: (status: string) => void;
   onLogs?: (logs: string[]) => void;
+  onSessionOptions?: (sessionOptions: unknown) => void;
 }
 
 let workerInstance: Worker | null = null;
@@ -103,6 +104,9 @@ export function runInWorker(options: WorkerRunOptions): Promise<TestResult> {
           break;
         case 'logs':
           options.onLogs?.(msg.logs);
+          break;
+        case 'session-options':
+          options.onSessionOptions?.(msg.sessionOptions);
           break;
         case 'result': {
           if (settled) return;

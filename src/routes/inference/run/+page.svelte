@@ -82,9 +82,11 @@
     iterations: number;
     upload: boolean;
     cpu: string;
+    os: string;
     ort: string;
     litert: string;
     webnnEp: string;
+    fdo: boolean;
   } {
     const hash = new URLSearchParams(location.hash.slice(1));
 
@@ -125,6 +127,8 @@
       ort: hash.get("ort") ?? "",
       litert: hash.get("litert") ?? "",
       webnnEp: hash.get("webnn_ep") ?? "",
+      // Default enabled; only "fdo=0" disables it.
+      fdo: hash.get("fdo") !== "0",
     };
   }
 
@@ -146,6 +150,8 @@
     if (usesOnnx && ortVersion) params.set("ort", ortVersion);
     if (usesLitert && litertVersion) params.set("litert", litertVersion);
     if (usesWebnn && webnnEp) params.set("webnn_ep", webnnEp);
+    // Only written when explicitly disabled — enabled is the default.
+    if (usesOnnx && canUseCustomOrt && !enableFdo) params.set("fdo", "0");
     replaceState(`#${params}`, {});
   }
 
@@ -153,6 +159,12 @@
   let selectedBackends = $state<Backend[]>(["webgpu"]);
   let iterations = $state(50);
   let saveResults = $state(false);
+  // freeDimensionOverrides toggle — enabled by default; only exposed to
+  // partner/intel/admin (see canUseCustomOrt). Off means fdo is not applied.
+  let enableFdo = $state(true);
+  // Live JSON of the sessionOptions passed to ort.InferenceSession.create()
+  // for the active queue item, reported by the worker.
+  let sessionOptionsText = $state("");
   let queue = $state<TestItem[]>([]);
   let results = $state<TestResult[]>([]);
   let isRunning = $state(false);
@@ -299,6 +311,7 @@
     void ortVersion;
     void litertVersion;
     void webnnEp;
+    void enableFdo;
     writeHash();
     savePrefs();
     shareUrl = "";
@@ -338,6 +351,7 @@
     selectedBackends = parsed.backends;
     iterations = parsed.iterations;
     saveResults = parsed.upload;
+    enableFdo = parsed.fdo;
 
     const prefs = loadPrefs();
     cpuModel = parsed.cpu || prefs.cpu || "";
@@ -401,6 +415,7 @@
               const c = saved.config;
               if (c.iterations) iterations = c.iterations;
               if (c.saveResults != null) saveResults = c.saveResults;
+              if (c.enableFdo != null) enableFdo = c.enableFdo;
               if (c.ortVersion) ortVersion = c.ortVersion;
               if (c.litertVersion) litertVersion = c.litertVersion;
               if (c.webnnEp) webnnEp = c.webnnEp;
@@ -487,7 +502,7 @@
         completed_at: r.completed_at,
         inference_times: [],
       }));
-      const config = { iterations, saveResults, ortVersion, litertVersion, webnnEp, cpuModel, osModel, gpuDriverVersion, npuDriverVersion, backends: selectedBackends, models: hashModels };
+      const config = { iterations, saveResults, enableFdo, ortVersion, litertVersion, webnnEp, cpuModel, osModel, gpuDriverVersion, npuDriverVersion, backends: selectedBackends, models: hashModels };
       localStorage.setItem('interrupted_run', JSON.stringify({ queue: state, config, results: savedResults, ts: Date.now() }));
     } catch {}
   }
@@ -541,6 +556,7 @@
       currentRunItem = item;
 
       item.status = "downloading";
+      sessionOptionsText = "";
       queue = [...queue];
       saveRunState();
       statusText = `Testing ${item.hf_model_id}...`;
@@ -552,7 +568,7 @@
       const runtimeVersion =
         item.runtime === "onnx" ? ortVersion : litertVersion;
       const fdo =
-        item.runtime === "onnx"
+        item.runtime === "onnx" && enableFdo
           ? getOverride(overridesMap, item.hf_model_id, item.file_path)
           : undefined;
 
@@ -570,6 +586,9 @@
           warmupRuns: config.warmup_runs,
           runtimeVersion,
           freeDimensionOverrides: fdo,
+          onSessionOptions: (opts) => {
+            sessionOptionsText = JSON.stringify(opts);
+          },
           onProgress: (progress) => {
             downloadPercent = progress.percent;
             downloadLoaded = progress.loaded_bytes;
@@ -718,6 +737,7 @@
       currentRunItem = item;
 
       item.status = 'downloading';
+      sessionOptionsText = '';
       queue = [...queue];
       saveRunState();
       statusText = `Testing ${item.hf_model_id}...`;
@@ -729,7 +749,7 @@
       const runtimeVersion =
         item.runtime === 'onnx' ? ortVersion : litertVersion;
       const fdo =
-        item.runtime === 'onnx'
+        item.runtime === 'onnx' && enableFdo
           ? getOverride(overridesMap, item.hf_model_id, item.file_path)
           : undefined;
 
@@ -747,6 +767,9 @@
           warmupRuns: config.warmup_runs,
           runtimeVersion,
           freeDimensionOverrides: fdo,
+          onSessionOptions: (opts) => {
+            sessionOptionsText = JSON.stringify(opts);
+          },
           onProgress: (progress) => {
             downloadPercent = progress.percent;
             downloadLoaded = progress.loaded_bytes;
@@ -882,6 +905,7 @@
         ort: usesOnnx && ortVersion ? ortVersion : undefined,
         litert: usesLitert && litertVersion ? litertVersion : undefined,
         webnn_ep: usesWebnn && webnnEp ? webnnEp : undefined,
+        fdo: usesOnnx && canUseCustomOrt && !enableFdo ? false : undefined,
       };
       const res = await fetch("/api/shared-config", {
         method: "POST",
@@ -944,12 +968,13 @@
     if (writer) await writer.cacheAccessToken();
 
     item.status = "downloading";
+    sessionOptionsText = "";
     queue = [...queue];
     if (writer) await writer.retryResult(item, config.iterations);
 
     const runtimeVersion = item.runtime === "onnx" ? ortVersion : litertVersion;
     const fdo2 =
-      item.runtime === "onnx"
+      item.runtime === "onnx" && enableFdo
         ? getOverride(overridesMap, item.hf_model_id, item.file_path)
         : undefined;
     let result: TestResult;
@@ -966,6 +991,9 @@
         warmupRuns: config.warmup_runs,
         runtimeVersion,
         freeDimensionOverrides: fdo2,
+        onSessionOptions: (opts) => {
+          sessionOptionsText = JSON.stringify(opts);
+        },
         onProgress: (progress) => {
           downloadPercent = progress.percent;
           item.progress = progress.percent;
@@ -1122,6 +1150,14 @@
         aria-hidden={downloadTotal === 0}
       >
         <ProgressBar percent={downloadPercent} label="Downloading" loadedBytes={downloadLoaded} totalBytes={downloadTotal} />
+      </div>
+      <div class="status-options-row">
+        <span
+          class="status-options-value status-text-clip status-options-tooltip"
+          data-tooltip={sessionOptionsText || undefined}
+          title={sessionOptionsText || undefined}
+          >{sessionOptionsText || " "}</span
+        >
       </div>
       {#if isRunning && totalQueue > 0 && (activeItem || nextItem)}
         <div class="status-row status-row-bottom">
@@ -1284,6 +1320,12 @@
                   bind:value={ortVersion}
                 />
               </div>
+            {/if}
+            {#if canUseCustomOrt}
+              <label class="save-toggle fdo-toggle" title="Apply freeDimensionOverrides when creating the ONNX session. Resolves dynamic input dims (e.g. batch_size) for WebNN backends. Turn off to create the session without them.">
+                <input type="checkbox" bind:checked={enableFdo} />
+                <span class="save-toggle-text">freeDimensionOverrides</span>
+              </label>
             {/if}
           {/if}
           {#if usesLitert && litertVersion}
@@ -1663,6 +1705,18 @@
     white-space: nowrap;
   }
 
+  /* freeDimensionOverrides toggle sits in the sidebar's runtime section —
+     use the compact sidebar sizing rather than the larger action-row size. */
+  .fdo-toggle {
+    margin-bottom: 0;
+    min-height: 28px;
+    font-size: var(--text-xs);
+  }
+  .fdo-toggle input[type="checkbox"] {
+    width: 15px;
+    height: 15px;
+  }
+
   .action-hint {
     font-size: var(--text-xs);
     color: var(--color-text-secondary);
@@ -1884,6 +1938,43 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     min-width: 0;
+  }
+
+  .status-options-value {
+    color: var(--color-text-muted);
+    font-size: var(--text-xs);
+    font-family: var(--font-mono);
+    flex: 1;
+    display: block;
+    text-align: left;
+    position: relative;
+  }
+
+  .status-options-row {
+    min-height: 18px;
+    display: flex;
+    align-items: center;
+  }
+
+  .status-options-tooltip[data-tooltip]:hover::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    left: 0;
+    top: calc(100% + 6px);
+    z-index: 20;
+    max-width: min(92vw, 760px);
+    padding: 8px 10px;
+    border-radius: var(--radius-base);
+    border: 1px solid var(--color-border-strong);
+    background: var(--color-surface-raised);
+    color: var(--color-text-secondary);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    line-height: 1.45;
+    white-space: normal;
+    word-break: break-word;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    pointer-events: none;
   }
 
   @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }

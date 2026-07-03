@@ -26,6 +26,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
   if (config.ort) hash.set('ort', config.ort);
   if (config.litert) hash.set('litert', config.litert);
   if (config.webnn_ep) hash.set('webnn_ep', config.webnn_ep);
+  if (config.fdo === false) hash.set('fdo', '0');
 
   throw redirect(302, `/inference/run#${hash}`);
 };

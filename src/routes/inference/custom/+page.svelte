@@ -46,6 +46,12 @@
   let litertDevVersions = $state<string[]>([]);
   let litertStableVersions = $state<string[]>([]);
   let fdoText = $state('');
+  // freeDimensionOverrides toggle — enabled by default; only exposed to
+  // partner/intel/admin (see canUseCustomOrt). Off means fdo is not applied.
+  let enableFdo = $state(true);
+  // Live JSON of the sessionOptions passed to ort.InferenceSession.create()
+  // for the active queue item, reported by the worker.
+  let sessionOptionsText = $state('');
 
   function parseFdo(text: string): Record<string, number> | undefined {
     const trimmed = text.trim();
@@ -242,6 +248,7 @@
     for (const item of queue) {
       if (!isRunning) break;
       item.status = 'downloading';
+      sessionOptionsText = '';
       queue = [...queue];
       statusText = `Testing ${item.backend}...`;
 
@@ -261,7 +268,10 @@
           iterations: config.iterations,
           warmupRuns: config.warmup_runs,
           runtimeVersion,
-          freeDimensionOverrides: item.runtime === 'onnx' ? fdoParsed : undefined,
+          freeDimensionOverrides: item.runtime === 'onnx' && enableFdo ? fdoParsed : undefined,
+          onSessionOptions: (opts) => {
+            sessionOptionsText = JSON.stringify(opts);
+          },
           onProgress: (progress) => {
             downloadPercent = progress.percent;
             downloadLoaded = progress.loaded_bytes;
@@ -352,6 +362,7 @@
 
     const fileName = file.name;
     item.status = 'downloading';
+    sessionOptionsText = '';
     queue = [...queue];
 
     const runtimeVersion = item.runtime === 'onnx' ? ortVersion : litertVersion;
@@ -370,7 +381,10 @@
         iterations,
         warmupRuns: 3,
         runtimeVersion,
-        freeDimensionOverrides: item.runtime === 'onnx' ? fdoParsed : undefined,
+        freeDimensionOverrides: item.runtime === 'onnx' && enableFdo ? fdoParsed : undefined,
+        onSessionOptions: (opts) => {
+          sessionOptionsText = JSON.stringify(opts);
+        },
         onProgress: (progress) => {
           downloadPercent = progress.percent;
           item.progress = progress.percent;
@@ -464,6 +478,14 @@
           class:progress-bar-hidden={downloadPercent <= 0 || downloadPercent >= 100}
         >
           <ProgressBar percent={downloadPercent} label="Loading" loadedBytes={downloadLoaded} totalBytes={downloadTotal} />
+        </div>
+        <div class="status-options-row">
+          <span
+            class="status-options-value status-text-clip status-options-tooltip"
+            data-tooltip={sessionOptionsText || undefined}
+            title={sessionOptionsText || undefined}
+            >{sessionOptionsText || " "}</span
+          >
         </div>
         {#if totalQueue > 0 && (activeItem || nextItem)}
           <div class="status-row status-row-bottom">
@@ -611,6 +633,12 @@
                 bind:value={fdoText}
               />
             </div>
+          {/if}
+          {#if usesOnnx && ortVersion && canUseCustomOrt}
+            <label class="save-toggle fdo-toggle" title="Apply freeDimensionOverrides when creating the ONNX session. Resolves dynamic input dims (e.g. batch_size) for WebNN backends. Turn off to create the session without them.">
+              <input type="checkbox" bind:checked={enableFdo} />
+              <span class="save-toggle-text">freeDimensionOverrides</span>
+            </label>
           {/if}
         </div>
 
@@ -950,6 +978,64 @@
     }
   }
 
+  /* freeDimensionOverrides toggle — mirrors the "Upload results" checkbox on
+     /inference/run, sized to fit the compact sidebar runtime section. */
+  .save-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    user-select: none;
+    font-family: var(--font-ui);
+    font-size: var(--text-sm);
+    color: var(--color-text-secondary);
+  }
+
+  .save-toggle input[type="checkbox"] {
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    border: 2px solid var(--color-border-strong);
+    border-radius: 50%;
+    cursor: pointer;
+    transition: border-color var(--transition-base), background var(--transition-base);
+  }
+
+  .save-toggle input[type="checkbox"]:focus-visible {
+    outline: 2px solid var(--color-focus-ring);
+    outline-offset: 2px;
+  }
+
+  .save-toggle input[type="checkbox"]:hover {
+    border-color: var(--color-primary);
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 12 12' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M3 6.5L5 8.5L9 4' stroke='%230953DE' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-size: 12px;
+    background-position: center;
+    background-repeat: no-repeat;
+  }
+
+  .save-toggle input[type="checkbox"]:checked {
+    background: var(--color-primary);
+    border-color: var(--color-primary);
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 12 12' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M3 6.5L5 8.5L9 4' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-size: 12px;
+    background-position: center;
+    background-repeat: no-repeat;
+  }
+
+  .save-toggle-text {
+    white-space: nowrap;
+  }
+
+  .fdo-toggle {
+    min-height: 28px;
+    font-size: var(--text-xs);
+  }
+  .fdo-toggle input[type="checkbox"] {
+    width: 15px;
+    height: 15px;
+  }
+
   .btn-primary {
     font-family: var(--font-ui);
     font-size: var(--text-sm);
@@ -1067,6 +1153,16 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     min-width: 0;
+  }
+
+  .status-options-value {
+    color: var(--color-text-muted);
+    font-size: var(--text-xs);
+    font-family: var(--font-mono);
+    flex: 1;
+    display: block;
+    text-align: left;
+    position: relative;
   }
 
   @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }

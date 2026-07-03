@@ -247,6 +247,9 @@ export interface SharedRunConfig {
   ort?: string;
   litert?: string;
   webnn_ep?: string;
+  // Only set (to false) when freeDimensionOverrides was explicitly disabled;
+  // omitted means the default enabled state.
+  fdo?: boolean;
 }
 
 export interface BenchmarkMetrics {

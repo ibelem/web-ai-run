@@ -77,6 +77,7 @@ export type WorkerResponse =
   | { type: 'progress'; id: string; progress: DownloadProgress }
   | { type: 'status'; id: string; status: string }
   | { type: 'logs'; id: string; logs: string[] }
+  | { type: 'session-options'; id: string; sessionOptions: unknown }
   | { type: 'result'; id: string; result: TestResult };
 
 export interface EnvironmentInfo {
