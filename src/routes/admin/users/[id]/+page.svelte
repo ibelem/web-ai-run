@@ -122,6 +122,7 @@
 
   .mono {
     font-family: var(--font-mono);
+    font-size: var(--text-xs);
   }
 
   .muted {
