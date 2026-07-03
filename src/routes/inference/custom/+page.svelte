@@ -829,9 +829,8 @@
 
   .file-name {
     font-family: var(--font-mono);
-    font-size: var(--text-sm);
-    color: var(--color-text-primary);
-    font-weight: 500;
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
   }
 
   .file-size {
