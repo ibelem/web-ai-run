@@ -151,9 +151,12 @@
     if (files && files.length > 0) validateAndSetFiles(Array.from(files));
   }
 
-  function handleFileInput(e: Event) {
+  async function handleFileInput(e: Event) {
     const input = e.target as HTMLInputElement;
-    if (input.files && input.files.length > 0) validateAndSetFiles(Array.from(input.files));
+    // Await the read BEFORE resetting the input. Clearing input.value releases
+    // the browser's file handle; doing it before arrayBuffer() resolves throws
+    // NotReadableError. Once read, the data is in memory and reset is safe.
+    if (input.files && input.files.length > 0) await validateAndSetFiles(Array.from(input.files));
     // Reset so re-selecting the same file fires onchange again.
     input.value = '';
   }
