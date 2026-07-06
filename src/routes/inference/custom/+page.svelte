@@ -565,11 +565,12 @@
       </svg>
       <p class="drop-text">Drop a model file here or <span class="drop-browse">click to browse</span></p>
       <p class="drop-hint">Supports .onnx, .tflite</p>
-      <p class="drop-hint drop-hint-sidecar">For models with external data (.onnx_data*), select all files to upload, or drag all files together</p>
+      <p class="drop-hint drop-hint-sidecar">Has external data (.onnx_data*)? Drag all files together, or add them after with “+ Add data file”.</p>
     </div>
     <input
       id="file-input"
       type="file"
+      accept=".onnx,.tflite"
       multiple
       style="display:none"
       onchange={handleFileInput}
