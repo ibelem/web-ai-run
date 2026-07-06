@@ -151,27 +151,48 @@ async function downloadBundle(id: string, hfModelId: string, files: string[]): P
     if (!res.ok) throw new Error(`Download failed: ${file} (${res.status})`);
 
     const reader = res.body!.getReader();
-    const chunks: Uint8Array[] = [];
-    let fileLoaded = 0;
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      chunks.push(value);
-      fileLoaded += value.byteLength;
-      cumulativeLoaded += value.byteLength;
-      post({ type: 'download-progress', id, loaded: cumulativeLoaded, total: totalBytes, currentFile: file });
+    if (fileSize > 0) {
+      // Known size: stream directly into one pre-sized buffer. Accumulating the
+      // chunks AND then allocating a second full-size buffer to concatenate
+      // doubled peak memory (~2× file size) and can OOM multi-GB shards with
+      // "Array buffer allocation failed".
+      const buf = new Uint8Array(fileSize);
+      let fileLoaded = 0;
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        if (fileLoaded + value.byteLength > fileSize) {
+          throw new Error(`Size mismatch: ${file} received more than ${fileSize} bytes`);
+        }
+        buf.set(value, fileLoaded);
+        fileLoaded += value.byteLength;
+        cumulativeLoaded += value.byteLength;
+        post({ type: 'download-progress', id, loaded: cumulativeLoaded, total: totalBytes, currentFile: file });
+      }
+      if (fileLoaded !== fileSize) {
+        throw new Error(`Truncated download: ${file} (got ${fileLoaded}, expected ${fileSize})`);
+      }
+      await saveToOPFS(key, buf.buffer);
+      log(id, `Cached ${file} (${(fileLoaded / 1_048_576).toFixed(1)} MB)`);
+    } else {
+      // Unknown size (not in HF tree): accumulate chunks, then concatenate.
+      const chunks: Uint8Array[] = [];
+      let fileLoaded = 0;
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+        fileLoaded += value.byteLength;
+        cumulativeLoaded += value.byteLength;
+        post({ type: 'download-progress', id, loaded: cumulativeLoaded, total: totalBytes, currentFile: file });
+      }
+      const buf = new Uint8Array(fileLoaded);
+      let off = 0;
+      for (const c of chunks) { buf.set(c, off); off += c.byteLength; }
+      await saveToOPFS(key, buf.buffer);
+      log(id, `Cached ${file} (${(fileLoaded / 1_048_576).toFixed(1)} MB)`);
     }
-
-    if (fileSize > 0 && fileLoaded !== fileSize) {
-      throw new Error(`Truncated download: ${file} (got ${fileLoaded}, expected ${fileSize})`);
-    }
-
-    const buf = new Uint8Array(fileLoaded);
-    let off = 0;
-    for (const c of chunks) { buf.set(c, off); off += c.byteLength; }
-    await saveToOPFS(key, buf.buffer);
-    log(id, `Cached ${file} (${(fileLoaded / 1_048_576).toFixed(1)} MB)`);
   }
 
   const durationMs = performance.now() - tStart;

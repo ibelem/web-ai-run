@@ -152,6 +152,9 @@ function finalizeCapture(state: CaptureState, backend: Backend): WebNNCapability
 }
 
 // ── Inlined: HF base / OPFS / download ───────────────────────────────────
+// Classic worker — can't import from ./shared/download (see top-of-file note),
+// so this download stack is inlined. The LLM module worker uses ./shared for
+// the getHfBase/OPFS primitives; keep any shared-primitive changes in sync.
 
 const HF_MAIN = 'https://huggingface.co';
 const HF_MIRROR = 'https://hf-mirror.com';
@@ -208,17 +211,35 @@ async function downloadFromHostInline(base: string, hfModelId: string, filePath:
   }
   const res = await fetch(url); if (!res.ok) throw new Error(`Download failed: ${res.status}`);
   const contentLength = Number(res.headers.get('content-length') ?? 0);
-  const reader = res.body!.getReader(); const chunks: Uint8Array[] = []; let loaded = 0;
-  while (true) {
-    const { done, value } = await reader.read(); if (done) break;
-    chunks.push(value); loaded += value.byteLength;
-    const al = agg ? agg.prior + loaded : loaded, at = agg ? agg.total : contentLength;
-    onProgress(al, at, filePath);
+  const reader = res.body!.getReader();
+  let arrayBuffer: ArrayBuffer;
+  if (contentLength > 0) {
+    // Known size: stream directly into one pre-sized buffer. Holding the
+    // streamed chunks AND then allocating a second full-size buffer to
+    // concatenate doubled peak memory (~2× file size) and OOM'd multi-GB
+    // external-data files with "Array buffer allocation failed".
+    const buf = new Uint8Array(contentLength); let loaded = 0;
+    while (true) {
+      const { done, value } = await reader.read(); if (done) break;
+      if (loaded + value.byteLength > contentLength) throw new Error(`Size mismatch: received more than ${contentLength} bytes`);
+      buf.set(value, loaded); loaded += value.byteLength;
+      onProgress(agg ? agg.prior + loaded : loaded, agg ? agg.total : contentLength, filePath);
+    }
+    if (loaded !== contentLength) throw new Error(`Truncated: ${loaded}/${contentLength}`);
+    arrayBuffer = buf.buffer;
+  } else {
+    // Unknown size (no content-length): accumulate chunks, then concatenate.
+    const chunks: Uint8Array[] = []; let loaded = 0;
+    while (true) {
+      const { done, value } = await reader.read(); if (done) break;
+      chunks.push(value); loaded += value.byteLength;
+      onProgress(agg ? agg.prior + loaded : loaded, agg ? agg.total : contentLength, filePath);
+    }
+    const buf = new Uint8Array(loaded); let off = 0;
+    for (const c of chunks) { buf.set(c, off); off += c.byteLength; }
+    arrayBuffer = buf.buffer;
   }
-  if (contentLength > 0 && loaded !== contentLength) throw new Error(`Truncated: ${loaded}/${contentLength}`);
-  const buf = new Uint8Array(loaded); let off = 0;
-  for (const c of chunks) { buf.set(c, off); off += c.byteLength; }
-  return { arrayBuffer: buf.buffer, cacheKey, useCache };
+  return { arrayBuffer, cacheKey, useCache };
 }
 
 async function probeSidecars(base: string, hfModelId: string, mainFilePath: string): Promise<string[]> {
@@ -246,6 +267,13 @@ async function downloadModel(hfModelId: string, filePath: string, id: string): P
   const tryDownload = async (base: string, fp: string, priorBytes: number) => {
     try { return await downloadFromHostInline(base, hfModelId, fp, (l, t, fp2) => post({ type: 'progress', id, progress: { model_id: hfModelId, file_path: fp2, loaded_bytes: l, total_bytes: t, percent: t > 0 ? (l / t) * 100 : 0 } }), totalBytes > 0 ? { total: totalBytes, prior: priorBytes } : undefined); }
     catch (e1: any) {
+      // An out-of-memory error (RangeError: Array buffer allocation failed) is
+      // a local resource limit, not a host problem — the bytes already arrived.
+      // Retrying the mirror just re-downloads the same file and fails the same
+      // way, so fail fast with a clear message instead.
+      if (e1 instanceof RangeError || /allocation failed/i.test(e1?.message ?? '')) {
+        throw new Error(`Out of memory loading ${fp}: ${e1?.message}. The file is too large to hold in memory on this device/browser.`);
+      }
       log(id, `Primary ${base} failed: ${e1?.message}; retrying ${fallback}`);
       cachedHfBase = null; cachedHfBaseAt = 0;
       try { const r = await downloadFromHostInline(fallback, hfModelId, fp, (l, t, fp2) => post({ type: 'progress', id, progress: { model_id: hfModelId, file_path: fp2, loaded_bytes: l, total_bytes: t, percent: t > 0 ? (l / t) * 100 : 0 } }), totalBytes > 0 ? { total: totalBytes, prior: priorBytes } : undefined); cachedHfBase = fallback; cachedHfBaseAt = Date.now(); return r; }
