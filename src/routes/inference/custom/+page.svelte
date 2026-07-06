@@ -1208,7 +1208,7 @@
 
   .error-text {
     color: var(--color-error);
-    font-size: var(--text-sm);
+    font-size: var(--text-xs);
     margin-bottom: var(--space-2);
   }
 
