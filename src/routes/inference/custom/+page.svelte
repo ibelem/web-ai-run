@@ -166,6 +166,35 @@
     return /\.onnx_data(?:_\d+)?$/.test(name);
   }
 
+  // Read a File to an ArrayBuffer, turning the browser's opaque read failures
+  // (NotReadableError etc.) into an actionable message. These are OS/browser
+  // level, not app bugs: cloud "online-only" placeholders (OneDrive/Drive),
+  // antivirus locks, extension blockers, or a file moved after selection.
+  async function readBuffer(f: File): Promise<ArrayBuffer> {
+    // 256 MB slices — mirrors getFromOPFS. A single arrayBuffer() over a multi-GB
+    // blob can fail (truncation / read errors); chunked slice-reads are more
+    // robust and avoid holding two full copies.
+    const CHUNK = 256 * 1024 * 1024;
+    try {
+      if (f.size > CHUNK) {
+        const out = new Uint8Array(f.size);
+        let offset = 0;
+        while (offset < f.size) {
+          const end = Math.min(offset + CHUNK, f.size);
+          const chunk = await f.slice(offset, end).arrayBuffer();
+          out.set(new Uint8Array(chunk), offset);
+          offset = end;
+        }
+        return out.buffer;
+      }
+      return await f.arrayBuffer();
+    } catch {
+      throw new Error(
+        `Couldn't read "${f.name}". It may be on cloud storage (OneDrive/Google Drive "online-only"), locked by antivirus, or blocked by a browser extension. Copy it to a local folder, disable blockers, then re-add it.`,
+      );
+    }
+  }
+
   async function validateAndSetFiles(picked: File[]) {
     // Find the primary model file
     const primary = picked.find(f => !isSidecar(f.name));
@@ -177,9 +206,15 @@
         const extra = picked
           .filter(f => isSidecar(f.name))
           .sort((a, b) => a.name.localeCompare(b.name));
-        const added = await Promise.all(
-          extra.map(async f => ({ path: f.name, data: await f.arrayBuffer() }))
-        );
+        let added: { path: string; data: ArrayBuffer }[];
+        try {
+          added = await Promise.all(
+            extra.map(async f => ({ path: f.name, data: await readBuffer(f) }))
+          );
+        } catch (err: any) {
+          errorMessage = err?.message ?? 'Could not read the selected data file(s).';
+          return;
+        }
         // De-dupe by path so re-adding a file replaces rather than duplicates.
         const byPath = new Map(sidecarFiles.map(s => [s.path, s]));
         for (const a of added) byPath.set(a.path, a);
@@ -211,15 +246,23 @@
 
     errorMessage = '';
     file = primary;
-    modelBuffer = await primary.arrayBuffer();
+    try {
+      modelBuffer = await readBuffer(primary);
 
-    // Collect sidecar buffers — sort by name so _1 < _2 < ... order is preserved
-    const sidecars = picked
-      .filter(f => isSidecar(f.name))
-      .sort((a, b) => a.name.localeCompare(b.name));
-    sidecarFiles = await Promise.all(
-      sidecars.map(async f => ({ path: f.name, data: await f.arrayBuffer() }))
-    );
+      // Collect sidecar buffers — sort by name so _1 < _2 < ... order is preserved
+      const sidecars = picked
+        .filter(f => isSidecar(f.name))
+        .sort((a, b) => a.name.localeCompare(b.name));
+      sidecarFiles = await Promise.all(
+        sidecars.map(async f => ({ path: f.name, data: await readBuffer(f) }))
+      );
+    } catch (err: any) {
+      errorMessage = err?.message ?? 'Could not read the selected file(s).';
+      file = null;
+      modelBuffer = null;
+      sidecarFiles = [];
+      return;
+    }
   }
 
   function formatSize(bytes: number): string {
