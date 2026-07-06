@@ -154,6 +154,8 @@
   function handleFileInput(e: Event) {
     const input = e.target as HTMLInputElement;
     if (input.files && input.files.length > 0) validateAndSetFiles(Array.from(input.files));
+    // Reset so re-selecting the same file fires onchange again.
+    input.value = '';
   }
 
   // Detect sidecar name pattern: "<basename>.onnx_data" or "<basename>.onnx_data_N"
@@ -692,8 +694,27 @@
               <span class="badge badge-sidecar" title={sidecarFiles.map(s => s.path).join(', ')}>+{sidecarFiles.length} data</span>
             {/if}
           </div>
-          <button class="btn-clear" onclick={clearFile}>Remove</button>
+          <div class="file-actions">
+            {#if usesOnnx}
+              <button class="btn-add-data" onclick={() => document.getElementById('add-data-input')?.click()}>+ Add data file</button>
+            {/if}
+            <button class="btn-clear" onclick={clearFile}>Remove</button>
+          </div>
         </div>
+        <!-- The dropzone is gone once a primary is loaded, so this is the only
+             way to attach external-data sidecars (.onnx_data / .onnx_data_N)
+             after the fact. Feeds handleFileInput → validateAndSetFiles, which
+             attaches sidecars to the already-loaded primary. -->
+        <input
+          id="add-data-input"
+          type="file"
+          multiple
+          style="display:none"
+          onchange={handleFileInput}
+        />
+        {#if usesOnnx && sidecarFiles.length === 0}
+          <p class="sidecar-hint">If this model has external data (a <code>.onnx_data</code> file), add it with <strong>+ Add data file</strong> — otherwise session creation fails with “Failed to load external data file”.</p>
+        {/if}
 
         {#if queue.length > 0 || results.length > 0}
           <section class="results-section">
@@ -874,6 +895,36 @@
   }
 
   .btn-clear:hover { color: var(--color-error); border-color: var(--color-error); }
+
+  .file-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+    flex-shrink: 0;
+  }
+
+  .btn-add-data {
+    font-family: var(--font-ui);
+    font-size: var(--text-xs);
+    padding: 4px 10px;
+    border: 1px solid var(--color-primary);
+    border-radius: var(--radius-sm);
+    background: none;
+    color: var(--color-primary);
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .btn-add-data:hover { background: var(--color-accent-light); }
+
+  .sidecar-hint {
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+    margin: 4px 0 var(--space-2);
+  }
+  .sidecar-hint code {
+    font-family: var(--font-mono);
+    font-size: 0.9em;
+  }
 
   /* Sidebar layout (mirrors /inference/run) */
   .run-layout {
