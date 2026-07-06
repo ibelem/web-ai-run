@@ -246,9 +246,14 @@ async function probeSidecars(base: string, hfModelId: string, mainFilePath: stri
   const fileBase = mainFilePath.replace(/\.onnx$/, '');
   const probe = async (p: string) => { try { return (await fetch(`${base}/${hfModelId}/resolve/main/${p}`, { method: 'HEAD' })).ok; } catch { return false; } };
   const sidecars: string[] = [];
-  if (await probe(`${fileBase}.onnx_data`)) {
-    sidecars.push(`${fileBase}.onnx_data`);
-    for (let i = 1; i <= 99; i++) { const np = `${fileBase}.onnx_data_${i}`; if (await probe(np)) sidecars.push(np); else break; }
+  // Single-file external data: model.onnx_data
+  if (await probe(`${fileBase}.onnx_data`)) sidecars.push(`${fileBase}.onnx_data`);
+  // Sharded external data: model.onnx_data_1 .. _N (1-based). These can exist
+  // WITHOUT a base .onnx_data, so probe them independently of the check above.
+  for (let i = 1; i <= 99; i++) {
+    const np = `${fileBase}.onnx_data_${i}`;
+    if (await probe(np)) sidecars.push(np);
+    else break;
   }
   return sidecars;
 }
