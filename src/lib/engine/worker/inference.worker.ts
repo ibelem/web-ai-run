@@ -425,7 +425,10 @@ async function runOrt(req: WorkerRequest, bundle: DownloadedBundle): Promise<Tes
   }
 
   if (externalData.length > 0) {
-    sessionOptions.externalData = externalData;
+    // ORT Web expects each entry's `data` as a Uint8Array (or path/URL string),
+    // not a bare ArrayBuffer. Wrap so both the upload and URL-download paths
+    // hand it the documented type.
+    sessionOptions.externalData = externalData.map((e) => ({ path: e.path, data: new Uint8Array(e.data) }));
     log(id, `External data: ${externalData.map(e => e.path).join(', ')}`);
   }
 

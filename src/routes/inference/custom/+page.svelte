@@ -165,6 +165,23 @@
     // Find the primary model file
     const primary = picked.find(f => !isSidecar(f.name));
     if (!primary) {
+      // Only sidecar(s) selected. If a primary model is already loaded, attach
+      // them to it — this supports adding external-data files in a second step,
+      // which otherwise silently dropped them and broke session creation.
+      if (file && modelBuffer) {
+        const extra = picked
+          .filter(f => isSidecar(f.name))
+          .sort((a, b) => a.name.localeCompare(b.name));
+        const added = await Promise.all(
+          extra.map(async f => ({ path: f.name, data: await f.arrayBuffer() }))
+        );
+        // De-dupe by path so re-adding a file replaces rather than duplicates.
+        const byPath = new Map(sidecarFiles.map(s => [s.path, s]));
+        for (const a of added) byPath.set(a.path, a);
+        sidecarFiles = [...byPath.values()].sort((a, b) => a.path.localeCompare(b.path));
+        errorMessage = '';
+        return;
+      }
       errorMessage = 'No primary model file found. Please include the .onnx or .tflite file.';
       return;
     }
@@ -548,7 +565,6 @@
     <input
       id="file-input"
       type="file"
-      accept=".onnx,.tflite"
       multiple
       style="display:none"
       onchange={handleFileInput}
