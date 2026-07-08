@@ -2,6 +2,17 @@ import type { LLMWorkerRequest, LLMWorkerMessage, LLMBenchmarkResult, SingleRunR
 import { getHfBase, getFromOPFS, getOPFSFile, saveToOPFS } from './shared/download';
 import { installConsoleWrappers, startWebNNCapture, finalizeCapture } from './shared/webnn-tap';
 import { average, stddev } from './shared/metrics';
+import { parseExternalDataLocations, isStandardDataFormat } from '../onnx-external-data';
+
+// Escape a string for literal use inside a RegExp.
+function escapeRegExp(s: string): string { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+// Sort so a base file precedes its shards and numbered shards go 1,2,…,10 (not 1,10,2).
+function naturalCompare(a: string, b: string): number { return a.localeCompare(b, undefined, { numeric: true }); }
+// A file is external-data for `graph` if it sits beside it: same name plus a
+// separator (covers .onnx_data[_N] and .onnx.data[.N] without assuming which).
+function isDataSiblingOf(path: string, graph: string): boolean {
+  return path !== graph && path.startsWith(graph) && (path[graph.length] === '.' || path[graph.length] === '_');
+}
 
 // Install console wrappers at module load — same reason as inference.worker.ts.
 installConsoleWrappers();
@@ -87,25 +98,24 @@ async function resolveLlmFileSet(hfModelId: string, dtype: string): Promise<stri
     .filter(f => f.path.startsWith('onnx/') && f.path.endsWith(`${suffix}.onnx`))
     .map(f => f.path);
 
-  // For each ONNX file, also pull its external data sidecars (any name that
-  // matches `<onnx>.onnx_data` or `<onnx>.onnx_data_N`).
+  // For each ONNX file, also pull its external-data files. These sit next to the
+  // graph and start with the graph name + a separator — we match that structure
+  // rather than assuming the ".onnx_data" convention, so ".onnx.data" models are
+  // discovered too. The graph's own declared `location` (parsed later) decides
+  // how it's registered; here we just make sure every physical file is fetched.
   const result = [...required, ...optional.filter(f => present.has(f))];
   for (const onnxPath of onnxFiles) {
     if (result.includes(onnxPath)) continue;
     result.push(onnxPath);
     const onnxEntry = tree.find(f => f.path === onnxPath)!;
-    const sidecar = `${onnxPath}_data`;
-    const hasSidecar = present.has(sidecar);
-    if (!hasSidecar && onnxEntry.size < 1_000_000 && onnxPath === primaryOnnx) {
-      throw new Error(`External data missing: ${sidecar} (graph is ${onnxEntry.size} bytes — too small to be self-contained)`);
+    const dataFiles = tree
+      .filter(f => isDataSiblingOf(f.path, onnxPath))
+      .map(f => f.path)
+      .sort(naturalCompare);
+    if (dataFiles.length === 0 && onnxEntry.size < 1_000_000 && onnxPath === primaryOnnx) {
+      throw new Error(`External data missing for ${onnxPath} (graph is ${onnxEntry.size} bytes — too small to be self-contained)`);
     }
-    if (hasSidecar) {
-      result.push(sidecar);
-      for (let i = 1; i <= 99; i++) {
-        const ns = `${onnxPath}_data_${i}`;
-        if (present.has(ns)) result.push(ns); else break;
-      }
-    }
+    result.push(...dataFiles);
   }
 
   return result;
@@ -489,15 +499,65 @@ async function runTransformers(req: LLMWorkerRequest): Promise<void> {
   // exact shard count (1 for single sidecar, 2+ for multi-shard). transformers.js
   // then generates getModelDataFiles({path: "..._data"}, {path: "..._data_1"}, ...)
   // and ORT internally maps both to the single logical external data reference.
+  // Per-graph hybrid. We read each graph's declared external-data `location`(s)
+  // straight from the .onnx and decide how to register them:
+  //  • Standard (`<graph>.onnx_data[_N]`): stay on Transformers.js's own
+  //    `use_external_data_format` (Path A). It's per-graph correct — essential
+  //    for multi-graph VLMs — and unchanged from before for these models.
+  //  • Non-standard (e.g. `<graph>.onnx.data`): register explicitly via
+  //    `session_options.externalData` with the real name (Path B). Path A can't
+  //    produce these names, so ORT would otherwise fail to find the file.
+  // The two coexist: a graph with a count uses Path A and ignores externalData;
+  // a graph without a count (num_chunks 0) uses the externalData entries.
   const onnxFiles = fileSet.filter(f => f.endsWith('.onnx'));
-  const externalDataMap: Record<string, number> = {};
+  const externalDataMap: Record<string, number> = {};            // Path A (standard)
+  const externalDataEntries: { path: string; data: string | Uint8Array }[] = []; // Path B (non-standard)
+
   for (const onnx of onnxFiles) {
+    // Skip self-contained graphs (no external-data siblings) without reading them.
+    if (!fileSet.some(f => isDataSiblingOf(f, onnx))) continue;
+
     const baseName = onnx.split('/').pop()!;
-    const shardCount = fileSet.filter(f => f === `${onnx}_data` || new RegExp(`^${onnx.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}_data_\\d+$`).test(f)).length;
-    if (shardCount > 0) externalDataMap[baseName] = shardCount;
+    const graphBuf = await getFromOPFS(opfsKey(req.hfModelId, onnx));
+    const locations = graphBuf ? parseExternalDataLocations(graphBuf) : [];
+
+    // Standard `_data` naming — or an unreadable/unparseable graph that still has
+    // sibling data files: stay on Path A (count-based), matching prior behaviour.
+    if (locations.length === 0 || isStandardDataFormat(locations, baseName)) {
+      const shardCount = fileSet.filter(f => f === `${onnx}_data` || new RegExp(`^${escapeRegExp(onnx)}_data_\\d+$`).test(f)).length;
+      if (shardCount > 0) externalDataMap[baseName] = shardCount;
+      continue;
+    }
+
+    // Path B — register each location under its real name.
+    const dir = onnx.includes('/') ? onnx.slice(0, onnx.lastIndexOf('/') + 1) : '';
+    for (const loc of locations) {
+      const base = `${dir}${loc}`;
+      const shards = fileSet
+        .filter(f => f === base || new RegExp(`^${escapeRegExp(base)}[._]\\d+$`).test(f))
+        .sort(naturalCompare);
+      if (shards.length <= 1) {
+        // Single physical file — hand Transformers.js the relative path and let
+        // the OPFS fetch override stream it (low peak memory). `path` is the
+        // model's real location so ORT finds it.
+        externalDataEntries.push({ path: loc, data: shards[0] ?? base });
+      } else {
+        // Sharded non-standard — concatenate from OPFS into the one logical file.
+        const parts: Uint8Array[] = [];
+        for (const s of shards) {
+          const b = await getFromOPFS(opfsKey(req.hfModelId, s));
+          if (b) parts.push(new Uint8Array(b));
+        }
+        let len = 0; for (const p of parts) len += p.byteLength;
+        const merged = new Uint8Array(len); let off = 0;
+        for (const p of parts) { merged.set(p, off); off += p.byteLength; }
+        externalDataEntries.push({ path: loc, data: merged });
+      }
+    }
   }
   const useExternalDataFormat = Object.keys(externalDataMap).length > 0 ? externalDataMap : undefined;
   if (useExternalDataFormat) log(id, `use_external_data_format: ${JSON.stringify(useExternalDataFormat)}`);
+  if (externalDataEntries.length > 0) log(id, `session_options.externalData: ${externalDataEntries.map(e => e.path).join(', ')}`);
 
   const tjsUrl = getTransformersCdnUrl(req.runtimeVersion);
   log(id, `Loading @huggingface/transformers@${req.runtimeVersion}`);
@@ -518,6 +578,7 @@ async function runTransformers(req: LLMWorkerRequest): Promise<void> {
       dtype: req.dtype,
       device,
       ...(useExternalDataFormat ? { use_external_data_format: useExternalDataFormat } : {}),
+      ...(externalDataEntries.length > 0 ? { session_options: { externalData: externalDataEntries } } : {}),
       progress_callback: (p: any) => {
         if (p?.status === 'initiate' && p?.file) log(id, `Loading: ${p.file}`);
       },

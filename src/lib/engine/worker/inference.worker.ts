@@ -197,6 +197,89 @@ async function saveToOPFS(fileName: string, data: ArrayBuffer): Promise<void> {
   } catch {}
 }
 
+// ── HF tree listing (classic worker — inlined) ────────────────────────────
+
+interface HFTreeEntry { path: string; size: number; type: string }
+const treeCache = new Map<string, HFTreeEntry[]>();
+
+async function fetchHfTree(hfModelId: string): Promise<HFTreeEntry[]> {
+  if (treeCache.has(hfModelId)) return treeCache.get(hfModelId)!;
+  const base = await getHfBase();
+  const res = await fetch(`${base}/api/models/${hfModelId}/tree/main?recursive=1`);
+  if (!res.ok) throw new Error(`HF tree fetch failed for ${hfModelId}: ${res.status}`);
+  const data = await res.json();
+  const entries: HFTreeEntry[] = (Array.isArray(data) ? data : data.siblings ?? []).map((e: any) => ({
+    path: e.path ?? e.rfilename ?? '',
+    size: e.size ?? 0,
+    type: e.type ?? 'file',
+  })).filter((e: HFTreeEntry) => e.type === 'file');
+  treeCache.set(hfModelId, entries);
+  return entries;
+}
+
+// ── ONNX external-data location parser (classic worker — inlined) ──────────
+// Keep in sync with src/lib/engine/onnx-external-data.ts. Reads the ground-truth
+// `location` filenames ORT will demand from the model's external tensors,
+// instead of guessing the ".onnx_data" convention.
+
+function parseExternalDataLocations(input: ArrayBuffer | Uint8Array): string[] {
+  const buf = input instanceof Uint8Array ? input : new Uint8Array(input);
+  const found = new Set<string>();
+  const utf8 = new TextDecoder('utf-8', { fatal: false });
+  const MAX_DEPTH = 24;
+
+  function readVarint(pos: number): [number, number] | null {
+    let result = 0, shift = 0, p = pos;
+    while (p < buf.length) {
+      const b = buf[p++];
+      result += (b & 0x7f) * Math.pow(2, shift);
+      if ((b & 0x80) === 0) return [result, p];
+      shift += 7;
+      if (shift > 56) return null;
+    }
+    return null;
+  }
+  function tryDecode(start: number, end: number): string | null {
+    if (start > end || end > buf.length) return null;
+    return utf8.decode(buf.subarray(start, end));
+  }
+  function scan(start: number, end: number, depth: number): void {
+    if (depth > MAX_DEPTH) return;
+    let key1: string | null = null, val2: string | null = null, p = start;
+    while (p < end) {
+      const tag = readVarint(p);
+      if (!tag) return;
+      p = tag[1];
+      const field = Math.floor(tag[0] / 8), wire = tag[0] & 7;
+      if (wire === 0) { const v = readVarint(p); if (!v) return; p = v[1]; }
+      else if (wire === 1) { p += 8; }
+      else if (wire === 5) { p += 4; }
+      else if (wire === 2) {
+        const lenR = readVarint(p); if (!lenR) return;
+        const subStart = lenR[1], subEnd = subStart + lenR[0];
+        if (subEnd > end) return;
+        if (field === 1) key1 = tryDecode(subStart, subEnd);
+        else if (field === 2) val2 = tryDecode(subStart, subEnd);
+        scan(subStart, subEnd, depth + 1);
+        p = subEnd;
+      } else { return; }
+    }
+    if (key1 === 'location' && val2) found.add(val2);
+  }
+  scan(0, buf.length, 0);
+  return [...found];
+}
+
+function escapeRegExp(s: string): string { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+
+function concatBuffers(parts: Uint8Array[]): ArrayBuffer {
+  if (parts.length === 1) return parts[0].buffer.slice(parts[0].byteOffset, parts[0].byteOffset + parts[0].byteLength);
+  let len = 0; for (const p of parts) len += p.byteLength;
+  const out = new Uint8Array(len); let off = 0;
+  for (const p of parts) { out.set(p, off); off += p.byteLength; }
+  return out.buffer;
+}
+
 interface DownloadedBundle { modelBuffer: ArrayBuffer; externalData: { path: string; data: ArrayBuffer }[]; }
 
 async function downloadFromHostInline(base: string, hfModelId: string, filePath: string, onProgress: (l: number, t: number, fp: string) => void, agg?: { total: number; prior: number }): Promise<{ arrayBuffer: ArrayBuffer; cacheKey: string; useCache: boolean }> {
@@ -242,35 +325,60 @@ async function downloadFromHostInline(base: string, hfModelId: string, filePath:
   return { arrayBuffer, cacheKey, useCache };
 }
 
-async function probeSidecars(base: string, hfModelId: string, mainFilePath: string): Promise<string[]> {
-  const fileBase = mainFilePath.replace(/\.onnx$/, '');
+// One logical external-data file the model references (`location`), plus the
+// physical file(s) that make it up on the host — a single file, or numbered
+// download shards (`<base>_1`, `_2`, …) that concatenate into it.
+interface ExternalGroup { location: string; physical: string[]; totalSize: number }
+
+// Resolve each declared location to real files via the HF tree listing — no
+// name guessing, no 404 probing. Physical files sit next to the .onnx graph.
+function resolveExternalGroups(tree: HFTreeEntry[], filePath: string, locations: string[]): ExternalGroup[] {
+  const sizeOf = new Map(tree.map(t => [t.path, t.size]));
+  const slash = filePath.lastIndexOf('/');
+  const dir = slash >= 0 ? filePath.slice(0, slash + 1) : '';
+  return locations.map((loc) => {
+    const base = `${dir}${loc}`;
+    const physical: string[] = [];
+    if (sizeOf.has(base)) physical.push(base);
+    const shardRe = new RegExp(`^${escapeRegExp(base)}_(\\d+)$`);
+    const shards = tree
+      .map(t => { const m = t.path.match(shardRe); return m ? { path: t.path, n: +m[1] } : null; })
+      .filter((x): x is { path: string; n: number } => x !== null)
+      .sort((a, b) => a.n - b.n)
+      .map(x => x.path);
+    physical.push(...shards);
+    const totalSize = physical.reduce((s, p) => s + (sizeOf.get(p) ?? 0), 0);
+    return { location: loc, physical, totalSize };
+  });
+}
+
+// Fallback when the tree can't be fetched: probe the exact declared base name
+// (and numbered shards). Still no wrong-name guessing — the base comes from the
+// model — so at most one benign end-of-sequence 404 per location.
+async function probeExternalGroups(base: string, hfModelId: string, filePath: string, locations: string[]): Promise<ExternalGroup[]> {
+  const slash = filePath.lastIndexOf('/');
+  const dir = slash >= 0 ? filePath.slice(0, slash + 1) : '';
   const probe = async (p: string) => { try { return (await fetch(`${base}/${hfModelId}/resolve/main/${p}`, { method: 'HEAD' })).ok; } catch { return false; } };
-  const sidecars: string[] = [];
-  // Single-file external data: model.onnx_data
-  if (await probe(`${fileBase}.onnx_data`)) sidecars.push(`${fileBase}.onnx_data`);
-  // Sharded external data: model.onnx_data_1 .. _N (1-based). These can exist
-  // WITHOUT a base .onnx_data, so probe them independently of the check above.
-  for (let i = 1; i <= 99; i++) {
-    const np = `${fileBase}.onnx_data_${i}`;
-    if (await probe(np)) sidecars.push(np);
-    else break;
+  const groups: ExternalGroup[] = [];
+  for (const loc of locations) {
+    const basePath = `${dir}${loc}`;
+    const physical: string[] = [];
+    if (await probe(basePath)) physical.push(basePath);
+    for (let i = 1; i <= 99; i++) { const np = `${basePath}_${i}`; if (await probe(np)) physical.push(np); else break; }
+    groups.push({ location: loc, physical, totalSize: 0 });
   }
-  return sidecars;
+  return groups;
 }
 
 async function downloadModel(hfModelId: string, filePath: string, id: string): Promise<DownloadedBundle> {
   const primary = await getHfBase();
   const fallback = primary === HF_MAIN ? HF_MIRROR : HF_MAIN;
-  const sidecarPaths = filePath.endsWith('.onnx') ? await probeSidecars(primary, hfModelId, filePath) : [];
-  if (sidecarPaths.length > 0) log(id, `Found ${sidecarPaths.length} sidecar(s): ${sidecarPaths.join(', ')}`);
 
-  let totalBytes = 0;
-  for (const p of [filePath, ...sidecarPaths]) {
-    try { totalBytes += Number((await fetch(`${primary}/${hfModelId}/resolve/main/${p}`, { method: 'HEAD' })).headers.get('content-length') ?? 0); } catch {}
-  }
-
-  const tryDownload = async (base: string, fp: string, priorBytes: number) => {
-    try { return await downloadFromHostInline(base, hfModelId, fp, (l, t, fp2) => post({ type: 'progress', id, progress: { model_id: hfModelId, file_path: fp2, loaded_bytes: l, total_bytes: t, percent: t > 0 ? (l / t) * 100 : 0 } }), totalBytes > 0 ? { total: totalBytes, prior: priorBytes } : undefined); }
+  // `total` of 0 → report progress against the file's own content-length.
+  const tryDownload = async (base: string, fp: string, priorBytes: number, total: number) => {
+    const agg = total > 0 ? { total, prior: priorBytes } : undefined;
+    const onProg = (l: number, t: number, fp2: string) => post({ type: 'progress', id, progress: { model_id: hfModelId, file_path: fp2, loaded_bytes: l, total_bytes: t, percent: t > 0 ? (l / t) * 100 : 0 } });
+    try { return await downloadFromHostInline(base, hfModelId, fp, onProg, agg); }
     catch (e1: any) {
       // An out-of-memory error (RangeError: Array buffer allocation failed) is
       // a local resource limit, not a host problem — the bytes already arrived.
@@ -281,24 +389,52 @@ async function downloadModel(hfModelId: string, filePath: string, id: string): P
       }
       log(id, `Primary ${base} failed: ${e1?.message}; retrying ${fallback}`);
       cachedHfBase = null; cachedHfBaseAt = 0;
-      try { const r = await downloadFromHostInline(fallback, hfModelId, fp, (l, t, fp2) => post({ type: 'progress', id, progress: { model_id: hfModelId, file_path: fp2, loaded_bytes: l, total_bytes: t, percent: t > 0 ? (l / t) * 100 : 0 } }), totalBytes > 0 ? { total: totalBytes, prior: priorBytes } : undefined); cachedHfBase = fallback; cachedHfBaseAt = Date.now(); return r; }
+      try { const r = await downloadFromHostInline(fallback, hfModelId, fp, onProg, agg); cachedHfBase = fallback; cachedHfBaseAt = Date.now(); return r; }
       catch (e2: any) { throw new Error(`Both hosts failed: ${e1?.message} / ${e2?.message}`); }
     }
   };
 
-  let priorBytes = 0;
-  const mainResult = await tryDownload(primary, filePath, priorBytes);
+  // Phase 1: the main graph. Grand total is unknown until we've parsed it, so
+  // report against its own size — correct for the common self-contained model.
+  const mainResult = await tryDownload(primary, filePath, 0, 0);
   if (mainResult.useCache) { await saveToOPFS(mainResult.cacheKey, mainResult.arrayBuffer); log(id, `Saved ${filePath} to OPFS cache`); }
   else log(id, `HEAD unavailable — bypassing OPFS cache for ${filePath}`);
-  priorBytes += mainResult.arrayBuffer.byteLength;
 
+  // Read the external-data filenames ORT will demand straight from the model.
+  const locations = filePath.endsWith('.onnx') ? parseExternalDataLocations(mainResult.arrayBuffer) : [];
+  if (locations.length === 0) return { modelBuffer: mainResult.arrayBuffer, externalData: [] };
+  log(id, `External data referenced by model: ${locations.join(', ')}`);
+
+  let groups: ExternalGroup[];
+  try {
+    groups = resolveExternalGroups(await fetchHfTree(hfModelId), filePath, locations);
+  } catch (e: any) {
+    log(id, `HF tree unavailable (${e?.message}); probing declared names`);
+    groups = await probeExternalGroups(primary, hfModelId, filePath, locations);
+  }
+
+  const mainSize = mainResult.arrayBuffer.byteLength;
+  const grandTotal = mainSize + groups.reduce((s, g) => s + g.totalSize, 0);
+
+  // Phase 2: external data. Continue the aggregate from the graph's bytes so the
+  // percentage climbs toward 100 across the (dominant) external-data download.
   const externalData: { path: string; data: ArrayBuffer }[] = [];
-  for (const sp of sidecarPaths) {
-    const r = await tryDownload(primary, sp, priorBytes);
-    if (r.useCache) { await saveToOPFS(r.cacheKey, r.arrayBuffer); log(id, `Saved ${sp} to OPFS cache`); }
-    const name = sp.includes('/') ? sp.slice(sp.lastIndexOf('/') + 1) : sp;
-    externalData.push({ path: name, data: r.arrayBuffer });
-    priorBytes += r.arrayBuffer.byteLength;
+  let priorBytes = mainSize;
+  for (const g of groups) {
+    if (g.physical.length === 0) {
+      throw new Error(`External data file "${g.location}" referenced by ${filePath} was not found in ${hfModelId}.`);
+    }
+    log(id, `Loading ${g.location} ← ${g.physical.join(', ')}`);
+    const parts: Uint8Array[] = [];
+    for (const p of g.physical) {
+      const r = await tryDownload(primary, p, priorBytes, grandTotal);
+      if (r.useCache) { await saveToOPFS(r.cacheKey, r.arrayBuffer); log(id, `Saved ${p} to OPFS cache`); }
+      parts.push(new Uint8Array(r.arrayBuffer));
+      priorBytes += r.arrayBuffer.byteLength;
+    }
+    // ORT reads the tensor offsets/lengths from ONE buffer registered under the
+    // model's `location`; numbered shards are concatenated back into it.
+    externalData.push({ path: g.location, data: concatBuffers(parts) });
   }
   return { modelBuffer: mainResult.arrayBuffer, externalData };
 }

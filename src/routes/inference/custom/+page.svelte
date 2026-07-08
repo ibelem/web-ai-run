@@ -161,9 +161,11 @@
     input.value = '';
   }
 
-  // Detect sidecar name pattern: "<basename>.onnx_data" or "<basename>.onnx_data_N"
+  // Detect an external-data file so it isn't mistaken for the primary model.
+  // Covers both conventions: "<base>.onnx_data" / "_N" and "<base>.onnx.data" /
+  // ".N". The dropped filename is the ORT `location`, so it's registered as-is.
   function isSidecar(name: string): boolean {
-    return /\.onnx_data(?:_\d+)?$/.test(name);
+    return /\.onnx_data(?:_\d+)?$/.test(name) || /\.onnx\.data(?:\.\d+)?$/.test(name);
   }
 
   // Read a File to an ArrayBuffer, turning the browser's opaque read failures
@@ -608,7 +610,7 @@
       </svg>
       <p class="drop-text">Drop a model file here or <span class="drop-browse">click to browse</span></p>
       <p class="drop-hint">Supports .onnx, .tflite</p>
-      <p class="drop-hint drop-hint-sidecar">Has external data (.onnx_data*)? Drag all files together, or add them after with “+ Add data file”.</p>
+      <p class="drop-hint drop-hint-sidecar">Has external data (.onnx_data* or .onnx.data)? Drag all files together, or add them after with “+ Add data file”.</p>
     </div>
     <input
       id="file-input"
@@ -760,7 +762,7 @@
           onchange={handleFileInput}
         />
         {#if usesOnnx && sidecarFiles.length === 0}
-          <p class="sidecar-hint">If this model has external data (a <code>.onnx_data</code> file), add it with <strong>+ Add data file</strong> — otherwise session creation fails with “Failed to load external data file”.</p>
+          <p class="sidecar-hint">If this model has external data (a <code>.onnx_data</code> or <code>.onnx.data</code> file), add it with <strong>+ Add data file</strong> — otherwise session creation fails with “Failed to load external data file”.</p>
         {/if}
 
         {#if queue.length > 0 || results.length > 0}
