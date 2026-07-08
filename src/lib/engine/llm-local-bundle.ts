@@ -7,6 +7,18 @@
 
 import { saveToOPFS } from './worker/shared/download';
 
+// External-data file naming is authored in the model, not fixed — cover both the
+// HuggingFace `.onnx_data[_N]` convention and the standard ONNX `.onnx.data[.N]`
+// one. The graph's declared `location` (read by the worker) is the source of
+// truth; here we only need to recognise the physical files.
+const EXTERNAL_DATA_RE = /\.onnx[._]data(?:[._]\d+)?$/i;
+// A canonical path is external-data for `graph` when it sits beside it: the same
+// name plus a separator. Mirrors isDataSiblingOf in llm.worker.ts.
+function isDataSiblingOf(path: string, graph: string): boolean {
+  return path !== graph && path.startsWith(graph) && (path[graph.length] === '.' || path[graph.length] === '_');
+}
+function naturalCompare(a: string, b: string): number { return a.localeCompare(b, undefined, { numeric: true }); }
+
 const REQUIRED_FILES = ['config.json', 'tokenizer.json', 'tokenizer_config.json'];
 
 const OPTIONAL_FILES = [
@@ -48,8 +60,8 @@ function canonicalPath(file: File): string | null {
     return name;
   }
 
-  // Loose ONNX file at top level — uncommon but accept it as `onnx/<name>`.
-  if (name.endsWith('.onnx') || name.match(/\.onnx_data(?:_\d+)?$/)) {
+  // Loose ONNX graph or external-data file at top level — accept as `onnx/<name>`.
+  if (name.endsWith('.onnx') || EXTERNAL_DATA_RE.test(name)) {
     return `onnx/${name}`;
   }
 
@@ -128,14 +140,14 @@ export function deriveDtypeStatus(files: Map<string, File>): DtypeStatus[] {
       }
     }
 
-    // For each ONNX file, the worker requires its `_data` sidecars when the
-    // graph is too small to be self-contained.
+    // A too-small graph must ship external data beside it (any naming). We match
+    // structurally instead of assuming `_data`, so `.onnx.data` counts too.
     const missingSidecars: string[] = [];
     for (const onnxPath of onnxFiles) {
-      const sidecar = `${onnxPath}_data`;
       const onnxFile = files.get(onnxPath);
-      if (!files.has(sidecar) && onnxFile && onnxFile.size < 1_000_000 && onnxPath === primary) {
-        missingSidecars.push(sidecar);
+      const hasData = [...files.keys()].some(p => isDataSiblingOf(p, onnxPath));
+      if (!hasData && onnxFile && onnxFile.size < 1_000_000 && onnxPath === primary) {
+        missingSidecars.push(onnxPath.split('/').pop()!);
       }
     }
 
@@ -143,7 +155,7 @@ export function deriveDtypeStatus(files: Map<string, File>): DtypeStatus[] {
       dtypes.push({
         dtype,
         available: false,
-        reason: `Missing external data sidecar: ${missingSidecars.join(', ')}`,
+        reason: `Missing external data for: ${missingSidecars.join(', ')}`,
         requiredFiles: [],
       });
       continue;
@@ -169,15 +181,10 @@ export function deriveDtypeStatus(files: Map<string, File>): DtypeStatus[] {
     ];
     for (const onnxPath of onnxFiles) {
       runtimeFiles.push(onnxPath);
-      const baseSidecar = `${onnxPath}_data`;
-      if (files.has(baseSidecar)) {
-        runtimeFiles.push(baseSidecar);
-        // Numbered shards
-        for (let i = 1; i <= 99; i++) {
-          const ns = `${onnxPath}_data_${i}`;
-          if (files.has(ns)) runtimeFiles.push(ns); else break;
-        }
-      }
+      const dataFiles = [...files.keys()]
+        .filter(p => isDataSiblingOf(p, onnxPath))
+        .sort(naturalCompare);
+      runtimeFiles.push(...dataFiles);
     }
 
     dtypes.push({

@@ -529,7 +529,10 @@ async function runTransformers(req: LLMWorkerRequest): Promise<void> {
       continue;
     }
 
-    // Path B — register each location under its real name.
+    // Path B — register each location under its real name. Force this graph's
+    // count to 0 so a `use_external_data_format` in the model's own config.json
+    // can't send it back down Path A (which would invent `_data` names).
+    externalDataMap[baseName] = 0;
     const dir = onnx.includes('/') ? onnx.slice(0, onnx.lastIndexOf('/') + 1) : '';
     for (const loc of locations) {
       const base = `${dir}${loc}`;

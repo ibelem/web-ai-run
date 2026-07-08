@@ -202,7 +202,7 @@
 
     const classified = classifyFiles(files);
     if (classified.size === 0) {
-      errorMessage = 'No recognized model files. Drop a folder containing config.json, tokenizer.json, tokenizer_config.json, and onnx/<model>_<dtype>.onnx (plus any .onnx_data sidecars).';
+      errorMessage = 'No recognized model files. Drop a folder containing config.json, tokenizer.json, tokenizer_config.json, and onnx/<model>_<dtype>.onnx (plus any external-data files: .onnx_data or .onnx.data).';
       return;
     }
 
@@ -523,7 +523,7 @@
         <line x1="12" y1="3" x2="12" y2="15"/>
       </svg>
       <p class="drop-text">Drop a model folder here or <span class="drop-browse">click to browse</span></p>
-      <p class="drop-hint">Required: <code>config.json</code>, <code>tokenizer.json</code>, <code>tokenizer_config.json</code>, plus <code>onnx/&lt;model&gt;_&lt;dtype&gt;.onnx</code> (and any <code>.onnx_data</code> sidecars).</p>
+      <p class="drop-hint">Required: <code>config.json</code>, <code>tokenizer.json</code>, <code>tokenizer_config.json</code>, plus <code>onnx/&lt;model&gt;_&lt;dtype&gt;.onnx</code> (and any external data: <code>.onnx_data</code> or <code>.onnx.data</code>).</p>
       <p class="drop-hint drop-hint-todo">.litertlm, .task LLM formats: coming soon</p>
     </div>
     <input
