@@ -245,7 +245,9 @@
       if (axis !== 'backend' && filterBackend && r.backend !== filterBackend) return false;
       if (axis !== 'data_type' && filterDataType && r.data_type !== filterDataType) return false;
       if (axis !== 'litert_version' && axis !== 'ort_version' && filterFramework && getFrameworkLabel(r) !== filterFramework) return false;
-      if (axis !== 'webnn_ep' && filterEp && r.webnn_ep !== filterEp) return false;
+      // WebNN EP only applies to WebNN backends; non-WebNN rows (WebGPU, wasm) carry no
+      // webnn_ep, so they must bypass this filter rather than be excluded by it.
+      if (axis !== 'webnn_ep' && filterEp && r.backend.startsWith('webnn_') && r.webnn_ep !== filterEp) return false;
       if (axis !== 'browser' && filterBrowser && r.browser !== filterBrowser) return false;
       if (axis !== 'browser_version' && filterBrowserVer && r.browser_version !== filterBrowserVer) return false;
       if (axis !== 'cpu' && filterCpu && r.cpu !== filterCpu) return false;
