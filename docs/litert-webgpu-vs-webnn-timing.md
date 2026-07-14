@@ -56,10 +56,16 @@ WebNN runs as a **TFLite delegate**. When `model.run()` is called, the interpret
 | WebGPU | GPU-resident tensor (`WEB_GPU_BUFFER_PACKED`); only submits queue | No — GPU work is async | **Yes** — `moveTo('wasm')` / `mapAsync` drains the queue |
 | WebNN GPU | Host-memory (`wasm`) tensor via delegate copy-back | Yes — delegate already synced | **No** — already fully measured |
 
-## Caveat: reference version vs CDN version
+## Caveat: WebNN is now in the reference, but the buffer model is unchanged
 
-The local reference at [`references/LiteRT/litert/js/packages/core/src`](../references/LiteRT/litert/js/packages/core/src) is an **older build with no WebNN accelerator** (`ACCELERATORS = ['webgpu', 'wasm']`, no `webnn` references). The CDN build actually loaded at runtime (`@litertjs/core` via esm.sh, which accepts `accelerator: 'webnn'` with `webNNOptions`) is newer.
+The local reference at [`references/LiteRT/litert/js/packages/core/src`](../references/LiteRT/litert/js/packages/core/src) **now includes WebNN support**, matching the CDN build loaded at runtime:
 
-The reasoning above holds **as long as the newer version still returns WebNN outputs as host-memory tensors** (which the TFLite-delegate architecture requires). If a future LiteRT.js ever exposes a WebNN-resident (`ml-tensor`-style) output buffer type, timing would then need an explicit WebNN readback (analogous to `moveTo('wasm')`), for the same reason WebGPU does today.
+- `LiteRtCompileOptions.accelerator` accepts `'wasm' | 'webgpu' | 'webnn'`, with a `LiteRtWebNNOptions` type (`devicePreference: 'cpu' | 'gpu' | 'npu'`, `powerPreference`, `precision`) in [`wasm_binding_types.ts`](../references/LiteRT/litert/js/packages/core/src/wasm_binding_types.ts).
+- `loadAndCompile` handles the `webnn` accelerator (`isWebNn`, `webNNOptions`, JSPI-gated partial-delegation vs. WASM fallback) in [`litert_web.ts`](../references/LiteRT/litert/js/packages/core/src/litert_web.ts).
+- WebNN availability is feature-detected via `supportsFeature('webnn')` / `isWebNnSupported()` in [`wasm_feature_detect.ts`](../references/LiteRT/litert/js/packages/core/src/wasm_feature_detect.ts).
+
+Crucially, the **buffer-type model is unchanged**: `TensorBufferType` still exposes only `HOST_MEMORY` and the `WEB_GPU_BUFFER*` variants, and `TensorBufferTypeToAccelerator` still maps only to `'wasm'` and `'webgpu'` ([`accelerator_types.ts`](../references/LiteRT/litert/js/packages/core/src/accelerator_types.ts), [`wasm_binding_types.ts`](../references/LiteRT/litert/js/packages/core/src/wasm_binding_types.ts)). There is **no ML/WebNN-resident tensor buffer type**, so WebNN outputs still come back as host-memory (`wasm`) tensors — exactly the property the reasoning above relies on. (Note: the `ACCELERATORS` constant in `accelerator_types.ts` still lists only `['webgpu', 'wasm']`; WebNN is wired through the compile-options / feature-detection path rather than that constant.)
+
+If a future LiteRT.js ever exposes a WebNN-resident (`ml-tensor`-style) output buffer type, timing would then need an explicit WebNN readback (analogous to `moveTo('wasm')`), for the same reason WebGPU does today.
 
 **Conclusion:** No code change is needed. The `moveTo('wasm')` readback is required for WebGPU and correctly omitted for WebNN GPU.
