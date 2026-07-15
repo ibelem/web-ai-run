@@ -5,7 +5,7 @@ export interface CaptureState {
   unsupported_ops: Set<string>;
 }
 
-export interface WebNNCapability {
+export interface Capability {
   partitions?: number;
   total_nodes: number;
   supported_nodes: number;
@@ -138,12 +138,12 @@ export function startWebNNCapture(): { state: CaptureState; restore: () => void 
   return { state, restore: () => { if (activeCapture === state) activeCapture = null; } };
 }
 
-export function finalizeCapture(state: CaptureState, backend: string): WebNNCapability | null {
+export function finalizeCapture(state: CaptureState, backend: string): Capability | null {
   if (TAP_DEBUG) (globalThis as any).__webnnTapDebug?.(`[TAP-FINALIZE] backend=${backend} total=${state.total_nodes} supported=${state.supported_nodes} ops=${[...state.unsupported_ops].join(',')} partitions=${state.partitions}`);
   // Backend-agnostic: WebNN, LiteRT GPU-delegate, and (later) ORT WebGPU all
   // populate this. Require some node-count info so stray op-only captures → null.
   if (state.total_nodes === 0 && state.supported_nodes === 0 && state.partitions === undefined) return null;
-  const out: WebNNCapability = {
+  const out: Capability = {
     total_nodes: state.total_nodes,
     supported_nodes: state.supported_nodes,
     unsupported_ops: [...state.unsupported_ops].sort(),

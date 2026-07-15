@@ -26,7 +26,7 @@ export interface BenchmarkMetrics {
   throughput_fps: number;
 }
 
-export interface WebNNCapability {
+export interface Capability {
   partitions?: number;
   total_nodes: number;
   supported_nodes: number;
@@ -45,7 +45,7 @@ export interface TestResult {
   completed_at: string | null;
   error_message: string | null;
   logs?: string[];
-  webnn_capability?: WebNNCapability | null;
+  capability?: Capability | null;
 }
 
 export interface DownloadProgress {
@@ -217,7 +217,7 @@ export interface ResultsLlmRow {
   gpu_driver_version: string | null;
   npu_driver_version: string | null;
   webnn_ep: string | null;
-  webnn_capability: Record<string, any> | null;
+  capability: Record<string, any> | null;
   started_at: string;
   completed_at: string | null;
   created_at: string;

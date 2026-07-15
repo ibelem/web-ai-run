@@ -128,7 +128,7 @@ export class ResultsWriter {
       throughput_fps:     m?.throughput_fps     ?? null,
       inference_times:    result.inference_times ?? [],
       logs:               result.logs ?? [],
-      webnn_capability:   result.webnn_capability ?? null,
+      capability:   result.capability ?? null,
     };
 
     const { ok } = await this.withRetry('completeResult', () =>
@@ -178,7 +178,7 @@ export class ResultsWriter {
       throughput_fps:        m?.throughput_fps        ?? null,
       inference_times:       result.inference_times ?? [],
       logs:                  result.logs ?? [],
-      webnn_capability:      result.webnn_capability ?? null,
+      capability:      result.capability ?? null,
     };
 
     let insertedId: string | null = null;
@@ -258,7 +258,7 @@ export class ResultsWriter {
         throughput_fps: null,
         inference_times: [],
         logs: [],
-        webnn_capability: null,
+        capability: null,
       };
       const { error } = await (this.supabase.from('results') as any).update(update).eq('id', existing.id);
       if (error) {

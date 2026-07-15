@@ -335,7 +335,7 @@
         } else {
           entry.valA = (r as any)[selectedMetric] as number | null;
         }
-        const cap = r.webnn_capability;
+        const cap = r.capability;
         if (cap) entry.capA = { supported: cap.supported_nodes, total: cap.total_nodes, unsupported_ops: cap.unsupported_ops ?? [] };
       }
       if (v === valueB && !entry.seenB) {
@@ -345,7 +345,7 @@
         } else {
           entry.valB = (r as any)[selectedMetric] as number | null;
         }
-        const cap = r.webnn_capability;
+        const cap = r.capability;
         if (cap) entry.capB = { supported: cap.supported_nodes, total: cap.total_nodes, unsupported_ops: cap.unsupported_ops ?? [] };
       }
     }
@@ -471,7 +471,7 @@
 
   // Use change-style display only for version-axes (where direction = improvement/regression).
   const isVersionAxis = $derived(axis === 'litert_version' || axis === 'ort_version' || axis === 'browser_version');
-  // The webnn_capability column is populated by both LiteRT.js and ORT Web runs, so the
+  // The capability column is populated by both LiteRT.js and ORT Web runs, so the
   // "Show Unsupported Ops" toggle is meaningful for both version axes.
   const supportsUnsupportedOps = $derived(axis === 'litert_version' || axis === 'ort_version');
 

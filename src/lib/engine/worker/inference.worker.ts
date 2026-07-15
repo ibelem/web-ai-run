@@ -27,7 +27,7 @@ interface BenchmarkMetrics {
   throughput_fps: number;
 }
 
-interface WebNNCapability {
+interface Capability {
   partitions?: number;
   total_nodes: number;
   supported_nodes: number;
@@ -58,7 +58,7 @@ interface TestResult {
   completed_at: string | null;
   error_message: string | null;
   logs?: string[];
-  webnn_capability?: WebNNCapability | null;
+  capability?: Capability | null;
 }
 
 // ── Inlined: computeMetrics ───────────────────────────────────────────────
@@ -180,10 +180,10 @@ function startWebNNCapture(): { state: CaptureState; restore: () => void } {
   return { state, restore: () => { if (activeCapture === state) activeCapture = null; } };
 }
 
-function finalizeCapture(state: CaptureState, backend: Backend): WebNNCapability | null {
+function finalizeCapture(state: CaptureState, backend: Backend): Capability | null {
   if (TAP_DEBUG) (globalThis as any).__webnnTapDebug?.(`[TAP-FINALIZE] backend=${backend} total=${state.total_nodes} supported=${state.supported_nodes} ops=${[...state.unsupported_ops].join(',')} partitions=${state.partitions}`);
   if (state.total_nodes === 0 && state.supported_nodes === 0 && state.partitions === undefined) return null;
-  const out: WebNNCapability = { total_nodes: state.total_nodes, supported_nodes: state.supported_nodes, unsupported_ops: [...state.unsupported_ops].sort() };
+  const out: Capability = { total_nodes: state.total_nodes, supported_nodes: state.supported_nodes, unsupported_ops: [...state.unsupported_ops].sort() };
   if (state.partitions !== undefined) out.partitions = state.partitions;
   return out;
 }
@@ -708,7 +708,7 @@ async function runOrt(req: WorkerRequest, bundle: DownloadedBundle): Promise<Tes
   }
 
   let firstInferenceMs = 0;
-  let webnn_capability: WebNNCapability | null = null;
+  let capability: Capability | null = null;
   const warmupTimes: number[] = [];
   const inferenceTimes: number[] = [];
   const total = warmupRuns + iterations;
@@ -736,7 +736,7 @@ async function runOrt(req: WorkerRequest, bundle: DownloadedBundle): Promise<Tes
       if (i === 0) {
         // First run ever (warmup or benchmark) — WebNN delegate has logged everything.
         firstInferenceMs = elapsed;
-        if (cap) { cap.restore(); webnn_capability = finalizeCapture(cap.state, backend); }
+        if (cap) { cap.restore(); capability = finalizeCapture(cap.state, backend); }
       }
 
       if (i < warmupRuns) {
@@ -789,7 +789,7 @@ async function runOrt(req: WorkerRequest, bundle: DownloadedBundle): Promise<Tes
     started_at: startedAt,
     completed_at: new Date().toISOString(),
     error_message: null,
-    webnn_capability,
+    capability,
   };
 }
 
@@ -957,7 +957,7 @@ async function runLiteRt(req: WorkerRequest, bundle: DownloadedBundle): Promise<
   }
 
   let firstInferenceMs = 0;
-  let webnn_capability: WebNNCapability | null = null;
+  let capability: Capability | null = null;
   const warmupTimes: number[] = [];
   const inferenceTimes: number[] = [];
   const total = warmupRuns + iterations;
@@ -1004,7 +1004,7 @@ async function runLiteRt(req: WorkerRequest, bundle: DownloadedBundle): Promise<
       if (i === 0) {
         // First run ever — WebNN delegate has logged everything it will. Restore capture.
         firstInferenceMs = elapsed;
-        if (cap) { cap.restore(); webnn_capability = finalizeCapture(cap.state, backend); }
+        if (cap) { cap.restore(); capability = finalizeCapture(cap.state, backend); }
       }
 
       if (i < warmupRuns) {
@@ -1068,7 +1068,7 @@ async function runLiteRt(req: WorkerRequest, bundle: DownloadedBundle): Promise<
     started_at: startedAt,
     completed_at: new Date().toISOString(),
     error_message: null,
-    webnn_capability,
+    capability,
   };
 }
 

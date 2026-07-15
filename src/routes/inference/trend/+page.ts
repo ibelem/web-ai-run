@@ -41,7 +41,7 @@ export const load: PageLoad = async ({ url }) => {
     t('gpu_driver_version').not('gpu_driver_version', 'is', null),
     t('npu_driver_version').not('npu_driver_version', 'is', null),
     baseFilter((supabase.from('results') as any).select(
-      'model_id, file_path, backend, data_type, ort_version, litert_version, webnn_ep, webnn_capability, cpu, gpu, os, browser, browser_version, gpu_driver_version, npu_driver_version, status, error_message, compilation_ms, load_and_compile_ms, first_inference_ms, time_to_first_ms, average_ms, median_ms, best_ms, p90_ms, throughput_fps, iterations, started_at'
+      'model_id, file_path, backend, data_type, ort_version, litert_version, webnn_ep, capability, cpu, gpu, os, browser, browser_version, gpu_driver_version, npu_driver_version, status, error_message, compilation_ms, load_and_compile_ms, first_inference_ms, time_to_first_ms, average_ms, median_ms, best_ms, p90_ms, throughput_fps, iterations, started_at'
     )).order('started_at', { ascending: true }).limit(10000),
   ]);
 

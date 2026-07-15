@@ -494,7 +494,7 @@
         test_item: r.test_item,
         metrics: r.metrics,
         error_message: r.error_message,
-        webnn_capability: r.webnn_capability ?? null,
+        capability: r.capability ?? null,
         warmup_ms: r.warmup_ms,
         iterations: r.iterations,
         iterations_completed: r.iterations_completed,

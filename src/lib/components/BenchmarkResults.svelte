@@ -129,7 +129,7 @@
   const partialDelegationRows = $derived.by(() => {
     return sortedRows.filter(row =>
       webnnBackends.some(b => {
-        const cap = row.byBackend[b]?.webnn_capability;
+        const cap = row.byBackend[b]?.capability;
         return cap && cap.supported_nodes < cap.total_nodes;
       })
     );
@@ -243,7 +243,7 @@
       row.hf_model_id,
       row.file_path,
       ...webnnBackends.flatMap(b => {
-        const cap = row.byBackend[b]?.webnn_capability;
+        const cap = row.byBackend[b]?.capability;
         if (!cap) return ['-', '-', '-', '-'];
         return [cap.partitions ?? '-', cap.total_nodes, cap.supported_nodes, cap.unsupported_ops.length > 0 ? cap.unsupported_ops.join('; ') : '-'];
       }),
@@ -256,7 +256,7 @@
       model: row.hf_model_id,
       file: row.file_path,
       ...Object.fromEntries(webnnBackends.map(b => {
-        const cap = row.byBackend[b]?.webnn_capability;
+        const cap = row.byBackend[b]?.capability;
         return [b, cap ?? null];
       })),
     })), null, 2);
@@ -269,7 +269,7 @@
       row.hf_model_id,
       row.file_path,
       ...webnnBackends.flatMap(b => {
-        const cap = row.byBackend[b]?.webnn_capability;
+        const cap = row.byBackend[b]?.capability;
         if (!cap) return ['', '', '', ''];
         return [cap.partitions ?? '', cap.total_nodes, cap.supported_nodes, cap.unsupported_ops.join('; ')];
       }),
@@ -465,7 +465,7 @@
                 <td class="model-col" title={row.hf_model_id}>{row.hf_model_id}</td>
                 <td class="file-col" title={row.file_path}>{row.file_path}</td>
                 {#each webnnBackends as b}
-                  {@const cap = row.byBackend[b]?.webnn_capability}
+                  {@const cap = row.byBackend[b]?.capability}
                   {#if cap}
                     <td class="cap-num cap-group-start">{cap.partitions ?? '-'}</td>
                     <td class="cap-num">{cap.total_nodes}</td>
