@@ -93,6 +93,31 @@ interface CaptureState {
   unsupported_ops: Set<string>;
 }
 
+const TFLITE_OPS = new Set<string>([
+  'CONV_2D','DEPTHWISE_CONV_2D','FULLY_CONNECTED','EMBEDDING_LOOKUP','RNN','LSTM',
+  'BIDIRECTIONAL_SEQUENCE_RNN','BIDIRECTIONAL_SEQUENCE_LSTM','UNIDIRECTIONAL_SEQUENCE_RNN',
+  'UNIDIRECTIONAL_SEQUENCE_LSTM','CONV_3D','CONV_3D_TRANSPOSE','TRANSPOSE_CONV',
+  'LOCAL_RESPONSE_NORMALIZATION','L2_NORMALIZATION',
+  'RELU','RELU_N1_TO_1','RELU6','LEAKY_RELU','PRELU','LOGISTIC','TANH','SOFTMAX',
+  'HARD_SWISH','ELU','GELU',
+  'AVERAGE_POOL_2D','MAX_POOL_2D','L2_POOL_2D',
+  'RESHAPE','RESIZE_BILINEAR','RESIZE_NEAREST_NEIGHBOR','CONCATENATION','SPLIT','SPLIT_V',
+  'SLICE','STRIDED_SLICE','TRANSPOSE','SQUEEZE','EXPAND_DIMS','GATHER','GATHER_ND','SCATTER_ND',
+  'PACK','UNPACK','PAD','PADV2','TILE','REVERSE_SEQUENCE','REVERSE_V2','SHAPE','RANK','SIZE',
+  'BROADCAST_TO','BROADCAST_ARGS','SPACE_TO_BATCH_ND','BATCH_TO_SPACE_ND','SPACE_TO_DEPTH',
+  'DEPTH_TO_SPACE','FLATTEN',
+  'ADD','SUB','MUL','DIV','FLOOR_DIV','FLOOR_MOD','MOD','ABS','NEG','EXP','LOG','SQRT','RSQRT',
+  'SQUARE','POW','ROUND','CEIL','FLOOR','SIN','COS','LOG_SOFTMAX','SUM','REDUCE_PROD','REDUCE_MAX',
+  'REDUCE_MIN','REDUCE_ANY','REDUCE_ALL','MEAN','CUMSUM','ARG_MAX','ARG_MIN','EQUAL','NOT_EQUAL',
+  'GREATER','GREATER_EQUAL','LESS','LESS_EQUAL','LOGICAL_AND','LOGICAL_OR','LOGICAL_NOT','SELECT',
+  'SELECT_V2','WHERE',
+  'BATCH_MATMUL','MATRIX_DIAG','MATRIX_SET_DIAG',
+  'NON_MAX_SUPPRESSION_V4','NON_MAX_SUPPRESSION_V5','RFFT2D','COMPLEX_ABS','IMAG','REAL',
+  'QUANTIZE','DEQUANTIZE','FAKE_QUANT','DENSIFY','CAST','HASHTABLE','HASHTABLE_LOOKUP',
+  'HASHTABLE_FIND','HASHTABLE_IMPORT','HASHTABLE_SIZE','VAR_HANDLE','READ_VARIABLE','ASSIGN_VARIABLE',
+  'CALL_ONCE','IF','WHILE','TOPK_V2','UNIQUE','SEGMENT_SUM','DYNAMIC_UPDATE_SLICE',
+]);
+
 const TAP_DEBUG = true;
 let activeCapture: CaptureState | null = null;
 
@@ -114,6 +139,19 @@ function tapMessage(msg: string) {
   if (litertM) { state.total_nodes = +litertM[1]; state.supported_nodes = +litertM[2]; return; }
   const litertOp = msg.match(/\b([A-Z][A-Z0-9_]+)\s+not delegatable:[\s\S]*?Unsupported op/);
   if (litertOp) { state.unsupported_ops.add(litertOp[1]); }
+  const gpuSummary = msg.match(/(\d+)\s+operations will run on the GPU,\s*and the remaining\s+(\d+)\s+operations will run on the CPU/i);
+  if (gpuSummary) {
+    state.supported_nodes = +gpuSummary[1];
+    state.total_nodes = +gpuSummary[1] + +gpuSummary[2];
+    if (TAP_DEBUG) (globalThis as any).__webnnTapDebug?.(`[TAP-MATCH-GPU-CAP] gpu=${gpuSummary[1]} cpu=${gpuSummary[2]}`);
+    return;
+  }
+  const gpuOp = msg.match(/^([A-Z][A-Z0-9_]+):\s+\S/);
+  if (gpuOp && TFLITE_OPS.has(gpuOp[1])) {
+    state.unsupported_ops.add(gpuOp[1]);
+    if (TAP_DEBUG) (globalThis as any).__webnnTapDebug?.(`[TAP-MATCH-GPU-OP] op=${gpuOp[1]}`);
+    return;
+  }
 }
 
 function stringifyArgs(args: any[]): string {
@@ -144,8 +182,7 @@ function startWebNNCapture(): { state: CaptureState; restore: () => void } {
 
 function finalizeCapture(state: CaptureState, backend: Backend): WebNNCapability | null {
   if (TAP_DEBUG) (globalThis as any).__webnnTapDebug?.(`[TAP-FINALIZE] backend=${backend} total=${state.total_nodes} supported=${state.supported_nodes} ops=${[...state.unsupported_ops].join(',')} partitions=${state.partitions}`);
-  if (!backend.startsWith('webnn_')) return null;
-  if (state.total_nodes === 0 && state.supported_nodes === 0 && state.unsupported_ops.size === 0 && state.partitions === undefined) return null;
+  if (state.total_nodes === 0 && state.supported_nodes === 0 && state.partitions === undefined) return null;
   const out: WebNNCapability = { total_nodes: state.total_nodes, supported_nodes: state.supported_nodes, unsupported_ops: [...state.unsupported_ops].sort() };
   if (state.partitions !== undefined) out.partitions = state.partitions;
   return out;
@@ -583,6 +620,7 @@ async function runOrt(req: WorkerRequest, bundle: DownloadedBundle): Promise<Tes
   }
   post({ type: 'session-options', id, sessionOptions: displaySessionOptions });
 
+  // TODO: enable for 'webgpu' once ORT JS-EP node-placement log format is confirmed.
   const captureWebnn = backend.startsWith('webnn_');
   const cap = captureWebnn ? startWebNNCapture() : null;
 
@@ -841,7 +879,8 @@ async function runLiteRt(req: WorkerRequest, bundle: DownloadedBundle): Promise<
     compileOpts.webNNOptions = { devicePreference: deviceType };
   }
 
-  const captureWebnn = isWebNN;
+  // Capture delegation for WebNN (partitions) and LiteRT WebGPU (GPU delegate).
+  const captureWebnn = isWebNN || isWebGPU;
   const cap = captureWebnn ? startWebNNCapture() : null;
 
   let model: any;
