@@ -121,14 +121,15 @@
     })
   );
 
-  const webnnBackends = $derived(
-    BACKEND_ORDER.filter(b => b.startsWith('webnn_') && backends.includes(b))
+  // Backends that report graph delegation/offload capability: WebNN + WebGPU.
+  const capabilityBackends = $derived(
+    BACKEND_ORDER.filter(b => (b.startsWith('webnn_') || b === 'webgpu') && backends.includes(b))
   );
 
   // Rows where at least one WebNN backend has partial delegation (supported < total)
   const partialDelegationRows = $derived.by(() => {
     return sortedRows.filter(row =>
-      webnnBackends.some(b => {
+      capabilityBackends.some(b => {
         const cap = row.byBackend[b]?.capability;
         return cap && cap.supported_nodes < cap.total_nodes;
       })
@@ -236,13 +237,13 @@
   let copyCapFeedback = $state('');
 
   function toCapMarkdown(): string {
-    const backendCols = webnnBackends.flatMap(b => [`${getBackendLabel(b)} Partitions`, `${getBackendLabel(b)} Total`, `${getBackendLabel(b)} Supported`, `${getBackendLabel(b)} Unsupported`]);
+    const backendCols = capabilityBackends.flatMap(b => [`${getBackendLabel(b)} Partitions`, `${getBackendLabel(b)} Total`, `${getBackendLabel(b)} Supported`, `${getBackendLabel(b)} Unsupported`]);
     const cols = ['HuggingFace ID', 'File', ...backendCols];
     const sep = cols.map(() => '---');
     const rows = partialDelegationRows.map(row => [
       row.hf_model_id,
       row.file_path,
-      ...webnnBackends.flatMap(b => {
+      ...capabilityBackends.flatMap(b => {
         const cap = row.byBackend[b]?.capability;
         if (!cap) return ['-', '-', '-', '-'];
         return [cap.partitions ?? '-', cap.total_nodes, cap.supported_nodes, cap.unsupported_ops.length > 0 ? cap.unsupported_ops.join('; ') : '-'];
@@ -255,7 +256,7 @@
     return JSON.stringify(partialDelegationRows.map(row => ({
       model: row.hf_model_id,
       file: row.file_path,
-      ...Object.fromEntries(webnnBackends.map(b => {
+      ...Object.fromEntries(capabilityBackends.map(b => {
         const cap = row.byBackend[b]?.capability;
         return [b, cap ?? null];
       })),
@@ -263,12 +264,12 @@
   }
 
   function toCapCSV(): string {
-    const backendCols = webnnBackends.flatMap(b => [`${getBackendLabel(b)} Partitions`, `${getBackendLabel(b)} Total`, `${getBackendLabel(b)} Supported`, `${getBackendLabel(b)} Unsupported`]);
+    const backendCols = capabilityBackends.flatMap(b => [`${getBackendLabel(b)} Partitions`, `${getBackendLabel(b)} Total`, `${getBackendLabel(b)} Supported`, `${getBackendLabel(b)} Unsupported`]);
     const cols = ['HuggingFace ID', 'File', ...backendCols];
     const rows = partialDelegationRows.map(row => [
       row.hf_model_id,
       row.file_path,
-      ...webnnBackends.flatMap(b => {
+      ...capabilityBackends.flatMap(b => {
         const cap = row.byBackend[b]?.capability;
         if (!cap) return ['', '', '', ''];
         return [cap.partitions ?? '', cap.total_nodes, cap.supported_nodes, cap.unsupported_ops.join('; ')];
@@ -418,9 +419,9 @@
       </div>
     {/if}
 
-    {#if partialDelegationRows.length > 0 && webnnBackends.length > 0 && !isRunning}
+    {#if partialDelegationRows.length > 0 && capabilityBackends.length > 0 && !isRunning}
       <div class="cap-header">
-        <h4 class="capability-title">WebNN Partial Delegation ({partialDelegationRows.length})</h4>
+        <h4 class="capability-title">Partial Delegation / GPU Offload ({partialDelegationRows.length})</h4>
         <div class="export-bar">
           <div class="export-group">
             <span class="export-group-icon">
@@ -446,12 +447,12 @@
             <tr>
               <th class="th-model" rowspan="2">HuggingFace ID</th>
               <th class="th-file" rowspan="2">File</th>
-              {#each webnnBackends as b}
+              {#each capabilityBackends as b}
                 <th class="th-cap" colspan="4">{getBackendLabel(b)}</th>
               {/each}
             </tr>
             <tr class="cap-subhead">
-              {#each webnnBackends as _b}
+              {#each capabilityBackends as _b}
                 <th>Partitions</th>
                 <th>Total</th>
                 <th>Supported</th>
@@ -464,7 +465,7 @@
               <tr>
                 <td class="model-col" title={row.hf_model_id}>{row.hf_model_id}</td>
                 <td class="file-col" title={row.file_path}>{row.file_path}</td>
-                {#each webnnBackends as b}
+                {#each capabilityBackends as b}
                   {@const cap = row.byBackend[b]?.capability}
                   {#if cap}
                     <td class="cap-num cap-group-start">{cap.partitions ?? '-'}</td>
