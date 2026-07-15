@@ -126,7 +126,7 @@
     BACKEND_ORDER.filter(b => (b.startsWith('webnn_') || b === 'webgpu') && backends.includes(b))
   );
 
-  // Rows where at least one WebNN backend has partial delegation (supported < total)
+  // Rows where at least one capability-reporting backend (WebNN or WebGPU) has partial delegation (supported < total)
   const partialDelegationRows = $derived.by(() => {
     return sortedRows.filter(row =>
       capabilityBackends.some(b => {
