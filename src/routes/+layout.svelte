@@ -2,7 +2,7 @@
   import '../app.css';
   import { onMount } from 'svelte';
   import { browser } from '$app/environment';
-  import { invalidateAll } from '$app/navigation';
+  import { invalidateAll, afterNavigate } from '$app/navigation';
   import { page } from '$app/stores';
   import { initTheme, toggleTheme, theme } from '$lib/stores/theme';
   import { auth, isAuthenticated } from '$lib/stores/auth';
@@ -37,6 +37,16 @@
   });
 
   const supabase = createClient();
+
+  // GA: the initial load is already counted by gtag('config'); report client-side navigations only.
+  afterNavigate(({ type }) => {
+    if (type === 'enter') return;
+    (window as any).gtag?.('event', 'page_view', {
+      page_path: location.pathname + location.search,
+      page_location: location.href,
+      page_title: document.title
+    });
+  });
 
   function checkInterruptedRun() {
     // /run state takes priority if both exist (older flow, more likely to be the active one)
