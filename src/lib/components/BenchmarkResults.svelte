@@ -160,21 +160,8 @@
 
   let copyFeedback = $state('');
 
-  // Capability backends that have data in at least one row; their delegation columns are appended to the main exports.
-  const exportCapBackends = $derived(
-    capabilityBackends.filter(b => sortedRows.some(row => row.byBackend[b]?.capability))
-  );
-
-  const capColNames = (b: string) => ['Partitions', 'Total', 'Supported', 'Unsupported'].map(n => `${getBackendLabel(b)} ${n}`);
-
-  function capCells(row: ModelRow, b: string, empty: string): (string | number)[] {
-    const cap = row.byBackend[b]?.capability;
-    if (!cap) return [empty, empty, empty, empty];
-    return [cap.partitions ?? empty, cap.total_nodes, cap.supported_nodes, cap.unsupported_ops.length > 0 ? cap.unsupported_ops.join('; ') : empty];
-  }
-
   function toMarkdown(): string {
-    const cols = ['HuggingFace ID', 'File', ...orderedBackends.map(b => getBackendLabel(b)), ...exportCapBackends.flatMap(capColNames)];
+    const cols = ['HuggingFace ID', 'File', ...orderedBackends.map(b => getBackendLabel(b))];
     const rows = sortedRows.map(row => [
       row.hf_model_id,
       row.file_path,
@@ -188,7 +175,6 @@
           return val != null ? fmt(val) : 'n/a';
         }).join(' / ');
       }),
-      ...exportCapBackends.flatMap(b => capCells(row, b, '-')),
     ]);
     const sep = cols.map(() => '---');
     return [cols.join(' | '), sep.join(' | '), ...rows.map(r => r.join(' | '))].join('\n');
@@ -204,13 +190,12 @@
         if (r.error_message) return [b, { error: r.error_message }];
         return [b, r.metrics ?? null];
       })),
-      ...Object.fromEntries(exportCapBackends.map(b => [`${b}_capability`, row.byBackend[b]?.capability ?? null])),
     })), null, 2);
   }
 
   function toCSV(): string {
     const metricCols = activeMetrics.map(m => m.label);
-    const cols = ['HuggingFace ID', 'File', ...orderedBackends.flatMap(b => metricCols.map(mc => `${getBackendLabel(b)} ${mc}`)), ...exportCapBackends.flatMap(capColNames)];
+    const cols = ['HuggingFace ID', 'File', ...orderedBackends.flatMap(b => metricCols.map(mc => `${getBackendLabel(b)} ${mc}`))];
     const rows = sortedRows.map(row => [
       row.hf_model_id,
       row.file_path,
@@ -222,10 +207,8 @@
           return val != null ? fmt(val) : '';
         });
       }),
-      ...exportCapBackends.flatMap(b => capCells(row, b, '')),
     ]);
-    const q = (v: string | number) => /[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v);
-    return [cols.join(','), ...rows.map(r => r.map(q).join(','))].join('\n');
+    return [cols.join(','), ...rows.map(r => r.join(','))].join('\n');
   }
 
   async function copyAs(format: 'markdown' | 'json' | 'csv') {
