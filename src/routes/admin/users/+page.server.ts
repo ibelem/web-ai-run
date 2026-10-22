@@ -11,6 +11,7 @@ export interface UserRow {
   job_title: string | null;
   created_at: string;
   last_sign_in_at: string | null;
+  last_seen_at: string | null;
 }
 
 export const load: PageServerLoad = async ({ locals }) => {
@@ -26,7 +27,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 
   const { data: users } = await locals.supabase
     .from('profiles')
-    .select('id, email, role, display_name, avatar_url, organization, job_title, created_at, last_sign_in_at')
+    .select('id, email, role, display_name, avatar_url, organization, job_title, created_at, last_sign_in_at, last_seen_at')
     .order('created_at', { ascending: true });
 
   return { users: (users as UserRow[]) ?? [] };

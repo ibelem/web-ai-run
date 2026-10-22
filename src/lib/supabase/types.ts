@@ -13,6 +13,7 @@ export interface Database {
           created_at: string;
           updated_at: string;
           last_sign_in_at: string | null;
+          last_seen_at: string | null;
         };
         Insert: {
           id: string;

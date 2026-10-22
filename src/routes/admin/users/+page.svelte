@@ -51,6 +51,7 @@
           <th>Role</th>
           <th>Joined</th>
           <th>Last visited</th>
+          <th>Recent visited</th>
           <th></th>
         </tr>
       </thead>
@@ -80,6 +81,7 @@
             </td>
             <td class="mono">{new Date(user.created_at).toLocaleDateString()}</td>
             <td class="mono">{user.last_sign_in_at ? new Date(user.last_sign_in_at).toLocaleDateString() : '—'}</td>
+            <td class="mono" title={user.last_seen_at ?? ''}>{user.last_seen_at ? new Date(user.last_seen_at).toLocaleString() : '—'}</td>
             <td><a class="investigate-link" href={`/admin/users/${user.id}`}>Investigate</a></td>
           </tr>
         {/each}
@@ -109,6 +111,7 @@
           {/if}
           <div class="user-card-row"><dt>Joined</dt><dd class="mono">{new Date(user.created_at).toLocaleDateString()}</dd></div>
           <div class="user-card-row"><dt>Last visited</dt><dd class="mono">{user.last_sign_in_at ? new Date(user.last_sign_in_at).toLocaleDateString() : '—'}</dd></div>
+          <div class="user-card-row"><dt>Recent visited</dt><dd class="mono">{user.last_seen_at ? new Date(user.last_seen_at).toLocaleString() : '—'}</dd></div>
           <div class="user-card-row user-card-row-role">
             <dt>Role</dt>
             <dd>
