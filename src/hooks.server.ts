@@ -15,28 +15,29 @@ export const handle: Handle = async ({ event, resolve }) => {
     return { ...session, user };
   };
 
-  // Record real page visits, at most once per LAST_SEEN_TTL_S per browser.
+  // Record real activity (page loads, SPA data requests, API calls), at most once per LAST_SEEN_TTL_S per browser.
   if (
-    event.request.method === 'GET' &&
-    !event.isDataRequest &&
-    !event.url.pathname.startsWith('/api/') &&
     !event.cookies.get(LAST_SEEN_COOKIE) &&
     event.cookies.getAll().some((c) => c.name.startsWith('sb-'))
   ) {
     try {
       const { data: { user } } = await event.locals.supabase.auth.getUser();
       if (user) {
-        await event.locals.supabase.rpc('touch_last_seen' as any);
-        event.cookies.set(LAST_SEEN_COOKIE, '1', {
-          path: '/',
-          maxAge: LAST_SEEN_TTL_S,
-          httpOnly: true,
-          sameSite: 'lax',
-          secure: event.url.protocol === 'https:'
-        });
+        const { error: touchError } = await event.locals.supabase.rpc('touch_last_seen' as any);
+        if (touchError) {
+          console.error('touch_last_seen failed:', touchError.message);
+        } else {
+          event.cookies.set(LAST_SEEN_COOKIE, '1', {
+            path: '/',
+            maxAge: LAST_SEEN_TTL_S,
+            httpOnly: true,
+            sameSite: 'lax',
+            secure: event.url.protocol === 'https:'
+          });
+        }
       }
-    } catch {
-      // Tracking must never break a page load.
+    } catch (e) {
+      console.error('touch_last_seen threw:', e);
     }
   }
 
